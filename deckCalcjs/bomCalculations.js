@@ -696,7 +696,7 @@ function processHardwareAndAccessories(
     }
   }
 
-  const deckAreaSqFt = deckDimensions.widthFeet * deckDimensions.heightFeet;
+  const deckAreaSqFt = deckDimensions.actualAreaSqFt;
   const estUnitsScrews = Math.max(100, Math.ceil(deckAreaSqFt * 5));
   const estLbsScrewsByWeight = Math.max(1, Math.ceil(deckAreaSqFt * 0.05));
 

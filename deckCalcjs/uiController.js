@@ -181,7 +181,7 @@ export function populateSummaryCard(
   );
   addSummaryItem(
     "Total Area",
-    `${(deckDimensions.widthFeet * deckDimensions.heightFeet).toFixed(
+    `${deckDimensions.actualAreaSqFt.toFixed(
       1
     )} sq. ft.`
   );

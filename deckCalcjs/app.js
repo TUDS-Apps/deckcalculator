@@ -112,25 +112,28 @@ function calculateAndUpdateDeckDimensions() {
     appState.deckDimensions = null;
     return;
   }
-  let minX = Infinity,
-    maxX = -Infinity,
-    minY = Infinity,
-    maxY = -Infinity;
-  for (let i = 0; i < appState.points.length; i++) {
-    minX = Math.min(minX, appState.points[i].x);
-    maxX = Math.max(maxX, appState.points[i].x);
-    minY = Math.min(minY, appState.points[i].y);
-    maxY = Math.max(maxY, appState.points[i].y);
-  }
-  const widthModelPixels = maxX - minX;
-  const heightModelPixels = maxY - minY;
+  
+  // Calculate actual polygon area and perimeter
+  const polygonAreaPixels = utils.calculatePolygonArea(appState.points);
+  const polygonPerimeterPixels = utils.calculatePolygonPerimeter(appState.points);
+  const bounds = utils.getPolygonBounds(appState.points);
+  
   appState.deckDimensions = {
-    widthFeet: widthModelPixels / config.PIXELS_PER_FOOT,
-    heightFeet: heightModelPixels / config.PIXELS_PER_FOOT,
-    minX: minX,
-    maxX: maxX,
-    minY: minY,
-    maxY: maxY,
+    // Keep bounding box for compatibility (some calculations may still need it)
+    widthFeet: bounds.width / config.PIXELS_PER_FOOT,
+    heightFeet: bounds.height / config.PIXELS_PER_FOOT,
+    minX: bounds.minX,
+    maxX: bounds.maxX,
+    minY: bounds.minY,
+    maxY: bounds.maxY,
+    
+    // Add new polygon-specific measurements
+    actualAreaSqFt: polygonAreaPixels / (config.PIXELS_PER_FOOT * config.PIXELS_PER_FOOT),
+    actualPerimeterFt: polygonPerimeterPixels / config.PIXELS_PER_FOOT,
+    boundingAreaSqFt: (bounds.width * bounds.height) / (config.PIXELS_PER_FOOT * config.PIXELS_PER_FOOT),
+    
+    // Store the polygon points for reference
+    polygonPoints: [...appState.points]
   };
 }
 
