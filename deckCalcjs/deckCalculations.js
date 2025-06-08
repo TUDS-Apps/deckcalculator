@@ -698,7 +698,7 @@ function calculateLadderStylePictureFrameBlocking(
   return pictureFrameBlocking;
 }
 
-const calculateStructure = function(shapePoints, wallIndex, inputs, deckDimensions) {
+export function calculateStructure(shapePoints, wallIndex, inputs, deckDimensions) {
   const components = {
     ledger: null,
     beams: [],
@@ -1109,6 +1109,4 @@ const calculateStructure = function(shapePoints, wallIndex, inputs, deckDimensio
     return (order[a.usage] || 99) - (order[b.usage] || 99);
   });
   return components;
-};
-
-export { calculateStructure };
+}

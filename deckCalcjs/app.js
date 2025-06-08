@@ -5,7 +5,7 @@ import * as config from "./config.js";
 import * as utils from "./utils.js";
 import * as dataManager from "./dataManager.js";
 import * as uiController from "./uiController.js";
-import * as deckCalculations from "./deckCalculations.js";
+import * as deckCalculations from "./deckCalculations.js?v=4";
 import * as stairCalculations from "./stairCalculations.js";
 import * as canvasLogic from "./canvasLogic.js";
 import * as bomCalculations from "./bomCalculations.js";
