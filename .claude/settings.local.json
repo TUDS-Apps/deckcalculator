@@ -1,17 +1,7 @@
 {
   "permissions": {
     "allow": [
-      "Bash(rg:*)",
-      "Bash(grep:*)",
-      "Bash(find:*)",
-      "Bash(awk:*)",
-      "Bash(python3:*)",
-      "Bash(pkill:*)",
-      "Bash(true)",
-      "Bash(node:*)",
-      "Bash(rm:*)",
-      "Bash(dos2unix:*)",
-      "Bash(sed:*)"
+      "Bash(grep:*)"
     ],
     "deny": []
   }

@@ -696,7 +696,7 @@ function processHardwareAndAccessories(
     }
   }
 
-  const deckAreaSqFt = deckDimensions.actualAreaSqFt;
+  const deckAreaSqFt = deckDimensions.widthFeet * deckDimensions.heightFeet;
   const estUnitsScrews = Math.max(100, Math.ceil(deckAreaSqFt * 5));
   const estLbsScrewsByWeight = Math.max(1, Math.ceil(deckAreaSqFt * 0.05));
 
@@ -1080,7 +1080,7 @@ function processStairs(
             ?.toLowerCase()
             .includes("lscz adjustable stair stringer connector")
         );
-        const numLSCZConnectors = stair.calculatedStringerQty * 2;
+        const numLSCZConnectors = stair.calculatedStringerQty * 1;
         addItemToBOMAggregated(
           bomItems,
           lsczItem,

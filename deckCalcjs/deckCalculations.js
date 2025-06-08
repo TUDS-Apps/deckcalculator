@@ -12,7 +12,7 @@ import {
   JOIST_SIZE_ORDER,
   DROP_BEAM_CENTERLINE_SETBACK_FEET as CONFIG_DROP_BEAM_SETBACK,
 } from "./config.js";
-import { distance, getLineSegmentsInPolygon, isPointInPolygon } from "./utils.js";
+import { distance } from "./utils.js";
 import { getMaxJoistSpans } from "./dataManager.js";
 
 // --- Constants ---
@@ -46,42 +46,6 @@ function calculateBeamAndPostsInternal(
     beamAxisP1 = { x: positionCoordinate, y: deckDimensions.minY };
     beamAxisP2 = { x: positionCoordinate, y: deckDimensions.maxY };
   }
-
-  // Clip beam line against polygon boundaries
-  const beamSegments = getLineSegmentsInPolygon(beamAxisP1, beamAxisP2, deckDimensions.polygonPoints);
-  
-  // If beam doesn't intersect with deck polygon, return empty beam
-  if (beamSegments.length === 0) {
-    return {
-      beam: {
-        p1: beamAxisP1,
-        p2: beamAxisP1,
-        centerlineP1: beamAxisP1,
-        centerlineP2: beamAxisP1,
-        positionCoordinateLineP1: beamAxisP1,
-        positionCoordinateLineP2: beamAxisP1,
-        size: beamSizeString,
-        lengthFeet: 0,
-        ply: beamPly,
-        usage: usageLabel,
-        isFlush: beamType === "flush",
-      },
-      posts: [],
-      footings: [],
-    };
-  }
-
-  // For now, use the longest beam segment as the primary beam
-  // TODO: Handle multiple beam segments for complex polygons
-  let longestSegment = beamSegments[0];
-  for (const segment of beamSegments) {
-    if (distance(segment.start, segment.end) > distance(longestSegment.start, longestSegment.end)) {
-      longestSegment = segment;
-    }
-  }
-  
-  beamAxisP1 = longestSegment.start;
-  beamAxisP2 = longestSegment.end;
 
   const beamLengthPixels = distance(beamAxisP1, beamAxisP2);
   if (beamLengthPixels < EPSILON) {
@@ -180,14 +144,11 @@ function calculateBeamAndPostsInternal(
       y: lastPost.y + unitVecY * cantileverPixels,
     };
   }
-  // Only place footings where posts are inside the deck polygon
-  beamFootings = beamPosts
-    .filter((post) => isPointInPolygon(post, deckDimensions.polygonPoints))
-    .map((post) => ({
-      x: post.x,
-      y: post.y,
-      type: footingType,
-    }));
+  beamFootings = beamPosts.map((post) => ({
+    x: post.x,
+    y: post.y,
+    type: footingType,
+  }));
 
   return {
     beam: {
@@ -264,6 +225,106 @@ function getRequiredJoistSize(spanFeet, spacingInches, deckHeightInches) {
   return { size: null, requiresMidBeam: false, error: errorMsg };
 }
 
+function calculateAllJoistsWithMultipleBeams(
+  isWallHorizontal,
+  deckDimensions,
+  joistStartFixedCoord,
+  beamCoordinates, // Array of beam centerline coordinates (including outer beam if drop)
+  joistSize,
+  hasPictureFrame,
+  pictureFrameInsetPixels,
+  joistSpacingPixels,
+  forceSingleSpanJoists
+) {
+  const joists = [];
+  const placementAxisMin = isWallHorizontal
+    ? deckDimensions.minX
+    : deckDimensions.minY;
+  const placementAxisMax = isWallHorizontal
+    ? deckDimensions.maxX
+    : deckDimensions.maxY;
+
+  const addJoistSegments = (pos, usage) => {
+    if (forceSingleSpanJoists) {
+      // Single span from start to end
+      const lastBeamCoord = beamCoordinates[beamCoordinates.length - 1];
+      const p1 = isWallHorizontal
+        ? { x: pos, y: joistStartFixedCoord }
+        : { x: joistStartFixedCoord, y: pos };
+      const p2 = isWallHorizontal
+        ? { x: pos, y: lastBeamCoord }
+        : { x: lastBeamCoord, y: pos };
+      
+      if (distance(p1, p2) > EPSILON) {
+        joists.push({
+          p1,
+          p2,
+          size: joistSize,
+          lengthFeet: distance(p1, p2) / PIXELS_PER_FOOT,
+          usage,
+        });
+      }
+    } else {
+      // Create segments between each pair of support points
+      let previousCoord = joistStartFixedCoord;
+      
+      for (const beamCoord of beamCoordinates) {
+        const p1 = isWallHorizontal
+          ? { x: pos, y: previousCoord }
+          : { x: previousCoord, y: pos };
+        const p2 = isWallHorizontal
+          ? { x: pos, y: beamCoord }
+          : { x: beamCoord, y: pos };
+        
+        if (distance(p1, p2) > EPSILON) {
+          joists.push({
+            p1,
+            p2,
+            size: joistSize,
+            lengthFeet: distance(p1, p2) / PIXELS_PER_FOOT,
+            usage,
+          });
+        }
+        previousCoord = beamCoord;
+      }
+    }
+  };
+
+  // Handle picture frame joists
+  let firstPFJoistPos = null, lastPFJoistPos = null;
+  const physicalDeckEdgeStart = placementAxisMin;
+  const physicalDeckEdgeEnd = placementAxisMax;
+
+  if (hasPictureFrame) {
+    firstPFJoistPos = physicalDeckEdgeStart + pictureFrameInsetPixels;
+    lastPFJoistPos = physicalDeckEdgeEnd - pictureFrameInsetPixels;
+    addJoistSegments(firstPFJoistPos, "Picture Frame Joist");
+    if (Math.abs(lastPFJoistPos - firstPFJoistPos) > joistSpacingPixels * 0.5) {
+      addJoistSegments(lastPFJoistPos, "Picture Frame Joist");
+    }
+  }
+
+  // Handle regular joists
+  const internalJoistAreaStart = hasPictureFrame
+    ? firstPFJoistPos
+    : physicalDeckEdgeStart;
+  const internalJoistAreaEnd = hasPictureFrame
+    ? lastPFJoistPos
+    : physicalDeckEdgeEnd;
+  const loopStart = internalJoistAreaStart + joistSpacingPixels;
+
+  for (
+    let currentPos = loopStart;
+    currentPos < internalJoistAreaEnd - EPSILON;
+    currentPos += joistSpacingPixels
+  ) {
+    addJoistSegments(currentPos, "Joist");
+  }
+
+  joists.sort((a, b) => (isWallHorizontal ? a.p1.x - b.p1.x : a.p1.y - b.p1.y));
+  return joists;
+}
+
 function calculateAllJoists(
   isWallHorizontal,
   deckDimensions,
@@ -304,17 +365,13 @@ function calculateAllJoists(
         p2_s1 = { x: joistEndFixedCoord2, y: pos }; // Target the actual outer end
       }
       if (distance(p1_s1, p2_s1) > EPSILON) {
-        // Clip joist against polygon boundaries
-        const segments = getLineSegmentsInPolygon(p1_s1, p2_s1, deckDimensions.polygonPoints);
-        for (const segment of segments) {
-          joists.push({
-            p1: segment.start,
-            p2: segment.end,
-            size: joistSize,
-            lengthFeet: distance(segment.start, segment.end) / PIXELS_PER_FOOT,
-            usage,
-          });
-        }
+        joists.push({
+          p1: p1_s1,
+          p2: p2_s1,
+          size: joistSize,
+          lengthFeet: distance(p1_s1, p2_s1) / PIXELS_PER_FOOT,
+          usage,
+        });
       }
     } else {
       // Original segmentation logic
@@ -334,30 +391,22 @@ function calculateAllJoists(
         }
       }
       if (distance(p1_s1, p2_s1) > EPSILON) {
-        // Clip first segment against polygon boundaries
-        const segments1 = getLineSegmentsInPolygon(p1_s1, p2_s1, deckDimensions.polygonPoints);
-        for (const segment of segments1) {
-          joists.push({
-            p1: segment.start,
-            p2: segment.end,
-            size: joistSize,
-            lengthFeet: distance(segment.start, segment.end) / PIXELS_PER_FOOT,
-            usage,
-          });
-        }
+        joists.push({
+          p1: p1_s1,
+          p2: p2_s1,
+          size: joistSize,
+          lengthFeet: distance(p1_s1, p2_s1) / PIXELS_PER_FOOT,
+          usage,
+        });
       }
       if (p1_s2 && p2_s2 && distance(p1_s2, p2_s2) > EPSILON) {
-        // Clip second segment against polygon boundaries
-        const segments2 = getLineSegmentsInPolygon(p1_s2, p2_s2, deckDimensions.polygonPoints);
-        for (const segment of segments2) {
-          joists.push({
-            p1: segment.start,
-            p2: segment.end,
-            size: joistSize,
-            lengthFeet: distance(segment.start, segment.end) / PIXELS_PER_FOOT,
-            usage,
-          });
-        }
+        joists.push({
+          p1: p1_s2,
+          p2: p2_s2,
+          size: joistSize,
+          lengthFeet: distance(p1_s2, p2_s2) / PIXELS_PER_FOOT,
+          usage,
+        });
       }
     }
   };
@@ -527,6 +576,124 @@ function calculateAllRimJoists(
   return rimJoists;
 }
 
+function calculateAllRimJoistsWithMultipleBeams(
+  isWallHorizontal,
+  deckDimensions,
+  joistStartLineCoord,
+  beamCoordinates, // Array of beam centerline coordinates
+  rimJoistSize,
+  deckEdgeP1_WallSide,
+  deckEdgeP2_WallSide,
+  deckEdgeP1_OuterSide,
+  deckEdgeP2_OuterSide,
+  attachmentType,
+  forceSingleSpanRims
+) {
+  const rimJoists = [];
+  const addRimSegment = (p1, p2, usage, fullEdgeP1, fullEdgeP2) => {
+    if (distance(p1, p2) > EPSILON)
+      rimJoists.push({
+        p1,
+        p2,
+        size: rimJoistSize,
+        lengthFeet: distance(p1, p2) / PIXELS_PER_FOOT,
+        usage,
+        fullEdgeP1,
+        fullEdgeP2,
+      });
+  };
+
+  const sideRimMin = isWallHorizontal
+    ? deckDimensions.minX
+    : deckDimensions.minY;
+  const sideRimMax = isWallHorizontal
+    ? deckDimensions.maxX
+    : deckDimensions.maxY;
+
+  // End Joist 1 (Left/Top side)
+  const fullEj1P1 = deckEdgeP1_WallSide;
+  const fullEj1P2 = isWallHorizontal
+    ? { x: sideRimMin, y: deckEdgeP1_OuterSide.y }
+    : { x: deckEdgeP1_OuterSide.x, y: sideRimMin };
+
+  if (forceSingleSpanRims) {
+    // Single span from start to last beam
+    const lastBeamCoord = beamCoordinates[beamCoordinates.length - 1];
+    const ej1p1 = isWallHorizontal
+      ? { x: sideRimMin, y: joistStartLineCoord }
+      : { x: joistStartLineCoord, y: sideRimMin };
+    const ej1p2 = isWallHorizontal
+      ? { x: sideRimMin, y: lastBeamCoord }
+      : { x: lastBeamCoord, y: sideRimMin };
+    addRimSegment(ej1p1, ej1p2, "End Joist", fullEj1P1, fullEj1P2);
+  } else {
+    // Create segments between each pair of support points
+    let previousCoord = joistStartLineCoord;
+    
+    for (const beamCoord of beamCoordinates) {
+      const p1 = isWallHorizontal
+        ? { x: sideRimMin, y: previousCoord }
+        : { x: previousCoord, y: sideRimMin };
+      const p2 = isWallHorizontal
+        ? { x: sideRimMin, y: beamCoord }
+        : { x: beamCoord, y: sideRimMin };
+      addRimSegment(p1, p2, "End Joist", fullEj1P1, fullEj1P2);
+      previousCoord = beamCoord;
+    }
+  }
+
+  // End Joist 2 (Right/Bottom side) - same logic
+  const fullEj2P1 = deckEdgeP2_WallSide;
+  const fullEj2P2 = isWallHorizontal
+    ? { x: sideRimMax, y: deckEdgeP2_OuterSide.y }
+    : { x: deckEdgeP2_OuterSide.x, y: sideRimMax };
+
+  if (forceSingleSpanRims) {
+    const lastBeamCoord = beamCoordinates[beamCoordinates.length - 1];
+    const ej2p1 = isWallHorizontal
+      ? { x: sideRimMax, y: joistStartLineCoord }
+      : { x: joistStartLineCoord, y: sideRimMax };
+    const ej2p2 = isWallHorizontal
+      ? { x: sideRimMax, y: lastBeamCoord }
+      : { x: lastBeamCoord, y: sideRimMax };
+    addRimSegment(ej2p1, ej2p2, "End Joist", fullEj2P1, fullEj2P2);
+  } else {
+    let previousCoord = joistStartLineCoord;
+    
+    for (const beamCoord of beamCoordinates) {
+      const p1 = isWallHorizontal
+        ? { x: sideRimMax, y: previousCoord }
+        : { x: previousCoord, y: sideRimMax };
+      const p2 = isWallHorizontal
+        ? { x: sideRimMax, y: beamCoord }
+        : { x: beamCoord, y: sideRimMax };
+      addRimSegment(p1, p2, "End Joist", fullEj2P1, fullEj2P2);
+      previousCoord = beamCoord;
+    }
+  }
+
+  // Outer Rim Joist (parallel to ledger/wall) - not affected by multiple beams
+  addRimSegment(
+    deckEdgeP1_OuterSide,
+    deckEdgeP2_OuterSide,
+    "Outer Rim Joist",
+    deckEdgeP1_OuterSide,
+    deckEdgeP2_OuterSide
+  );
+
+  // Wall Rim Joist (if concrete or floating attachment) - not affected by multiple beams
+  if (attachmentType === "concrete" || attachmentType === "floating") {
+    addRimSegment(
+      deckEdgeP1_WallSide,
+      deckEdgeP2_WallSide,
+      "Wall Rim Joist",
+      deckEdgeP1_WallSide,
+      deckEdgeP2_WallSide
+    );
+  }
+  return rimJoists;
+}
+
 function calculateMidSpanBlocking(
   requiresMidBeam,
   joistSpanStartCoord,
@@ -560,23 +727,17 @@ function calculateMidSpanBlocking(
         p1 = { x: blockingLineCoord, y: deckDimensions.minY };
         p2 = { x: blockingLineCoord, y: deckDimensions.maxY };
       }
-      
-      // Clip blocking line against polygon boundaries
-      const blockingSegments = getLineSegmentsInPolygon(p1, p2, deckDimensions.polygonPoints);
-      
-      for (const segment of blockingSegments) {
-        if (distance(segment.start, segment.end) > EPSILON) {
-          midSpanBlocking.push({
-            p1: segment.start,
-            p2: segment.end,
-            size: blockingSize,
-            lengthFeet: distance(segment.start, segment.end) / PIXELS_PER_FOOT,
-            usage: "Mid-Span Blocking",
-            boardCount: blockingBoardCount,
-          });
-        }
-      }
+      if (distance(p1, p2) > EPSILON)
+        midSpanBlocking.push({
+          p1,
+          p2,
+          size: blockingSize,
+          lengthFeet: distance(p1, p2) / PIXELS_PER_FOOT,
+          usage: "Mid-Span Blocking",
+          boardCount: blockingBoardCount,
+        });
     }
+  };
 
   if (requiresMidBeam && midBeamCoord !== null) {
     createBlockingRows(joistSpanStartCoord, midBeamCoord);
@@ -584,6 +745,60 @@ function calculateMidSpanBlocking(
   } else {
     createBlockingRows(joistSpanStartCoord, joistSpanEndCoord);
   }
+  return midSpanBlocking;
+}
+
+function calculateMidSpanBlockingWithMultipleBeams(
+  joistStartCoord,
+  beamCoordinates, // Array of beam centerline coordinates
+  blockingSize,
+  blockingBoardCount,
+  isWallHorizontal,
+  deckDimensions
+) {
+  const midSpanBlocking = [];
+  
+  const createBlockingRows = (spanStart, spanEnd) => {
+    const spanDepthPixels = Math.abs(spanEnd - spanStart);
+    const spanDepthFt = spanDepthPixels / PIXELS_PER_FOOT;
+    if (spanDepthFt <= MAX_BLOCKING_SPACING_FEET + EPSILON) return;
+
+    const numSections = Math.ceil(spanDepthFt / MAX_BLOCKING_SPACING_FEET);
+    const numBlockingRowsNeeded = Math.max(0, numSections - 1);
+    if (numBlockingRowsNeeded < 1) return;
+
+    const blockingSpacingPixels = spanDepthPixels / (numBlockingRowsNeeded + 1);
+    for (let i = 1; i <= numBlockingRowsNeeded; i++) {
+      let p1, p2;
+      const blockingLineCoord =
+        spanStart + i * blockingSpacingPixels * (spanEnd > spanStart ? 1 : -1);
+      if (isWallHorizontal) {
+        p1 = { x: deckDimensions.minX, y: blockingLineCoord };
+        p2 = { x: deckDimensions.maxX, y: blockingLineCoord };
+      } else {
+        p1 = { x: blockingLineCoord, y: deckDimensions.minY };
+        p2 = { x: blockingLineCoord, y: deckDimensions.maxY };
+      }
+      if (distance(p1, p2) > EPSILON)
+        midSpanBlocking.push({
+          p1,
+          p2,
+          size: blockingSize,
+          lengthFeet: distance(p1, p2) / PIXELS_PER_FOOT,
+          usage: "Mid-Span Blocking",
+          boardCount: blockingBoardCount,
+        });
+    }
+  };
+
+  // Create blocking for each span between support points
+  let previousCoord = joistStartCoord;
+  
+  for (const beamCoord of beamCoordinates) {
+    createBlockingRows(previousCoord, beamCoord);
+    previousCoord = beamCoord;
+  }
+  
   return midSpanBlocking;
 }
 
@@ -698,7 +913,12 @@ function calculateLadderStylePictureFrameBlocking(
   return pictureFrameBlocking;
 }
 
-export function calculateStructure(shapePoints, wallIndex, inputs, deckDimensions) {
+export function calculateStructure(
+  shapePoints,
+  wallIndex,
+  inputs,
+  deckDimensions
+) {
   const components = {
     ledger: null,
     beams: [],
@@ -741,22 +961,52 @@ export function calculateStructure(shapePoints, wallIndex, inputs, deckDimension
 
   let requiresMidBeam = joistSizeResult.requiresMidBeam;
   let joistSize;
+  let numberOfMidBeams = 0;
+  let spanBetweenBeams = components.totalDepthFeet;
 
   if (requiresMidBeam) {
-    const halfSpanJoistResult = getRequiredJoistSize(
-      components.totalDepthFeet / 2,
+    // Calculate how many mid-beams we need
+    const maxJoistSpans = getMaxJoistSpans();
+    let maxAllowableSpan = 0;
+    
+    // Find the maximum span for any allowed joist size
+    for (const currentSize of JOIST_SIZE_ORDER) {
+      if (deckHeightInches >= MIN_HEIGHT_FOR_NO_2X6_INCHES && currentSize === "2x6") continue;
+      const rule = maxJoistSpans.find(
+        (r) => r.size === currentSize && r.spacing === inputs.joistSpacing
+      );
+      if (rule) {
+        maxAllowableSpan = Math.max(maxAllowableSpan, rule.maxSpanFt);
+      }
+    }
+    
+    if (maxAllowableSpan === 0) {
+      return {
+        ...components,
+        error: "No valid joist spans found for the specified spacing.",
+      };
+    }
+    
+    // Calculate number of spans needed (and thus mid-beams needed)
+    const numberOfSpans = Math.ceil(components.totalDepthFeet / maxAllowableSpan);
+    numberOfMidBeams = numberOfSpans - 1;
+    spanBetweenBeams = components.totalDepthFeet / numberOfSpans;
+    
+    // Now find the appropriate joist size for this span
+    const spanJoistResult = getRequiredJoistSize(
+      spanBetweenBeams,
       inputs.joistSpacing,
       deckHeightInches
     );
-    if (halfSpanJoistResult.error || !halfSpanJoistResult.size) {
+    if (spanJoistResult.error || !spanJoistResult.size) {
       return {
         ...components,
         error:
-          halfSpanJoistResult.error ||
-          "Cannot size joists for mid-beam config.",
+          spanJoistResult.error ||
+          `Cannot size joists for ${numberOfMidBeams} mid-beam config with ${spanBetweenBeams.toFixed(2)}' spans.`,
       };
     }
-    joistSize = halfSpanJoistResult.size;
+    joistSize = spanJoistResult.size;
   } else {
     joistSize = joistSizeResult.size;
   }
@@ -886,7 +1136,8 @@ export function calculateStructure(shapePoints, wallIndex, inputs, deckDimension
     }
   }
 
-  if (requiresMidBeam) {
+  let midBeams = [];
+  if (requiresMidBeam && numberOfMidBeams > 0) {
     let spanStartForMidBeamCalc = components.ledger
       ? isWallHorizontal
         ? components.ledger.p1.y
@@ -901,37 +1152,44 @@ export function calculateStructure(shapePoints, wallIndex, inputs, deckDimension
         ? outerBeam.centerlineP1.y
         : outerBeam.centerlineP1.x
       : outerActualEdgeCoord;
-    let midBeamCenterline =
-      spanStartForMidBeamCalc +
-      (spanEndForMidBeamCalc - spanStartForMidBeamCalc) / 2;
-
-    const mbRes = calculateBeamAndPostsInternal(
-      midBeamCenterline,
-      isWallHorizontal,
-      deckDimensions,
-      beamSize,
-      beamPly,
-      postSize,
-      deckHeightInches,
-      inputs.footingType,
-      "Mid Beam",
-      "drop"
-    );
-    if (mbRes.beam.lengthFeet > EPSILON) {
-      components.beams.push(mbRes.beam);
-      components.posts.push(...mbRes.posts);
-      components.footings.push(...mbRes.footings);
-      midBeam = mbRes.beam;
-    } else {
-      if (!forceSingleSpanJoistsAndRims) {
-        // If not forcing single span, mid-beam failure is an error
-        return {
-          ...components,
-          error: "Mid-beam required but could not be calculated.",
-        };
+    
+    // Calculate positions for all mid-beams
+    const totalSpan = spanEndForMidBeamCalc - spanStartForMidBeamCalc;
+    const beamSpacing = totalSpan / (numberOfMidBeams + 1);
+    
+    for (let i = 1; i <= numberOfMidBeams; i++) {
+      const midBeamCenterline = spanStartForMidBeamCalc + (beamSpacing * i);
+      const beamLabel = numberOfMidBeams > 1 ? `Mid Beam ${i}` : "Mid Beam";
+      
+      const mbRes = calculateBeamAndPostsInternal(
+        midBeamCenterline,
+        isWallHorizontal,
+        deckDimensions,
+        beamSize,
+        beamPly,
+        postSize,
+        deckHeightInches,
+        inputs.footingType,
+        beamLabel,
+        "drop"
+      );
+      if (mbRes.beam.lengthFeet > EPSILON) {
+        components.beams.push(mbRes.beam);
+        components.posts.push(...mbRes.posts);
+        components.footings.push(...mbRes.footings);
+        midBeams.push(mbRes.beam);
+      } else {
+        if (!forceSingleSpanJoistsAndRims) {
+          return {
+            ...components,
+            error: `${beamLabel} required but could not be calculated.`,
+          };
+        }
       }
-      // If forcing single span, midBeam remains null, but requiresMidBeam flag is still true.
     }
+    
+    // For backward compatibility, keep midBeam as the first mid-beam
+    midBeam = midBeams.length > 0 ? midBeams[0] : null;
   }
 
   if (components.ledger) {
@@ -949,36 +1207,43 @@ export function calculateStructure(shapePoints, wallIndex, inputs, deckDimension
     joistStartFixedCoord = wallSideActualEdgeCoord;
   }
 
-  if (midBeam) {
-    joistEndFixedCoord1 = isWallHorizontal
-      ? midBeam.centerlineP1.y
-      : midBeam.centerlineP1.x;
-    if (outerBeam) {
-      joistEndFixedCoord2 = outerBeam.isFlush
-        ? outerActualEdgeCoord +
-          (deckExtendsPositiveDir
-            ? -ACTUAL_LUMBER_THICKNESS_PIXELS
-            : ACTUAL_LUMBER_THICKNESS_PIXELS)
-        : outerActualEdgeCoord;
-    } else {
-      joistEndFixedCoord2 = outerActualEdgeCoord;
-    }
+  // Build array of beam coordinates for joists
+  const beamCoordinates = [];
+  
+  // Add all mid-beam coordinates
+  for (const mb of midBeams) {
+    beamCoordinates.push(
+      isWallHorizontal ? mb.centerlineP1.y : mb.centerlineP1.x
+    );
+  }
+  
+  // Add outer beam coordinate
+  if (outerBeam) {
+    const outerCoord = outerBeam.isFlush
+      ? outerActualEdgeCoord +
+        (deckExtendsPositiveDir
+          ? -ACTUAL_LUMBER_THICKNESS_PIXELS
+          : ACTUAL_LUMBER_THICKNESS_PIXELS)
+      : outerActualEdgeCoord;
+    beamCoordinates.push(outerCoord);
   } else {
-    // No midBeam object
-    joistEndFixedCoord2 = null; // Important for single-span logic if mid-beam was required but not "created" due to forceSingleSpan
-    if (outerBeam) {
-      joistEndFixedCoord1 = outerBeam.isFlush
-        ? outerActualEdgeCoord +
-          (deckExtendsPositiveDir
-            ? -ACTUAL_LUMBER_THICKNESS_PIXELS
-            : ACTUAL_LUMBER_THICKNESS_PIXELS)
-        : outerActualEdgeCoord;
-    } else {
-      joistEndFixedCoord1 = outerActualEdgeCoord;
-    }
-    // If forceSingleSpanJoistsAndRims is true, joistEndFixedCoord2 needs to be the true outer edge for joist calculation
+    beamCoordinates.push(outerActualEdgeCoord);
+  }
+  
+  // Sort beam coordinates from wall side to outer side
+  beamCoordinates.sort((a, b) => {
+    return deckExtendsPositiveDir ? a - b : b - a;
+  });
+  
+  // For backward compatibility with the rest of the code
+  if (midBeams.length > 0) {
+    joistEndFixedCoord1 = beamCoordinates[0];
+    joistEndFixedCoord2 = beamCoordinates.length > 1 ? beamCoordinates[beamCoordinates.length - 1] : null;
+  } else {
+    joistEndFixedCoord1 = beamCoordinates[0];
+    joistEndFixedCoord2 = null;
     if (forceSingleSpanJoistsAndRims) {
-      joistEndFixedCoord2 = outerActualEdgeCoord; // Ensure this is set for the single span target
+      joistEndFixedCoord2 = outerActualEdgeCoord;
     }
   }
 
@@ -992,19 +1257,34 @@ export function calculateStructure(shapePoints, wallIndex, inputs, deckDimension
       PIXELS_PER_FOOT
     : 0;
 
-  components.joists = calculateAllJoists(
-    isWallHorizontal,
-    deckDimensions,
-    joistStartFixedCoord,
-    joistEndFixedCoord1,
-    joistEndFixedCoord2,
-    !!midBeam, // Whether a mid-beam physically exists for segmentation (if not forcing single span)
-    joistSize,
-    hasPictureFrame,
-    pictureFrameInsetPixels,
-    joistSpacingPixels,
-    forceSingleSpanJoistsAndRims
-  );
+  // Use new multi-beam function if we have multiple beams, otherwise use legacy function
+  if (midBeams.length > 1) {
+    components.joists = calculateAllJoistsWithMultipleBeams(
+      isWallHorizontal,
+      deckDimensions,
+      joistStartFixedCoord,
+      beamCoordinates,
+      joistSize,
+      hasPictureFrame,
+      pictureFrameInsetPixels,
+      joistSpacingPixels,
+      forceSingleSpanJoistsAndRims
+    );
+  } else {
+    components.joists = calculateAllJoists(
+      isWallHorizontal,
+      deckDimensions,
+      joistStartFixedCoord,
+      joistEndFixedCoord1,
+      joistEndFixedCoord2,
+      !!midBeam, // Whether a mid-beam physically exists for segmentation (if not forcing single span)
+      joistSize,
+      hasPictureFrame,
+      pictureFrameInsetPixels,
+      joistSpacingPixels,
+      forceSingleSpanJoistsAndRims
+    );
+  }
 
   const deckEdgeP1_WallSide = isWallHorizontal
     ? { x: deckDimensions.minX, y: wallSideActualEdgeCoord }
@@ -1019,58 +1299,89 @@ export function calculateStructure(shapePoints, wallIndex, inputs, deckDimension
     ? { x: deckDimensions.maxX, y: outerActualEdgeCoord }
     : { x: outerActualEdgeCoord, y: deckDimensions.maxY };
 
-  let rimJoist_firstSupportCoord = midBeam
-    ? isWallHorizontal
-      ? midBeam.centerlineP1.y
-      : midBeam.centerlineP1.x
-    : joistEndFixedCoord1;
-  let rimJoist_outerSupportCoord = midBeam ? joistEndFixedCoord2 : null;
-  // If forcing single span and midBeam object is null (but was required), outerSupportCoord needs to be the true outer edge for rim joists.
-  if (forceSingleSpanJoistsAndRims && !midBeam && requiresMidBeam) {
-    rimJoist_outerSupportCoord = outerActualEdgeCoord;
-  }
+  // Update rim joist calculation for multiple beams
+  if (midBeams.length > 1) {
+    components.rimJoists = calculateAllRimJoistsWithMultipleBeams(
+      isWallHorizontal,
+      deckDimensions,
+      joistStartFixedCoord,
+      beamCoordinates,
+      joistSize,
+      deckEdgeP1_WallSide,
+      deckEdgeP2_WallSide,
+      deckEdgeP1_OuterSide,
+      deckEdgeP2_OuterSide,
+      inputs.attachmentType,
+      forceSingleSpanJoistsAndRims
+    );
+  } else {
+    // Legacy single mid-beam logic
+    let rimJoist_firstSupportCoord = midBeam
+      ? isWallHorizontal
+        ? midBeam.centerlineP1.y
+        : midBeam.centerlineP1.x
+      : joistEndFixedCoord1;
+    let rimJoist_outerSupportCoord = midBeam ? joistEndFixedCoord2 : null;
+    // If forcing single span and midBeam object is null (but was required), outerSupportCoord needs to be the true outer edge for rim joists.
+    if (forceSingleSpanJoistsAndRims && !midBeam && requiresMidBeam) {
+      rimJoist_outerSupportCoord = outerActualEdgeCoord;
+    }
 
-  components.rimJoists = calculateAllRimJoists(
-    isWallHorizontal,
-    deckDimensions,
-    joistStartFixedCoord,
-    rimJoist_firstSupportCoord,
-    rimJoist_outerSupportCoord,
-    !!midBeam, // Pass whether mid-beam physically exists
-    joistSize,
-    deckEdgeP1_WallSide,
-    deckEdgeP2_WallSide,
-    deckEdgeP1_OuterSide,
-    deckEdgeP2_OuterSide,
-    inputs.attachmentType,
-    forceSingleSpanJoistsAndRims // Pass the flag for End Joists
-  );
+    components.rimJoists = calculateAllRimJoists(
+      isWallHorizontal,
+      deckDimensions,
+      joistStartFixedCoord,
+      rimJoist_firstSupportCoord,
+      rimJoist_outerSupportCoord,
+      !!midBeam, // Pass whether mid-beam physically exists
+      joistSize,
+      deckEdgeP1_WallSide,
+      deckEdgeP2_WallSide,
+      deckEdgeP1_OuterSide,
+      deckEdgeP2_OuterSide,
+      inputs.attachmentType,
+      forceSingleSpanJoistsAndRims // Pass the flag for End Joists
+    );
+  }
 
   const blockingMaterialSize = joistSize;
   const blockingMaterialPly = 1;
 
-  let blocking_midBeamCoord = midBeam
-    ? isWallHorizontal
-      ? midBeam.centerlineP1.y
-      : midBeam.centerlineP1.x
-    : null;
-  let blocking_spanEndCoord = midBeam
-    ? joistEndFixedCoord2
-    : joistEndFixedCoord1;
-  if (midBeam && blocking_spanEndCoord === null)
-    blocking_spanEndCoord = outerActualEdgeCoord;
+  // Update mid-span blocking calculation for multiple beams
+  if (midBeams.length > 1) {
+    components.midSpanBlocking = calculateMidSpanBlockingWithMultipleBeams(
+      joistStartFixedCoord,
+      beamCoordinates,
+      blockingMaterialSize,
+      blockingMaterialPly,
+      isWallHorizontal,
+      deckDimensions
+    );
+  } else {
+    // Legacy single mid-beam logic
+    let blocking_midBeamCoord = midBeam
+      ? isWallHorizontal
+        ? midBeam.centerlineP1.y
+        : midBeam.centerlineP1.x
+      : null;
+    let blocking_spanEndCoord = midBeam
+      ? joistEndFixedCoord2
+      : joistEndFixedCoord1;
+    if (midBeam && blocking_spanEndCoord === null)
+      blocking_spanEndCoord = outerActualEdgeCoord;
 
-  components.midSpanBlocking = calculateMidSpanBlocking(
-    !!midBeam,
-    joistStartFixedCoord,
-    blocking_midBeamCoord,
-    blocking_spanEndCoord,
-    deckWidthPixels,
-    blockingMaterialSize,
-    blockingMaterialPly,
-    isWallHorizontal,
-    deckDimensions
-  );
+    components.midSpanBlocking = calculateMidSpanBlocking(
+      !!midBeam,
+      joistStartFixedCoord,
+      blocking_midBeamCoord,
+      blocking_spanEndCoord,
+      deckWidthPixels,
+      blockingMaterialSize,
+      blockingMaterialPly,
+      isWallHorizontal,
+      deckDimensions
+    );
+  }
 
   let firstPFJoistFromAllJoists = null;
   let lastPFJoistFromAllJoists = null;
@@ -1105,8 +1416,19 @@ export function calculateStructure(shapePoints, wallIndex, inputs, deckDimension
   }
 
   components.beams.sort((a, b) => {
-    const order = { "Wall-Side Beam": 1, "Mid Beam": 2, "Outer Beam": 3 };
-    return (order[a.usage] || 99) - (order[b.usage] || 99);
+    // Sort beams from wall side to outer side
+    const getOrder = (beam) => {
+      if (beam.usage === "Wall-Side Beam") return 1;
+      if (beam.usage === "Outer Beam") return 1000;
+      if (beam.usage === "Mid Beam") return 500;
+      // For numbered mid-beams (e.g., "Mid Beam 1", "Mid Beam 2")
+      const midBeamMatch = beam.usage.match(/Mid Beam (\d+)/);
+      if (midBeamMatch) {
+        return 100 + parseInt(midBeamMatch[1]) * 10;
+      }
+      return 999;
+    };
+    return getOrder(a) - getOrder(b);
   });
   return components;
 }
