@@ -2,7 +2,23 @@
   "permissions": {
     "allow": [
       "Bash(grep:*)",
-      "Bash(rm:*)"
+      "Bash(rm:*)",
+      "Bash(/home/shane/.npm-global/lib/node_modules/@anthropic-ai/claude-code/vendor/ripgrep/x64-linux/rg \"updateProgressStep|updateDrawingFeedback\" deckCalcjs/app.js)",
+      "Bash(/home/shane/.npm-global/lib/node_modules/@anthropic-ai/claude-code/vendor/ripgrep/x64-linux/rg \"updateProgressStep|updateDrawingFeedback|initializeProgressStepper\" deckCalcjs/app.js)",
+      "Bash(/home/shane/.npm-global/lib/node_modules/@anthropic-ai/claude-code/vendor/ripgrep/x64-linux/rg \"progress-stepper|progressStepper|updateProgressStep|updateDrawingFeedback|initializeProgressStepper\" .)",
+      "Bash(/home/shane/.npm-global/lib/node_modules/@anthropic-ai/claude-code/vendor/ripgrep/x64-linux/rg \"toggleCollapsible\" .)",
+      "Bash(/home/shane/.npm-global/lib/node_modules/@anthropic-ai/claude-code/vendor/ripgrep/x64-linux/rg \"collapsible-toggle|advanced-options\" .)",
+      "Bash(/home/shane/.npm-global/lib/node_modules/@anthropic-ai/claude-code/vendor/ripgrep/x64-linux/rg \"collapsible\" .)",
+      "Bash(/home/shane/.npm-global/lib/node_modules/@anthropic-ai/claude-code/vendor/ripgrep/x64-linux/rg \"getElementById.*beamType|getElementById.*pictureFrame|getElementById.*joistProtection|getElementById.*fasteners\" deckCalcjs/)",
+      "Bash(/home/shane/.npm-global/lib/node_modules/@anthropic-ai/claude-code/vendor/ripgrep/x64-linux/rg \"syncSpecificationValues\" deckCalcjs/app.js)",
+      "Bash(/home/shane/.npm-global/lib/node_modules/@anthropic-ai/claude-code/vendor/ripgrep/x64-linux/rg -A 20 \"function syncSpecificationValues\" deckCalcjs/app.js)",
+      "Bash(/home/shane/.npm-global/lib/node_modules/@anthropic-ai/claude-code/vendor/ripgrep/x64-linux/rg \"basicSpecsForm\" .)",
+      "Bash(/home/shane/.npm-global/lib/node_modules/@anthropic-ai/claude-code/vendor/ripgrep/x64-linux/rg \"canvasStatus\" deckCalcjs/)",
+      "Bash(/home/shane/.npm-global/lib/node_modules/@anthropic-ai/claude-code/vendor/ripgrep/x64-linux/rg \"toggleSpecEditor\" deckCalcjs/app.js)",
+      "Bash(/home/shane/.npm-global/lib/node_modules/@anthropic-ai/claude-code/vendor/ripgrep/x64-linux/rg -A 20 \"window.toggleSpecEditor\" deckCalcjs/app.js)",
+      "Bash(/home/shane/.npm-global/lib/node_modules/@anthropic-ai/claude-code/vendor/ripgrep/x64-linux/rg -A 10 \"spec-editor\" deckcalculatorstyles.css)",
+      "Bash(/home/shane/.npm-global/lib/node_modules/@anthropic-ai/claude-code/vendor/ripgrep/x64-linux/rg -A 5 -B 5 \"collapsible.*hidden\" deckcalculatorstyles.css)",
+      "Bash(/home/shane/.npm-global/lib/node_modules/@anthropic-ai/claude-code/vendor/ripgrep/x64-linux/rg -A 5 \"hidden\" deckcalculatorstyles.css)"
     ],
     "deny": []
   }

@@ -20,15 +20,10 @@ const bomSection = document.getElementById("bomSection");
 const bomTableBody = document.getElementById("bomTableBody");
 const summarySection = document.getElementById("summarySection");
 const summaryList = document.getElementById("summaryList");
-const canvasStatusElement = document.getElementById("canvasStatus");
-
 // --- UI Update Functions ---
 export function updateCanvasStatus(message) {
-  if (canvasStatusElement) {
-    canvasStatusElement.textContent = message;
-  } else {
-    console.log("UI Status Update:", message);
-  }
+  // Console logging for debugging purposes - canvas status panel removed
+  console.log("UI Status Update:", message);
 }
 
 export function getFormInputs() {

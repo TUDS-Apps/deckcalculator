@@ -22,234 +22,373 @@
 
       <div id="main-layout-container" class="flex flex-col lg:flex-row gap-8">
         <div id="input-panel" class="lg:w-1/4">
-          <div class="info-card">
-            <h2 class="text-xl font-semibold mb-4 text-[#333333]">
-              Specifications
-            </h2>
-            <form id="deckSpecsForm" class="space-y-4">
-              <div>
-                <label class="form-label">Deck Height (Floor to Ground)</label>
-                <div class="flex gap-2 mt-1">
-                  <div class="flex-1">
-                    <select
-                      id="deckHeightFeet"
-                      name="deckHeightFeet"
-                      class="form-select"
-                    >
-                      <option value="1">1'</option>
-                      <option value="2">2'</option>
-                      <option value="3">3'</option>
-                      <option value="4" selected>4'</option>
-                      <option value="5">5'</option>
-                      <option value="6">6'</option>
-                      <option value="7">7'</option>
-                      <option value="8">8'</option>
-                      <option value="9">9'</option>
-                      <option value="10">10'</option>
-                      <option value="11">11'</option>
-                      <option value="12">12'</option>
-                    </select>
-                  </div>
-                  <div class="flex-1">
-                    <select
-                      id="deckHeightInchesInput"
-                      name="deckHeightInchesInput"
-                      class="form-select"
-                    >
-                      <option value="0" selected>0"</option>
-                      <option value="1">1"</option>
-                      <option value="2">2"</option>
-                      <option value="3">3"</option>
-                      <option value="4">4"</option>
-                      <option value="5">5"</option>
-                      <option value="6">6"</option>
-                      <option value="7">7"</option>
-                      <option value="8">8"</option>
-                      <option value="9">9"</option>
-                      <option value="10">10"</option>
-                      <option value="11">11"</option>
-                    </select>
+          <div class="info-card contextual-panel">
+            
+            <!-- Drawing Mode Section -->
+            <div id="drawing-mode-panel" class="panel-section active">
+              <h2 class="panel-title">Draw Your Deck</h2>
+              <div class="panel-content">
+                <div class="drawing-instructions">
+                  <p class="instruction-text">Click on the grid to place your first point. The first point will snap to 1-foot increments.</p>
+                </div>
+                <div class="deck-specifications">
+                  <form id="deckSpecsForm" class="space-y-4">
+                    <div>
+                      <label class="form-label">Deck Height (Floor to Ground)</label>
+                      <div class="flex gap-2 mt-1">
+                        <div class="flex-1">
+                          <select
+                            id="deckHeightFeet"
+                            name="deckHeightFeet"
+                            class="form-select"
+                          >
+                            <option value="1">1'</option>
+                            <option value="2">2'</option>
+                            <option value="3">3'</option>
+                            <option value="4" selected>4'</option>
+                            <option value="5">5'</option>
+                            <option value="6">6'</option>
+                            <option value="7">7'</option>
+                            <option value="8">8'</option>
+                            <option value="9">9'</option>
+                            <option value="10">10'</option>
+                            <option value="11">11'</option>
+                            <option value="12">12'</option>
+                          </select>
+                        </div>
+                        <div class="flex-1">
+                          <select
+                            id="deckHeightInchesInput"
+                            name="deckHeightInchesInput"
+                            class="form-select"
+                          >
+                            <option value="0" selected>0"</option>
+                            <option value="1">1"</option>
+                            <option value="2">2"</option>
+                            <option value="3">3"</option>
+                            <option value="4">4"</option>
+                            <option value="5">5"</option>
+                            <option value="6">6"</option>
+                            <option value="7">7"</option>
+                            <option value="8">8"</option>
+                            <option value="9">9"</option>
+                            <option value="10">10"</option>
+                            <option value="11">11"</option>
+                          </select>
+                        </div>
+                      </div>
+                    </div>
+                    <div>
+                      <label for="footingType" class="form-label">Footing Type</label>
+                      <select id="footingType" name="footingType" class="form-select">
+                        <option value="gh_levellers">
+                          GH Levellers + 16x16 Slab
+                        </option>
+                        <option value="pylex">Pylex 50" Screw Piles</option>
+                        <option value="helical">10' Helical Piles</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label for="joistSpacing" class="form-label"
+                        >Joist Spacing (On Center)</label
+                      >
+                      <select
+                        id="joistSpacing"
+                        name="joistSpacing"
+                        class="form-select"
+                      >
+                        <option value="16">16" OC</option>
+                        <option value="12">12" OC</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label for="attachmentType" class="form-label"
+                        >Attachment Type</label
+                      >
+                      <select
+                        id="attachmentType"
+                        name="attachmentType"
+                        class="form-select"
+                      >
+                        <option value="house_rim">House Rim (Ledger)</option>
+                        <option value="concrete">Concrete Foundation</option>
+                        <option value="floating">Floating</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label for="beamType" class="form-label">Beam Type</label>
+                      <select id="beamType" name="beamType" class="form-select">
+                        <option value="drop">Drop Beam</option>
+                        <option value="flush">Flush Beam</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label for="pictureFrame" class="form-label"
+                        >Picture Frame</label
+                      >
+                      <select
+                        id="pictureFrame"
+                        name="pictureFrame"
+                        class="form-select"
+                      >
+                        <option value="none">None</option>
+                        <option value="single">Single</option>
+                        <option value="double">Double</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label for="joistProtection" class="form-label"
+                        >Joist Protection</label
+                      >
+                      <select
+                        id="joistProtection"
+                        name="joistProtection"
+                        class="form-select"
+                      >
+                        <option value="none" selected>None</option>
+                        <option value="gtape">G-Tape</option>
+                        <option value="coating">Deck Coating</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label for="fasteners" class="form-label"
+                        >Framing Fasteners</label
+                      >
+                      <select id="fasteners" name="fasteners" class="form-select">
+                        <option value="screws_3in">3" Deck Screws</option>
+                        <option value="u2_3_18">U2 3-1/8"</option>
+                        <option value="paslode_3_14">Paslode 3-1/4"</option>
+                      </select>
+                    </div>
+                  </form>
+                </div>
+              </div>
+            </div>
+
+            <!-- Wall Selection Mode Section -->
+            <div id="wall-selection-panel" class="panel-section hidden">
+              <h2 class="panel-title">Select Attached Wall</h2>
+              <div class="panel-content">
+                <div class="instruction-box">
+                  <p>Click the wall edge that will be attached to your house or structure.</p>
+                  <p class="mt-2 text-sm">💡 This determines where the ledger board will be placed and affects the structural calculations.</p>
+                </div>
+                
+                <div class="primary-action">
+                  <button id="generatePlanBtn" class="btn btn-primary btn-full-width btn-large">
+                    Generate Plan
+                  </button>
+                </div>
+              </div>
+            </div>
+
+
+            <!-- Plan Generated Section -->
+            <div id="plan-generated-panel" class="panel-section hidden">
+              <h2 class="panel-title">Your Deck Plan</h2>
+              <div class="panel-content">
+                <!-- Project summary prominently displayed -->
+                <div id="summarySection">
+                  <h3 class="text-lg font-semibold mb-2 text-[#333333]">
+                    Project Summary
+                  </h3>
+                  <dl id="summaryList" class="summary-list text-sm"></dl>
+                </div>
+                
+                <!-- Action buttons -->
+                <div class="action-buttons">
+                  <button id="addStairsBtn" class="btn btn-primary btn-full-width">
+                    Add Stairs
+                  </button>
+                  <button type="button" class="btn btn-secondary btn-full-width modify-specs-btn" onclick="toggleSpecEditor()">
+                    Modify Specifications
+                  </button>
+                </div>
+                
+                <!-- Full specification editor (replaces summary when active) -->
+                <div class="spec-editor hidden">
+                  <div class="deck-specifications">
+                    <form id="modifySpecsForm" class="space-y-4">
+                      <div>
+                        <label class="form-label">Deck Height (Floor to Ground)</label>
+                        <div class="flex gap-2 mt-1">
+                          <div class="flex-1">
+                            <select id="modifyHeightFeet" class="form-select">
+                              <option value="1">1'</option>
+                              <option value="2">2'</option>
+                              <option value="3">3'</option>
+                              <option value="4" selected>4'</option>
+                              <option value="5">5'</option>
+                              <option value="6">6'</option>
+                              <option value="7">7'</option>
+                              <option value="8">8'</option>
+                              <option value="9">9'</option>
+                              <option value="10">10'</option>
+                              <option value="11">11'</option>
+                              <option value="12">12'</option>
+                            </select>
+                          </div>
+                          <div class="flex-1">
+                            <select id="modifyHeightInches" class="form-select">
+                              <option value="0" selected>0"</option>
+                              <option value="1">1"</option>
+                              <option value="2">2"</option>
+                              <option value="3">3"</option>
+                              <option value="4">4"</option>
+                              <option value="5">5"</option>
+                              <option value="6">6"</option>
+                              <option value="7">7"</option>
+                              <option value="8">8"</option>
+                              <option value="9">9"</option>
+                              <option value="10">10"</option>
+                              <option value="11">11"</option>
+                            </select>
+                          </div>
+                        </div>
+                      </div>
+                      <div>
+                        <label for="modifyFootingType" class="form-label">Footing Type</label>
+                        <select id="modifyFootingType" name="footingType" class="form-select">
+                          <option value="gh_levellers">GH Levellers + 16x16 Slab</option>
+                          <option value="pylex">Pylex 50" Screw Piles</option>
+                          <option value="helical">10' Helical Piles</option>
+                        </select>
+                      </div>
+                      <div>
+                        <label for="modifyJoistSpacing" class="form-label">Joist Spacing (On Center)</label>
+                        <select id="modifyJoistSpacing" name="joistSpacing" class="form-select">
+                          <option value="16">16" OC</option>
+                          <option value="12">12" OC</option>
+                        </select>
+                      </div>
+                      <div>
+                        <label for="modifyAttachmentType" class="form-label">Attachment Type</label>
+                        <select id="modifyAttachmentType" name="attachmentType" class="form-select">
+                          <option value="house_rim">House Rim (Ledger)</option>
+                          <option value="concrete">Concrete Foundation</option>
+                          <option value="floating">Floating</option>
+                        </select>
+                      </div>
+                      <div>
+                        <label for="modifyBeamType" class="form-label">Beam Type</label>
+                        <select id="modifyBeamType" name="beamType" class="form-select">
+                          <option value="drop">Drop Beam</option>
+                          <option value="flush">Flush Beam</option>
+                        </select>
+                      </div>
+                      <div>
+                        <label for="modifyPictureFrame" class="form-label">Picture Frame</label>
+                        <select id="modifyPictureFrame" name="pictureFrame" class="form-select">
+                          <option value="none">None</option>
+                          <option value="single">Single</option>
+                          <option value="double">Double</option>
+                        </select>
+                      </div>
+                      <div>
+                        <label for="modifyJoistProtection" class="form-label">Joist Protection</label>
+                        <select id="modifyJoistProtection" name="joistProtection" class="form-select">
+                          <option value="none" selected>None</option>
+                          <option value="gtape">G-Tape</option>
+                          <option value="coating">Deck Coating</option>
+                        </select>
+                      </div>
+                      <div>
+                        <label for="modifyFasteners" class="form-label">Framing Fasteners</label>
+                        <select id="modifyFasteners" name="fasteners" class="form-select">
+                          <option value="screws_3in">3" Deck Screws</option>
+                          <option value="u2_3_18">U2 3-1/8"</option>
+                          <option value="paslode_3_14">Paslode 3-1/4"</option>
+                        </select>
+                      </div>
+                      <div class="action-buttons">
+                        <button type="button" class="btn btn-primary btn-full-width" onclick="regeneratePlan()">
+                          Regenerate Plan
+                        </button>
+                        <button type="button" class="btn btn-secondary btn-full-width" onclick="toggleSpecEditor()">
+                          Back to Summary
+                        </button>
+                      </div>
+                    </form>
                   </div>
                 </div>
               </div>
-              <div>
-                <label for="footingType" class="form-label">Footing Type</label>
-                <select id="footingType" name="footingType" class="form-select">
-                  <option value="gh_levellers">
-                    GH Levellers + 16x16 Slab
-                  </option>
-                  <option value="pylex">Pylex 50" Screw Piles</option>
-                  <option value="helical">10' Helical Piles</option>
-                </select>
-              </div>
-              <div>
-                <label for="joistSpacing" class="form-label"
-                  >Joist Spacing (On Center)</label
-                >
-                <select
-                  id="joistSpacing"
-                  name="joistSpacing"
-                  class="form-select"
-                >
-                  <option value="16">16" OC</option>
-                  <option value="12">12" OC</option>
-                </select>
-              </div>
-              <div>
-                <label for="attachmentType" class="form-label"
-                  >Attachment Type</label
-                >
-                <select
-                  id="attachmentType"
-                  name="attachmentType"
-                  class="form-select"
-                >
-                  <option value="house_rim">House Rim (Ledger)</option>
-                  <option value="concrete">Concrete Foundation</option>
-                  <option value="floating">Floating</option>
-                </select>
-              </div>
-              <div>
-                <label for="beamType" class="form-label">Beam Type</label>
-                <select id="beamType" name="beamType" class="form-select">
-                  <option value="drop">Drop Beam</option>
-                  <option value="flush">Flush Beam</option>
-                </select>
-              </div>
-              <div>
-                <label for="pictureFrame" class="form-label"
-                  >Picture Frame</label
-                >
-                <select
-                  id="pictureFrame"
-                  name="pictureFrame"
-                  class="form-select"
-                >
-                  <option value="none">None</option>
-                  <option value="single">Single</option>
-                  <option value="double">Double</option>
-                </select>
-              </div>
-              <div>
-                <label for="joistProtection" class="form-label"
-                  >Joist Protection</label
-                >
-                <select
-                  id="joistProtection"
-                  name="joistProtection"
-                  class="form-select"
-                >
-                  <option value="none" selected>None</option>
-                  <option value="gtape">G-Tape</option>
-                  <option value="coating">Deck Coating</option>
-                </select>
-              </div>
-              <div>
-                <label for="fasteners" class="form-label"
-                  >Framing Fasteners</label
-                >
-                <select id="fasteners" name="fasteners" class="form-select">
-                  <option value="screws_3in">3" Deck Screws</option>
-                  <option value="u2_3_18">U2 3-1/8"</option>
-                  <option value="paslode_3_14">Paslode 3-1/4"</option>
-                </select>
-              </div>
-            </form>
-
-            <div
-              id="stairsInputSection"
-              class="mt-6 border-t border-gray-200 pt-4 space-y-4 hidden"
-            >
-              <h3 class="text-lg font-semibold text-[#333333]">
-                Stair Details
-              </h3>
-              <div>
-                <label for="stairWidth" class="form-label">Width</label>
-                <select id="stairWidth" name="stairWidth" class="form-select">
-                  <option value="4">4' 0"</option>
-                  <option value="5">5' 0"</option>
-                  <option value="6">6' 0"</option>
-                  <option value="7">7' 0"</option>
-                  <option value="8">8' 0"</option>
-                  <option value="9">9' 0"</option>
-                  <option value="10">10' 0"</option>
-                  <option value="11">11' 0"</option>
-                  <option value="12">12' 0"</option>
-                  <option value="13">13' 0"</option>
-                  <option value="14">14' 0"</option>
-                  <option value="15">15' 0"</option>
-                  <option value="16">16' 0"</option>
-                  <option value="17">17' 0"</option>
-                  <option value="18">18' 0"</option>
-                  <option value="19">19' 0"</option>
-                  <option value="20">20' 0"</option>
-                </select>
-              </div>
-              <div>
-                <label for="stringerType" class="form-label"
-                  >Stringer Type</label
-                >
-                <select
-                  id="stringerType"
-                  name="stringerType"
-                  class="form-select"
-                >
-                  <option value="pylex_steel">Pylex Steel (Pre-fab)</option>
-                  <option value="lvl_wood">LVL Wood (Pre-fab)</option>
-                  <option value="custom_2x12">Custom Cut 2x12</option>
-                </select>
-              </div>
-              <div>
-                <label for="landingType" class="form-label">Landing Type</label>
-                <select id="landingType" name="landingType" class="form-select">
-                  <option value="existing">
-                    Existing Surface (Ground/Patio)
-                  </option>
-                  <option value="slabs_16x16">16"x16" Slabs</option>
-                  <option value="concrete_pad">Poured Concrete Pad</option>
-                </select>
-              </div>
-              <div class="pt-2">
-                <button
-                  type="button"
-                  id="cancelStairsBtn"
-                  class="btn btn-secondary btn-full-width"
-                >
-                  Cancel Adding Stairs
-                </button>
-              </div>
-              <p class="text-sm text-gray-600">
-                Select options above, then click a deck edge (rim joist) to
-                place the stairs.
-              </p>
             </div>
 
-            <div class="button-container mt-6">
-              <button
-                type="button"
-                id="generatePlanBtn"
-                class="btn btn-primary btn-full-width"
-              >
-                Generate Plan
-              </button>
-              <button
-                type="button"
-                id="addStairsBtn"
-                class="btn btn-secondary btn-full-width"
-              >
-                Add Stairs
-              </button>
+            <!-- Stair Configuration Section -->
+            <div id="stair-config-panel" class="panel-section hidden">
+              <h2 class="panel-title">Configure Stairs</h2>
+              <div class="panel-content">
+                <div class="instruction-box">
+                  <p>Configure your stair details below, then click a deck edge to place them.</p>
+                  <p class="mt-2 text-sm">💡 You can add multiple sets of stairs by repeating this process.</p>
+                </div>
+
+                <div class="stair-specs">
+                  <form id="stairSpecsForm" class="space-y-4">
+                    <div>
+                      <label for="stairWidth" class="form-label">Width</label>
+                      <select id="stairWidth" name="stairWidth" class="form-select">
+                        <option value="4">4' 0"</option>
+                        <option value="5">5' 0"</option>
+                        <option value="6">6' 0"</option>
+                        <option value="7">7' 0"</option>
+                        <option value="8">8' 0"</option>
+                        <option value="9">9' 0"</option>
+                        <option value="10">10' 0"</option>
+                        <option value="11">11' 0"</option>
+                        <option value="12">12' 0"</option>
+                        <option value="13">13' 0"</option>
+                        <option value="14">14' 0"</option>
+                        <option value="15">15' 0"</option>
+                        <option value="16">16' 0"</option>
+                        <option value="17">17' 0"</option>
+                        <option value="18">18' 0"</option>
+                        <option value="19">19' 0"</option>
+                        <option value="20">20' 0"</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label for="stringerType" class="form-label"
+                        >Stringer Type</label
+                      >
+                      <select
+                        id="stringerType"
+                        name="stringerType"
+                        class="form-select"
+                      >
+                        <option value="pylex_steel">Pylex Steel (Pre-fab)</option>
+                        <option value="lvl_wood">LVL Wood (Pre-fab)</option>
+                        <option value="custom_2x12">Custom Cut 2x12</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label for="landingType" class="form-label">Landing Type</label>
+                      <select id="landingType" name="landingType" class="form-select">
+                        <option value="existing">
+                          Existing Surface (Ground/Patio)
+                        </option>
+                        <option value="slabs_16x16">16"x16" Slabs</option>
+                        <option value="concrete_pad">Poured Concrete Pad</option>
+                      </select>
+                    </div>
+                  </form>
+                </div>
+                
+                <div class="stair-actions">
+                  <button
+                    type="button"
+                    id="cancelStairsBtn"
+                    class="btn btn-secondary btn-full-width"
+                  >
+                    Cancel Adding Stairs
+                  </button>
+                  <p class="text-sm text-gray-600 mt-2">
+                    Select options above, then click a deck edge (rim joist) to place the stairs.
+                  </p>
+                </div>
+              </div>
             </div>
 
-            <div
-              id="summarySection"
-              class="mt-6 border-t border-gray-200 pt-4 hidden"
-            >
-              <h3 class="text-lg font-semibold mb-2 text-[#333333]">
-                Project Summary
-              </h3>
-              <dl id="summaryList" class="summary-list text-sm"></dl>
-            </div>
           </div>
         </div>
 
@@ -258,9 +397,103 @@
             id="canvasContainerWrapper"
             class="bg-white p-4 rounded-lg shadow relative"
           >
+            <div id="dimensionInputContainer" class="flex items-center mb-2 hidden">
+              <label class="text-sm text-gray-600 mr-2">Enter length:</label>
+              <div class="flex flex-1 gap-2">
+                <input id="dimensionFeetInput" type="number" min="0" class="form-input text-sm py-1 px-2 w-16" placeholder="ft">
+                <input id="dimensionInchesInput" type="number" min="0" max="11" class="form-input text-sm py-1 px-2 w-16" placeholder="in">
+              </div>
+              <button id="applyDimensionBtn" class="btn btn-secondary text-xs px-3 py-1 leading-tight ml-2">Apply</button>
+              <button id="cancelDimensionBtn" class="btn btn-secondary text-xs px-3 py-1 leading-tight ml-2">Cancel</button>
+            </div>
+            <div id="canvasContainer" class="relative">
+              <canvas id="deckCanvas"></canvas>
+              
+              <!-- Floating control buttons -->
+              <div class="absolute top-2 right-2 flex items-center space-x-2 z-10 floating-controls">
+                <button
+                  type="button"
+                  id="zoomInBtn"
+                  class="btn btn-secondary text-xs px-3 py-2 leading-tight shadow-lg"
+                  title="Zoom In"
+                >
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    viewBox="0 0 20 20"
+                    fill="currentColor"
+                    class="w-5 h-5"
+                  >
+                    <path
+                      d="M10.75 4.75a.75.75 0 0 0-1.5 0v4.5h-4.5a.75.75 0 0 0 0 1.5h4.5v4.5a.75.75 0 0 0 1.5 0v-4.5h4.5a.75.75 0 0 0 0-1.5h-4.5v-4.5Z"
+                    />
+                  </svg>
+                </button>
+                <button
+                  type="button"
+                  id="zoomOutBtn"
+                  class="btn btn-secondary text-xs px-3 py-2 leading-tight shadow-lg"
+                  title="Zoom Out"
+                >
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    viewBox="0 0 20 20"
+                    fill="currentColor"
+                    class="w-5 h-5"
+                  >
+                    <path
+                      fill-rule="evenodd"
+                      d="M4 10a.75.75 0 0 1 .75-.75h10.5a.75.75 0 0 1 0 1.5H4.75A.75.75 0 0 1 4 10Z"
+                      clip-rule="evenodd"
+                    />
+                  </svg>
+                </button>
+                <button
+                  type="button"
+                  id="centerFitBtn"
+                  class="btn btn-secondary text-xs px-3 py-2 leading-tight shadow-lg"
+                  title="Center and Fit Drawing"
+                >
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="2"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                    class="w-5 h-5"
+                  >
+                    <path d="M2 3h6v6H2z"/>
+                    <path d="M16 3h6v6h-6z"/>
+                    <path d="M16 15h6v6h-6z"/>
+                    <path d="M2 15h6v6H2z"/>
+                  </svg>
+                </button>
+                <button
+                  id="blueprintToggleBtn"
+                  class="btn btn-secondary text-xs px-3 py-2 leading-tight shadow-lg"
+                  title="Toggle Blueprint View"
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-5 h-5">
+                    <path d="M10 12.5a2.5 2.5 0 100-5 2.5 2.5 0 000 5z" />
+                    <path fill-rule="evenodd" d="M.664 10.59a1.651 1.651 0 010-1.186A10.004 10.004 0 0110 3c4.257 0 7.893 2.66 9.336 6.41.147.381.146.804 0 1.186A10.004 10.004 0 0110 17c-4.257 0-7.893-2.66-9.336-6.41zM14 10a4 4 0 11-8 0 4 4 0 018 0z" clip-rule="evenodd" />
+                  </svg>
+                </button>
+                <button
+                  id="clearCanvasBtn"
+                  class="btn btn-secondary text-xs px-3 py-2 leading-tight shadow-lg"
+                  title="Clear Canvas"
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-5 h-5">
+                    <path fill-rule="evenodd" d="M8.75 1A2.75 2.75 0 006 3.75v.443c-.795.077-1.584.176-2.365.298a.75.75 0 10.23 1.482l.149-.022.841 10.518A2.75 2.75 0 007.596 19h4.807a2.75 2.75 0 002.742-2.53l.841-10.52.149.023a.75.75 0 00.23-1.482A41.03 41.03 0 0014 4.193V3.75A2.75 2.75 0 0011.25 1h-2.5zM10 4c.84 0 1.673.025 2.5.075V3.75c0-.69-.56-1.25-1.25-1.25h-2.5c-.69 0-1.25.56-1.25 1.25v.325C8.327 4.025 9.16 4 10 4zM8.58 7.72a.75.75 0 00-1.5.06l.3 7.5a.75.75 0 101.5-.06l-.3-7.5zm4.34.06a.75.75 0 10-1.5-.06l-.3 7.5a.75.75 0 101.5.06l.3-7.5z" clip-rule="evenodd" />
+                  </svg>
+                </button>
+              </div>
+            </div>
+            
             <div
               id="legend"
-              class="mb-2 p-2 border border-gray-200 rounded bg-gray-50 text-sm"
+              class="mt-2 p-2 border border-gray-200 rounded bg-gray-50 text-sm"
             >
               <div class="flex justify-between items-center mb-1">
                 <h3 class="font-semibold">Legend:</h3>
@@ -300,126 +533,6 @@
                   <li>Posts: Actual 3½" (4x4) or 5½" (6x6) dimensions</li>
                 </ul>
               </div>
-            </div>
-
-            <!-- Progress Stepper -->
-            <div id="progressStepper" class="progress-stepper mb-4">
-              <div class="progress-step" data-step="1">
-                <div class="step-circle">1</div>
-                <div class="step-label">Draw Outline</div>
-              </div>
-              <div class="progress-connector"></div>
-              <div class="progress-step" data-step="2">
-                <div class="step-circle">2</div>
-                <div class="step-label">Select Wall</div>
-              </div>
-              <div class="progress-connector"></div>
-              <div class="progress-step" data-step="3">
-                <div class="step-circle">3</div>
-                <div class="step-label">Generate Plan</div>
-              </div>
-              <div class="progress-connector"></div>
-              <div class="progress-step optional" data-step="4">
-                <div class="step-circle">4</div>
-                <div class="step-label">Add Stairs</div>
-                <div class="optional-badge">Optional</div>
-              </div>
-            </div>
-
-            <div class="flex justify-between items-center mb-2">
-              <p id="canvasStatus" class="text-sm text-gray-600 flex-grow mr-2">
-                Draw your deck outline. Click near the start point to close the
-                shape.
-              </p>
-              <div class="flex items-center space-x-2 flex-shrink-0">
-                <button
-                  type="button"
-                  id="zoomInBtn"
-                  class="btn btn-secondary text-xs px-3 py-1 leading-tight"
-                  title="Zoom In"
-                >
-                  <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    viewBox="0 0 20 20"
-                    fill="currentColor"
-                    class="w-4 h-4"
-                  >
-                    <path
-                      d="M10.75 4.75a.75.75 0 0 0-1.5 0v4.5h-4.5a.75.75 0 0 0 0 1.5h4.5v4.5a.75.75 0 0 0 1.5 0v-4.5h4.5a.75.75 0 0 0 0-1.5h-4.5v-4.5Z"
-                    />
-                  </svg>
-                </button>
-                <button
-                  type="button"
-                  id="zoomOutBtn"
-                  class="btn btn-secondary text-xs px-3 py-1 leading-tight"
-                  title="Zoom Out"
-                >
-                  <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    viewBox="0 0 20 20"
-                    fill="currentColor"
-                    class="w-4 h-4"
-                  >
-                    <path
-                      fill-rule="evenodd"
-                      d="M4 10a.75.75 0 0 1 .75-.75h10.5a.75.75 0 0 1 0 1.5H4.75A.75.75 0 0 1 4 10Z"
-                      clip-rule="evenodd"
-                    />
-                  </svg>
-                </button>
-                <button
-                  type="button"
-                  id="centerFitBtn"
-                  class="btn btn-secondary text-xs px-3 py-1 leading-tight"
-                  title="Center and Fit Drawing"
-                >
-                  <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    viewBox="0 0 20 20"
-                    fill="currentColor"
-                    class="w-4 h-4 inline-block mr-0.5"
-                  >
-                    <path
-                      d="M10 3.75a.75.75 0 0 1 .75.75v1.5a.75.75 0 0 1-1.5 0v-1.5a.75.75 0 0 1 .75-.75ZM10 13.75a.75.75 0 0 1 .75.75v1.5a.75.75 0 0 1-1.5 0v-1.5a.75.75 0 0 1 .75-.75ZM6.25 10a.75.75 0 0 0-1.5 0v6.25a.75.75 0 0 0 1.5 0V10Zm7.5 0a.75.75 0 0 0-1.5 0v6.25a.75.75 0 0 0 1.5 0V10ZM3.75 10a.75.75 0 0 1 .75-.75h1.5a.75.75 0 0 1 0 1.5h-1.5a.75.75 0 0 1-.75-.75ZM13.75 10a.75.75 0 0 1 .75-.75h1.5a.75.75 0 0 1 0 1.5h-1.5a.75.75 0 0 1-.75-.75Z"
-                    />
-                    <path
-                      fill-rule="evenodd"
-                      d="M4 4a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2H4Zm0-1.5A3.5 3.5 0 0 0 .5 6v8A3.5 3.5 0 0 0 4 17.5h12A3.5 3.5 0 0 0 19.5 14V6A3.5 3.5 0 0 0 16 2.5H4Z"
-                      clip-rule="evenodd"
-                    /></svg
-                  >Fit
-                </button>
-                <button
-                  id="blueprintToggleBtn"
-                  class="btn btn-secondary text-xs px-3 py-1 leading-tight flex-shrink-0"
-                  title="Toggle Blueprint View"
-                >
-                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-4 h-4 inline-block mr-0.5">
-                    <path d="M10 12.5a2.5 2.5 0 100-5 2.5 2.5 0 000 5z" />
-                    <path fill-rule="evenodd" d="M.664 10.59a1.651 1.651 0 010-1.186A10.004 10.004 0 0110 3c4.257 0 7.893 2.66 9.336 6.41.147.381.146.804 0 1.186A10.004 10.004 0 0110 17c-4.257 0-7.893-2.66-9.336-6.41zM14 10a4 4 0 11-8 0 4 4 0 018 0z" clip-rule="evenodd" />
-                  </svg>
-                  Blueprint
-                </button>
-                <button
-                  id="clearCanvasBtn"
-                  class="btn btn-secondary text-xs px-3 py-1 leading-tight flex-shrink-0"
-                >
-                  Clear
-                </button>
-              </div>
-            </div>
-            <div id="dimensionInputContainer" class="flex items-center mb-2 hidden">
-              <label class="text-sm text-gray-600 mr-2">Enter length:</label>
-              <div class="flex flex-1 gap-2">
-                <input id="dimensionFeetInput" type="number" min="0" class="form-input text-sm py-1 px-2 w-16" placeholder="ft">
-                <input id="dimensionInchesInput" type="number" min="0" max="11" class="form-input text-sm py-1 px-2 w-16" placeholder="in">
-              </div>
-              <button id="applyDimensionBtn" class="btn btn-secondary text-xs px-3 py-1 leading-tight ml-2">Apply</button>
-              <button id="cancelDimensionBtn" class="btn btn-secondary text-xs px-3 py-1 leading-tight ml-2">Cancel</button>
-            </div>
-            <div id="canvasContainer">
-              <canvas id="deckCanvas"></canvas>
             </div>
           </div>
 

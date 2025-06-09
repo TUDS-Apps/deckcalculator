@@ -52,9 +52,8 @@ const appState = {
   // Blueprint mode state
   isBlueprintMode: false, // Toggle between simple lines and to-scale components
   
-  // Progress tracking state
-  currentStep: 1,
-  completedSteps: []
+  // Contextual panel state
+  currentPanelMode: 'drawing' // 'drawing', 'wall-selection', 'specification', 'plan-generated', 'stair-config'
 };
 
 // --- DOM Element References ---
@@ -110,64 +109,128 @@ function initializeViewport() {
     (canvasHeight - initialViewModelHeight * appState.viewportScale) / 2;
 }
 
-// --- Progress Tracking Functions ---
-function initializeProgressStepper() {
-  updateProgressStep(1); // Start with step 1
-  updateDrawingFeedback();
+
+// --- Contextual Panel Management Functions ---
+function getCurrentPanelMode() {
+  if (appState.stairPlacementMode) {
+    return 'stair-config';
+  }
+  if (appState.structuralComponents && !appState.structuralComponents.error) {
+    return 'plan-generated';
+  }
+  if (appState.isShapeClosed && appState.selectedWallIndex === -1) {
+    return 'wall-selection';
+  }
+  if (appState.isShapeClosed && appState.selectedWallIndex !== -1) {
+    return 'wall-selection'; // Still show wall selection panel since it now has Generate Plan button
+  }
+  return 'drawing';
 }
 
-function updateProgressStep(stepNumber) {
-  appState.currentStep = stepNumber;
+function updateContextualPanel() {
+  const newMode = getCurrentPanelMode();
+  if (newMode !== appState.currentPanelMode) {
+    appState.currentPanelMode = newMode;
+    showContextualPanel(newMode);
+  }
+}
+
+function showContextualPanel(mode) {
+  // Hide all panel sections
+  const panels = [
+    'drawing-mode-panel',
+    'wall-selection-panel', 
+    'plan-generated-panel',
+    'stair-config-panel'
+  ];
   
-  // Update visual states
-  const steps = document.querySelectorAll('.progress-step');
-  steps.forEach((step, index) => {
-    const stepNum = index + 1;
-    step.classList.remove('active', 'completed');
-    
-    if (stepNum < stepNumber) {
-      step.classList.add('completed');
-      if (!appState.completedSteps.includes(stepNum)) {
-        appState.completedSteps.push(stepNum);
-      }
-    } else if (stepNum === stepNumber) {
-      step.classList.add('active');
+  panels.forEach(panelId => {
+    const panel = document.getElementById(panelId);
+    if (panel) {
+      panel.classList.add('hidden');
+      panel.classList.remove('active');
     }
   });
+
+  // Show the appropriate panel with animation
+  const targetPanelId = `${mode.replace('-', '-')}-panel`;
+  const targetPanel = document.getElementById(targetPanelId);
+  
+  if (targetPanel) {
+    // Add entrance animation
+    targetPanel.classList.remove('hidden');
+    setTimeout(() => {
+      targetPanel.classList.add('active');
+    }, 50); // Small delay for CSS transition
+  }
+
+  // Update panel-specific content
+  updatePanelContent(mode);
 }
 
-function updateDrawingFeedback() {
-  let message = "";
-  
-  if (appState.currentStep === 1) {
-    if (appState.points.length === 0) {
-      message = "Click to place your first point on the 12\" grid";
-    } else if (appState.points.length < 3) {
-      message = `Point ${appState.points.length} placed. Click to place next point (minimum 3 points needed)`;
-    } else if (!appState.isShapeClosed) {
-      message = `${appState.points.length} points placed. Click near start point to close shape, or continue adding points`;
-    } else {
-      message = "Shape closed! Now select the wall that attaches to your house/structure";
-      updateProgressStep(2);
-    }
-  } else if (appState.currentStep === 2) {
-    if (appState.selectedWallIndex === -1) {
-      message = "Click on the wall edge that will attach to your house or structure";
-    } else {
-      message = "Wall selected! Click 'Generate Plan' to calculate structure and materials";
-    }
-  } else if (appState.currentStep === 3) {
-    if (!appState.structuralComponents || appState.structuralComponents.error) {
-      message = "Click 'Generate Plan' to calculate your deck structure and materials";
-    } else {
-      message = "Plan generated! Review your materials list below, or add stairs if needed";
-      updateProgressStep(4);
-    }
-  } else if (appState.currentStep === 4) {
-    message = "Plan complete! Add stairs by clicking 'Add Stairs' or print your results";
+function updatePanelContent(mode) {
+  switch(mode) {
+    case 'drawing':
+      updateDrawingInstructions();
+      break;
+    case 'wall-selection':
+      updateWallSelectionInstructions();
+      enableGenerateButton();
+      break;
+    case 'plan-generated':
+      highlightPlanActions();
+      break;
+    case 'stair-config':
+      focusStairConfiguration();
+      break;
   }
-  
-  uiController.updateCanvasStatus(message);
+}
+
+function updateDrawingInstructions() {
+  const instructionElement = document.querySelector('#drawing-mode-panel .instruction-text');
+  if (instructionElement) {
+    const pointCount = appState.points ? appState.points.length : 0;
+    let instruction = '';
+    
+    if (pointCount === 0) {
+      instruction = 'Click on the grid to place your first point. The first point will snap to 1-foot increments.';
+    } else if (pointCount === 1) {
+      instruction = 'Click to place your second point. Type numbers while drawing for precise measurements.';
+    } else if (pointCount >= 2) {
+      instruction = 'Continue adding points or click near the starting point to close your deck shape.';
+    }
+    
+    instructionElement.textContent = instruction;
+  }
+}
+
+function updateWallSelectionInstructions() {
+  // Wall selection instructions are static in HTML, but we could enhance them here
+}
+
+function enableGenerateButton() {
+  const generateBtn = document.getElementById('generatePlanBtn');
+  if (generateBtn) {
+    generateBtn.disabled = false;
+    generateBtn.classList.remove('opacity-50', 'cursor-not-allowed');
+  }
+}
+
+
+function highlightPlanActions() {
+  // Show project summary and highlight next actions
+  const summarySection = document.querySelector('#plan-generated-panel #summarySection');
+  if (summarySection) {
+    summarySection.classList.remove('hidden');
+  }
+}
+
+function focusStairConfiguration() {
+  // Focus on stair configuration
+  const stairWidth = document.getElementById('stairWidth');
+  if (stairWidth) {
+    stairWidth.focus();
+  }
 }
 
 // --- Core Application Logic Functions ---
@@ -312,18 +375,16 @@ function resetAppState() {
   // Always start with blueprint mode off - user can enable it via the button if needed
   appState.isBlueprintMode = false;
   
-  // Reset progress tracking state
-  appState.currentStep = 1;
-  appState.completedSteps = [];
+  // Reset contextual panel state
+  appState.currentPanelMode = 'drawing';
 
   initializeViewport();
 
   uiController.resetUIOutputs();
   uiController.toggleStairsInputSection(false);
   
-  // Update progress stepper and status message
-  updateProgressStep(1);
-  updateDrawingFeedback();
+  // Update contextual panel
+  updateContextualPanel();
   
   redrawApp();
 }
@@ -579,9 +640,9 @@ function handleGeneratePlan() {
     }
     redrawApp();
     
-    // Update progress if plan generation was successful
+    // Update contextual panel if plan generation was successful
     if (appState.structuralComponents && !appState.structuralComponents.error) {
-      updateDrawingFeedback(); // This will automatically advance to step 4
+      updateContextualPanel();
     } else {
       uiController.updateCanvasStatus(
         `Error: ${appState.structuralComponents.error}`
@@ -614,6 +675,7 @@ function handleAddStairs() {
   appState.stairPlacementMode = true;
   appState.selectedStairIndex = -1;
   uiController.toggleStairsInputSection(true);
+  updateContextualPanel();
   uiController.updateCanvasStatus(
     "Configure stair details, then click a deck edge (rim joist) to place stairs."
   );
@@ -623,6 +685,7 @@ function handleAddStairs() {
 function handleCancelStairs() {
   appState.stairPlacementMode = false;
   uiController.toggleStairsInputSection(false);
+  updateContextualPanel();
   uiController.updateCanvasStatus("Stair placement cancelled.");
   redrawApp();
 }
@@ -756,8 +819,7 @@ function handleCanvasClick(viewMouseX, viewMouseY) {
     if (clickedWallIndex !== -1) {
       appState.selectedWallIndex = clickedWallIndex;
       appState.wallSelectionMode = false;
-      updateProgressStep(3);
-      updateDrawingFeedback();
+      updateContextualPanel();
     }
   } else if (
     !appState.isDrawing &&
@@ -817,8 +879,7 @@ function handleCanvasClick(viewMouseX, viewMouseY) {
       appState.structuralComponents = null;
       appState.bom = [];
       uiController.resetUIOutputs();
-      updateProgressStep(2);
-      updateDrawingFeedback();
+      updateContextualPanel();
     }
   }
 
@@ -896,12 +957,12 @@ function handleCanvasClick(viewMouseX, viewMouseY) {
         
         calculateAndUpdateDeckDimensions();
         appState.wallSelectionMode = true;
-        updateDrawingFeedback();
+        updateContextualPanel();
       } else {
         // Simply add the point - we'll let keyboard input activate dimension entry if needed
         appState.points.push(snappedModelPos);
         appState.isDrawing = true;
-        updateDrawingFeedback();
+        updateContextualPanel();
       }
     } else {
       if (
@@ -914,7 +975,7 @@ function handleCanvasClick(viewMouseX, viewMouseY) {
         // Add the first or second point
         appState.points.push(snappedModelPos);
         appState.isDrawing = true;
-        updateDrawingFeedback();
+        updateContextualPanel();
       }
     }
   }
@@ -963,6 +1024,7 @@ function handleStairPlacementClick(modelMouseX, modelMouseY) {
       appState.stairs.push(newStair);
       appState.stairPlacementMode = false;
       uiController.toggleStairsInputSection(false);
+      updateContextualPanel(); // Return to plan-generated panel
       uiController.updateCanvasStatus(
         `Stairs added. Total: ${appState.stairs.length}.`
       );
@@ -1416,6 +1478,151 @@ document.addEventListener("DOMContentLoaded", () => {
   window.addEventListener("afterprint", afterPrintHandler);
 
   resetAppState();
-  initializeProgressStepper();
-  console.log("Deck Calculator App Initialized with Zoom/Pan features, Dimension Input, Blueprint mode, and Progress Tracking.");
+  updateContextualPanel(); // Initialize contextual panel
+  console.log("Deck Calculator App Initialized with Zoom/Pan features, Dimension Input, Blueprint mode, and Contextual Panels.");
 });
+
+// --- Global Utility Functions for HTML ---
+window.toggleCollapsible = function(button) {
+  const content = button.nextElementSibling;
+  const isExpanded = content.classList.contains('expanded');
+  
+  if (isExpanded) {
+    content.classList.remove('expanded');
+    button.classList.remove('expanded');
+  } else {
+    content.classList.add('expanded');
+    button.classList.add('expanded');
+  }
+};
+
+window.toggleSpecEditor = function() {
+  const editor = document.querySelector('.spec-editor');
+  const summarySection = document.getElementById('summarySection');
+  const actionButtons = document.querySelector('.action-buttons');
+  const button = document.querySelector('.modify-specs-btn');
+  
+  if (editor && summarySection && actionButtons && button) {
+    const isHidden = editor.classList.contains('hidden');
+    
+    if (isHidden) {
+      // Show the editor, hide the summary
+      editor.classList.remove('hidden');
+      summarySection.classList.add('hidden');
+      actionButtons.classList.add('hidden');
+      button.classList.add('active');
+      
+      // Sync current values to modify form
+      syncModifySpecValues();
+    } else {
+      // Hide the editor, show the summary
+      editor.classList.add('hidden');
+      summarySection.classList.remove('hidden');
+      actionButtons.classList.remove('hidden');
+      button.classList.remove('active');
+    }
+  }
+};
+
+window.regeneratePlan = function() {
+  // Copy values from modify form back to main form
+  syncMainSpecValues();
+  
+  // Close the spec editor
+  window.toggleSpecEditor();
+  
+  // Regenerate the plan
+  handleGeneratePlan();
+};
+
+function syncModifySpecValues() {
+  // Sync current values to modify form
+  const heightFeet = document.getElementById('deckHeightFeet');
+  const heightInches = document.getElementById('deckHeightInchesInput');
+  const footingType = document.getElementById('footingType');
+  const joistSpacing = document.getElementById('joistSpacing');
+  const attachmentType = document.getElementById('attachmentType');
+  const beamType = document.getElementById('beamType');
+  const pictureFrame = document.getElementById('pictureFrame');
+  const joistProtection = document.getElementById('joistProtection');
+  const fasteners = document.getElementById('fasteners');
+  
+  const modifyHeightFeet = document.getElementById('modifyHeightFeet');
+  const modifyHeightInches = document.getElementById('modifyHeightInches');
+  const modifyFootingType = document.getElementById('modifyFootingType');
+  const modifyJoistSpacing = document.getElementById('modifyJoistSpacing');
+  const modifyAttachmentType = document.getElementById('modifyAttachmentType');
+  const modifyBeamType = document.getElementById('modifyBeamType');
+  const modifyPictureFrame = document.getElementById('modifyPictureFrame');
+  const modifyJoistProtection = document.getElementById('modifyJoistProtection');
+  const modifyFasteners = document.getElementById('modifyFasteners');
+  
+  if (heightFeet && modifyHeightFeet) modifyHeightFeet.value = heightFeet.value;
+  if (heightInches && modifyHeightInches) modifyHeightInches.value = heightInches.value;
+  if (footingType && modifyFootingType) modifyFootingType.value = footingType.value;
+  if (joistSpacing && modifyJoistSpacing) modifyJoistSpacing.value = joistSpacing.value;
+  if (attachmentType && modifyAttachmentType) modifyAttachmentType.value = attachmentType.value;
+  if (beamType && modifyBeamType) modifyBeamType.value = beamType.value;
+  if (pictureFrame && modifyPictureFrame) modifyPictureFrame.value = pictureFrame.value;
+  if (joistProtection && modifyJoistProtection) modifyJoistProtection.value = joistProtection.value;
+  if (fasteners && modifyFasteners) modifyFasteners.value = fasteners.value;
+}
+
+function syncMainSpecValues() {
+  // Copy values from modify form back to main form
+  const modifyHeightFeet = document.getElementById('modifyHeightFeet');
+  const modifyHeightInches = document.getElementById('modifyHeightInches');
+  const modifyFootingType = document.getElementById('modifyFootingType');
+  const modifyJoistSpacing = document.getElementById('modifyJoistSpacing');
+  const modifyAttachmentType = document.getElementById('modifyAttachmentType');
+  const modifyBeamType = document.getElementById('modifyBeamType');
+  const modifyPictureFrame = document.getElementById('modifyPictureFrame');
+  const modifyJoistProtection = document.getElementById('modifyJoistProtection');
+  const modifyFasteners = document.getElementById('modifyFasteners');
+  
+  const heightFeet = document.getElementById('deckHeightFeet');
+  const heightInches = document.getElementById('deckHeightInchesInput');
+  const footingType = document.getElementById('footingType');
+  const joistSpacing = document.getElementById('joistSpacing');
+  const attachmentType = document.getElementById('attachmentType');
+  const beamType = document.getElementById('beamType');
+  const pictureFrame = document.getElementById('pictureFrame');
+  const joistProtection = document.getElementById('joistProtection');
+  const fasteners = document.getElementById('fasteners');
+  
+  if (modifyHeightFeet && heightFeet) {
+    heightFeet.value = modifyHeightFeet.value;
+  }
+  
+  if (modifyHeightInches && heightInches) {
+    heightInches.value = modifyHeightInches.value;
+  }
+  
+  if (modifyFootingType && footingType) {
+    footingType.value = modifyFootingType.value;
+  }
+  
+  if (modifyJoistSpacing && joistSpacing) {
+    joistSpacing.value = modifyJoistSpacing.value;
+  }
+  
+  if (modifyAttachmentType && attachmentType) {
+    attachmentType.value = modifyAttachmentType.value;
+  }
+  
+  if (modifyBeamType && beamType) {
+    beamType.value = modifyBeamType.value;
+  }
+  
+  if (modifyPictureFrame && pictureFrame) {
+    pictureFrame.value = modifyPictureFrame.value;
+  }
+  
+  if (modifyJoistProtection && joistProtection) {
+    joistProtection.value = modifyJoistProtection.value;
+  }
+  
+  if (modifyFasteners && fasteners) {
+    fasteners.value = modifyFasteners.value;
+  }
+}
