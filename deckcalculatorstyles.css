@@ -929,3 +929,134 @@ canvas.mode-transition {
     padding: 0 !important;
   }
 }
+
+/* Progress Stepper Styles */
+.progress-stepper {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+  background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
+  border-radius: 0.5rem;
+  border: 1px solid #e2e8f0;
+  margin-bottom: 1rem;
+}
+
+.progress-step {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  position: relative;
+  transition: all 0.3s ease;
+}
+
+.step-circle {
+  width: 2.5rem;
+  height: 2.5rem;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 600;
+  font-size: 0.875rem;
+  border: 2px solid #e2e8f0;
+  background: #ffffff;
+  color: #64748b;
+  transition: all 0.3s ease;
+  position: relative;
+}
+
+.step-label {
+  margin-top: 0.5rem;
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: #64748b;
+  text-align: center;
+  transition: all 0.3s ease;
+}
+
+.progress-connector {
+  width: 3rem;
+  height: 2px;
+  background: #e2e8f0;
+  margin: 0 1rem;
+  transition: all 0.3s ease;
+}
+
+/* Step States */
+.progress-step.active .step-circle {
+  background: #4a90e2;
+  border-color: #4a90e2;
+  color: white;
+  box-shadow: 0 0 0 3px rgba(74, 144, 226, 0.2);
+}
+
+.progress-step.active .step-label {
+  color: #4a90e2;
+  font-weight: 600;
+}
+
+.progress-step.completed .step-circle {
+  background: #10b981;
+  border-color: #10b981;
+  color: white;
+}
+
+.progress-step.completed .step-circle::after {
+  content: "✓";
+  position: absolute;
+  font-size: 1rem;
+  font-weight: 700;
+}
+
+.progress-step.completed .step-label {
+  color: #10b981;
+}
+
+.progress-step.completed + .progress-connector {
+  background: #10b981;
+}
+
+.progress-step.active + .progress-connector {
+  background: linear-gradient(to right, #10b981 0%, #e2e8f0 100%);
+}
+
+.optional-badge {
+  position: absolute;
+  top: -0.5rem;
+  right: -1rem;
+  background: #fbbf24;
+  color: white;
+  font-size: 0.625rem;
+  padding: 0.125rem 0.375rem;
+  border-radius: 0.75rem;
+  font-weight: 600;
+}
+
+/* Responsive design */
+@media (max-width: 768px) {
+  .progress-stepper {
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    padding: 0.75rem;
+  }
+  
+  .progress-connector {
+    display: none;
+  }
+  
+  .step-label {
+    font-size: 0.625rem;
+  }
+  
+  .step-circle {
+    width: 2rem;
+    height: 2rem;
+    font-size: 0.75rem;
+  }
+  
+  .optional-badge {
+    right: -0.75rem;
+    top: -0.375rem;
+  }
+}

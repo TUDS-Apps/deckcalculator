@@ -50,7 +50,11 @@ const appState = {
   pendingDimensionStartPoint: null,
   
   // Blueprint mode state
-  isBlueprintMode: false // Toggle between simple lines and to-scale components
+  isBlueprintMode: false, // Toggle between simple lines and to-scale components
+  
+  // Progress tracking state
+  currentStep: 1,
+  completedSteps: []
 };
 
 // --- DOM Element References ---
@@ -104,6 +108,66 @@ function initializeViewport() {
     (canvasWidth - initialViewModelWidth * appState.viewportScale) / 2;
   appState.viewportOffsetY =
     (canvasHeight - initialViewModelHeight * appState.viewportScale) / 2;
+}
+
+// --- Progress Tracking Functions ---
+function initializeProgressStepper() {
+  updateProgressStep(1); // Start with step 1
+  updateDrawingFeedback();
+}
+
+function updateProgressStep(stepNumber) {
+  appState.currentStep = stepNumber;
+  
+  // Update visual states
+  const steps = document.querySelectorAll('.progress-step');
+  steps.forEach((step, index) => {
+    const stepNum = index + 1;
+    step.classList.remove('active', 'completed');
+    
+    if (stepNum < stepNumber) {
+      step.classList.add('completed');
+      if (!appState.completedSteps.includes(stepNum)) {
+        appState.completedSteps.push(stepNum);
+      }
+    } else if (stepNum === stepNumber) {
+      step.classList.add('active');
+    }
+  });
+}
+
+function updateDrawingFeedback() {
+  let message = "";
+  
+  if (appState.currentStep === 1) {
+    if (appState.points.length === 0) {
+      message = "Click to place your first point on the 12\" grid";
+    } else if (appState.points.length < 3) {
+      message = `Point ${appState.points.length} placed. Click to place next point (minimum 3 points needed)`;
+    } else if (!appState.isShapeClosed) {
+      message = `${appState.points.length} points placed. Click near start point to close shape, or continue adding points`;
+    } else {
+      message = "Shape closed! Now select the wall that attaches to your house/structure";
+      updateProgressStep(2);
+    }
+  } else if (appState.currentStep === 2) {
+    if (appState.selectedWallIndex === -1) {
+      message = "Click on the wall edge that will attach to your house or structure";
+    } else {
+      message = "Wall selected! Click 'Generate Plan' to calculate structure and materials";
+    }
+  } else if (appState.currentStep === 3) {
+    if (!appState.structuralComponents || appState.structuralComponents.error) {
+      message = "Click 'Generate Plan' to calculate your deck structure and materials";
+    } else {
+      message = "Plan generated! Review your materials list below, or add stairs if needed";
+      updateProgressStep(4);
+    }
+  } else if (appState.currentStep === 4) {
+    message = "Plan complete! Add stairs by clicking 'Add Stairs' or print your results";
+  }
+  
+  uiController.updateCanvasStatus(message);
 }
 
 // --- Core Application Logic Functions ---
@@ -247,14 +311,20 @@ function resetAppState() {
 
   // Always start with blueprint mode off - user can enable it via the button if needed
   appState.isBlueprintMode = false;
+  
+  // Reset progress tracking state
+  appState.currentStep = 1;
+  appState.completedSteps = [];
 
   initializeViewport();
 
   uiController.resetUIOutputs();
   uiController.toggleStairsInputSection(false);
-  uiController.updateCanvasStatus(
-    "Draw the deck outline. First point will snap to the 12-inch grid."
-  );
+  
+  // Update progress stepper and status message
+  updateProgressStep(1);
+  updateDrawingFeedback();
+  
   redrawApp();
 }
 
@@ -508,11 +578,15 @@ function handleGeneratePlan() {
       uiController.populateSummaryCard(null, inputs, null, null, errorMsg);
     }
     redrawApp();
-    uiController.updateCanvasStatus(
-      appState.structuralComponents?.error
-        ? `Error: ${appState.structuralComponents.error}`
-        : "Plan generated."
-    );
+    
+    // Update progress if plan generation was successful
+    if (appState.structuralComponents && !appState.structuralComponents.error) {
+      updateDrawingFeedback(); // This will automatically advance to step 4
+    } else {
+      uiController.updateCanvasStatus(
+        `Error: ${appState.structuralComponents.error}`
+      );
+    }
   } catch (error) {
     console.error("Error during Generate Plan process:", error);
     uiController.updateCanvasStatus(
@@ -682,9 +756,8 @@ function handleCanvasClick(viewMouseX, viewMouseY) {
     if (clickedWallIndex !== -1) {
       appState.selectedWallIndex = clickedWallIndex;
       appState.wallSelectionMode = false;
-      uiController.updateCanvasStatus(
-        `Attached wall selected. Click 'Generate Plan'.`
-      );
+      updateProgressStep(3);
+      updateDrawingFeedback();
     }
   } else if (
     !appState.isDrawing &&
@@ -744,9 +817,8 @@ function handleCanvasClick(viewMouseX, viewMouseY) {
       appState.structuralComponents = null;
       appState.bom = [];
       uiController.resetUIOutputs();
-      uiController.updateCanvasStatus(
-        "Select the wall attached to the structure."
-      );
+      updateProgressStep(2);
+      updateDrawingFeedback();
     }
   }
 
@@ -824,16 +896,12 @@ function handleCanvasClick(viewMouseX, viewMouseY) {
         
         calculateAndUpdateDeckDimensions();
         appState.wallSelectionMode = true;
-        uiController.updateCanvasStatus(
-          "Shape closed. Select the wall attached to structure."
-        );
+        updateDrawingFeedback();
       } else {
         // Simply add the point - we'll let keyboard input activate dimension entry if needed
         appState.points.push(snappedModelPos);
         appState.isDrawing = true;
-        uiController.updateCanvasStatus(
-          "Click for next point, or type a number for precise measurement."
-        );
+        updateDrawingFeedback();
       }
     } else {
       if (
@@ -846,19 +914,7 @@ function handleCanvasClick(viewMouseX, viewMouseY) {
         // Add the first or second point
         appState.points.push(snappedModelPos);
         appState.isDrawing = true;
-        
-        if (appState.points.length === 1) {
-          // First point placed - show coordinates to confirm it's on the 12" grid
-          const ftX = (snappedModelPos.x / config.PIXELS_PER_FOOT).toFixed(0);
-          const ftY = (snappedModelPos.y / config.PIXELS_PER_FOOT).toFixed(0);
-          uiController.updateCanvasStatus(
-            `First point placed at ${ftX}ft, ${ftY}ft. Click to place second point.`
-          );
-        } else {
-          uiController.updateCanvasStatus(
-            "Click for next point, or type a number for precise measurement."
-          );
-        }
+        updateDrawingFeedback();
       }
     }
   }
@@ -1079,6 +1135,21 @@ function handleCanvasResize() {
 }
 
 // --- Zoom and Fit Handlers ---
+function calculateMinUsableScale() {
+  if (!deckCanvas) return config.MIN_ZOOM_SCALE;
+  
+  const canvasWidth = deckCanvas.width;
+  const canvasHeight = deckCanvas.height;
+  const modelLimitPixelsX = config.MODEL_WIDTH_FEET * config.PIXELS_PER_FOOT;
+  const modelLimitPixelsY = config.MODEL_HEIGHT_FEET * config.PIXELS_PER_FOOT;
+  
+  // Calculate scale where 100ft x 100ft area fits comfortably in canvas
+  const scaleX = (canvasWidth * 0.85) / modelLimitPixelsX;  // 85% to leave margin
+  const scaleY = (canvasHeight * 0.85) / modelLimitPixelsY;
+  
+  return Math.min(scaleX, scaleY);
+}
+
 function handleZoom(zoomIn) {
   const oldScale = appState.viewportScale;
   let newScale;
@@ -1087,8 +1158,11 @@ function handleZoom(zoomIn) {
   } else {
     newScale = oldScale / config.ZOOM_INCREMENT_FACTOR;
   }
+  // Calculate minimum zoom scale to keep 100ft x 100ft area visible
+  const minUsableScale = calculateMinUsableScale();
+  
   newScale = Math.max(
-    config.MIN_ZOOM_SCALE,
+    minUsableScale,  // Don't zoom out past where 100ft area is visible
     Math.min(newScale, config.MAX_ZOOM_SCALE)
   );
 
@@ -1342,5 +1416,6 @@ document.addEventListener("DOMContentLoaded", () => {
   window.addEventListener("afterprint", afterPrintHandler);
 
   resetAppState();
-  console.log("Deck Calculator App Initialized with Zoom/Pan features, Dimension Input, and Blueprint mode.");
+  initializeProgressStepper();
+  console.log("Deck Calculator App Initialized with Zoom/Pan features, Dimension Input, Blueprint mode, and Progress Tracking.");
 });

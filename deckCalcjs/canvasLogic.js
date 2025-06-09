@@ -151,6 +151,7 @@ function drawGrid(
   currentCtx.restore();
 }
 
+
 function drawDeckContent(currentCtx, state) {
   const {
     points = [],
@@ -392,13 +393,18 @@ export function redrawCanvas(state) {
       ctx.scale(state.viewportScale, state.viewportScale);
       const modelViewWidth = canvasWidth / state.viewportScale;
       const modelViewHeight = canvasHeight / state.viewportScale;
+      
+      // Constrain grid to model bounds to match drawable area
+      const modelMaxX = config.MODEL_WIDTH_FEET * config.PIXELS_PER_FOOT;
+      const modelMaxY = config.MODEL_HEIGHT_FEET * config.PIXELS_PER_FOOT;
+      
       drawGrid(
         ctx,
         state.viewportScale,
         0,
-        modelViewWidth,
+        Math.min(modelViewWidth, modelMaxX),
         0,
-        modelViewHeight,
+        Math.min(modelViewHeight, modelMaxY),
         true
       ); // Use 0,0 for offset within transformed context
       drawDeckContent(ctx, {
@@ -478,13 +484,18 @@ export function redrawCanvas(state) {
       (canvasWidth - state.viewportOffsetX) / state.viewportScale;
     const modelVisibleMaxY =
       (canvasHeight - state.viewportOffsetY) / state.viewportScale;
+      
+    // Constrain grid to model bounds to match drawable area
+    const modelMaxX = config.MODEL_WIDTH_FEET * config.PIXELS_PER_FOOT;
+    const modelMaxY = config.MODEL_HEIGHT_FEET * config.PIXELS_PER_FOOT;
+    
     drawGrid(
       ctx,
       state.viewportScale,
-      modelVisibleMinX,
-      modelVisibleMaxX,
-      modelVisibleMinY,
-      modelVisibleMaxY,
+      Math.max(0, modelVisibleMinX),
+      Math.min(modelVisibleMaxX, modelMaxX),
+      Math.max(0, modelVisibleMinY),
+      Math.min(modelVisibleMaxY, modelMaxY),
       false
     );
     drawDeckContent(ctx, {
