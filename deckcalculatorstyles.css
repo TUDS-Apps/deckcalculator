@@ -2,6 +2,57 @@
 body {
   font-family: "Inter", sans-serif; /* Using Inter font as recommended */
 }
+
+/* Deck Calculator Header with gradient background */
+.deck-calculator-header {
+  background: linear-gradient(135deg, #4A90E2 0%, #50C878 100%);
+  padding: 1rem;
+  margin: -1rem -1rem 2rem -1rem;
+  border-radius: 0.75rem;
+  box-shadow: 0 4px 20px rgba(74, 144, 226, 0.3);
+  position: relative;
+  overflow: hidden;
+}
+
+.deck-calculator-header::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: linear-gradient(135deg, rgba(255,255,255,0.1) 0%, rgba(255,255,255,0) 100%);
+  pointer-events: none;
+}
+
+.deck-calculator-header h1 {
+  position: relative;
+  z-index: 1;
+  margin: 0;
+  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+  letter-spacing: -0.025em;
+}
+
+/* Mobile responsiveness for header */
+@media (max-width: 768px) {
+  .deck-calculator-header {
+    margin: -1rem -1rem 1.5rem -1rem;
+    padding: 0.75rem 1rem;
+  }
+  
+  .deck-calculator-header h1 {
+    font-size: 1.5rem;
+    text-align: center;
+  }
+}
+
+/* Desktop enhancement */
+@media (min-width: 1024px) {
+  .deck-calculator-header {
+    padding: 1.25rem;
+    margin: -2rem -2rem 2.5rem -2rem;
+  }
+}
 /* Global styles */
 html {
   scroll-behavior: smooth;
