@@ -1390,6 +1390,38 @@ function beforePrintHandler() {
   redrawApp();
 }
 
+// --- Print Button Handler with Project Name Prompt ---
+function handlePrintPage() {
+  // Check if there's a plan generated with summary data
+  const summaryList = document.getElementById('summaryList');
+  if (!summaryList || summaryList.children.length === 0) {
+    alert("Please generate a deck plan first before printing.");
+    return;
+  }
+  
+  // Prompt for project name
+  const projectName = prompt("Enter project name for this deck plan:", "My Deck Project");
+  
+  if (projectName !== null) { // User didn't cancel
+    // Store the project name for use in print styles
+    document.body.setAttribute('data-project-name', projectName.trim() || 'Unnamed Project');
+    
+    // Ensure the summary section is visible for printing
+    const summarySection = document.getElementById('summarySection');
+    if (summarySection) {
+      summarySection.classList.remove('hidden');
+    }
+    
+    // Trigger print
+    window.print();
+    
+    // Clean up after printing
+    setTimeout(() => {
+      document.body.removeAttribute('data-project-name');
+    }, 1000);
+  }
+}
+
 function afterPrintHandler() {
   appState.isPrinting = false;
   
@@ -1462,7 +1494,7 @@ document.addEventListener("DOMContentLoaded", () => {
     cancelStairsBtn.addEventListener("click", handleCancelStairs);
   if (clearCanvasBtn)
     clearCanvasBtn.addEventListener("click", handleClearCanvas);
-  if (printBomBtn) printBomBtn.addEventListener("click", () => window.print());
+  if (printBomBtn) printBomBtn.addEventListener("click", handlePrintPage);
 
   if (zoomInBtn) zoomInBtn.addEventListener("click", () => handleZoom(true));
   if (zoomOutBtn) zoomOutBtn.addEventListener("click", () => handleZoom(false));
@@ -1626,3 +1658,48 @@ function syncMainSpecValues() {
     fasteners.value = modifyFasteners.value;
   }
 }
+
+// --- Tab Navigation Functions ---
+window.switchTab = function(tabName) {
+  // Hide all tab contents
+  const tabContents = document.querySelectorAll('.tab-content');
+  tabContents.forEach(content => {
+    content.classList.remove('active');
+  });
+  
+  // Remove active state from all tab buttons
+  const tabButtons = document.querySelectorAll('.tab-button');
+  tabButtons.forEach(button => {
+    button.classList.remove('active');
+    button.setAttribute('aria-selected', 'false');
+  });
+  
+  // Show the selected tab content
+  const targetContent = document.getElementById(`${tabName}-content`);
+  if (targetContent) {
+    targetContent.classList.add('active');
+  }
+  
+  // Activate the selected tab button
+  const targetButton = document.getElementById(`${tabName}-tab`);
+  if (targetButton) {
+    targetButton.classList.add('active');
+    targetButton.setAttribute('aria-selected', 'true');
+  }
+  
+  // Handle any tab-specific initialization
+  switch(tabName) {
+    case 'structure':
+      // Structure tab is active - no special handling needed
+      break;
+    case 'decking':
+      // Future: Initialize decking calculator
+      break;
+    case 'railing':
+      // Future: Initialize railing calculator
+      break;
+    case 'summary':
+      // Future: Initialize enhanced summary view
+      break;
+  }
+};

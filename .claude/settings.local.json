@@ -18,7 +18,8 @@
       "Bash(/home/shane/.npm-global/lib/node_modules/@anthropic-ai/claude-code/vendor/ripgrep/x64-linux/rg -A 20 \"window.toggleSpecEditor\" deckCalcjs/app.js)",
       "Bash(/home/shane/.npm-global/lib/node_modules/@anthropic-ai/claude-code/vendor/ripgrep/x64-linux/rg -A 10 \"spec-editor\" deckcalculatorstyles.css)",
       "Bash(/home/shane/.npm-global/lib/node_modules/@anthropic-ai/claude-code/vendor/ripgrep/x64-linux/rg -A 5 -B 5 \"collapsible.*hidden\" deckcalculatorstyles.css)",
-      "Bash(/home/shane/.npm-global/lib/node_modules/@anthropic-ai/claude-code/vendor/ripgrep/x64-linux/rg -A 5 \"hidden\" deckcalculatorstyles.css)"
+      "Bash(/home/shane/.npm-global/lib/node_modules/@anthropic-ai/claude-code/vendor/ripgrep/x64-linux/rg -A 5 \"hidden\" deckcalculatorstyles.css)",
+      "Bash(node:*)"
     ],
     "deny": []
   }

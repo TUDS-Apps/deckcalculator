@@ -188,7 +188,7 @@ canvas.mode-transition {
 
 /* Cursor for wall selection mode */
 .wall-selection-mode #canvasContainer {
-  cursor: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="%23FFA500" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><path d="M15 3h6v6"/><path d="M10 14L21 3"/></svg>') 12 12, pointer;
+  cursor: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="%23FFD700" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3" fill="%23FFD700"/><path d="M12 1v6m0 6v6m11-7h-6m-6 0H1"/></svg>') 12 12, crosshair;
 }
 
 /* Cursor for stair placement mode */
@@ -710,9 +710,9 @@ canvas.mode-transition {
     background-position: center center !important;
   }
   
-  /* Add print header with title */
+  /* Add print header with title and project name */
   body::before {
-    content: "Deck Calculator - Plan and Bill of Materials";
+    content: "Deck Calculator - " attr(data-project-name) " - Plan and Bill of Materials";
     display: block;
     text-align: center;
     font-size: 16pt;
@@ -723,13 +723,18 @@ canvas.mode-transition {
     border-bottom: 1px solid #ccc;
   }
   
+  /* Fallback header when no project name is set */
+  body:not([data-project-name])::before {
+    content: "Deck Calculator - Plan and Bill of Materials";
+  }
+  
   /* Add print footer info */
   @page {
     margin-bottom: 1.5cm;
   }
   
   body::after {
-    content: "Deck Calculator - Printed Plan | " attr(data-print-date);
+    content: "Deck Calculator - " attr(data-project-name) " | " attr(data-print-date);
     position: fixed;
     bottom: 0;
     left: 0;
@@ -739,6 +744,68 @@ canvas.mode-transition {
     color: #666;
     padding-top: 0.3cm;
     border-top: 1px solid #eee;
+  }
+  
+  /* Fallback footer when no project name is set */
+  body:not([data-project-name])::after {
+    content: "Deck Calculator - Printed Plan | " attr(data-print-date);
+  }
+
+  /* Hide the gradient header in print view */
+  .deck-calculator-header {
+    display: none !important;
+  }
+  
+  /* Hide tab navigation and related elements in print view */
+  .tab-navigation {
+    display: none !important;
+  }
+  
+  /* Ensure tab content container shows properly in print */
+  .tab-content-container {
+    box-shadow: none !important;
+    border: none !important;
+    border-radius: 0 !important;
+    background: transparent !important;
+    margin: 0 !important;
+    padding: 0 !important;
+  }
+  
+  /* Show only active tab content in print */
+  .tab-content {
+    display: none !important;
+    padding: 0 !important;
+    margin: 0 !important;
+  }
+  
+  .tab-content.active {
+    display: block !important;
+    padding: 0 !important;
+    margin: 0 !important;
+  }
+  
+  /* Ensure structure tab content displays properly */
+  #structure-content.active {
+    display: grid !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    grid-template-columns: 1fr !important;
+    grid-template-rows: auto auto !important;
+    grid-template-areas:
+      "canvas-area"
+      "bom-area" !important;
+    gap: 1rem !important;
+  }
+  
+  /* Ensure the flex container within structure tab works */
+  #structure-content.active > .flex {
+    display: grid !important;
+    grid-template-columns: 1fr !important;
+    grid-template-rows: auto auto !important;
+    grid-template-areas:
+      "canvas-area"
+      "bom-area" !important;
+    gap: 1rem !important;
   }
 
   /* Hide elements not needed for the specified print layout */
@@ -760,7 +827,8 @@ canvas.mode-transition {
     display: none !important;
   }
 
-  #main-layout-container {
+  /* Structure tab layout for print */
+  #structure-content.active #main-layout-container {
     display: grid !important;
     grid-template-columns: 0.25fr 0.75fr !important;
     grid-template-rows: auto auto !important;
@@ -774,9 +842,19 @@ canvas.mode-transition {
     margin: 0 !important;
   }
 
-  #input-panel,
-  #main-content-panel {
-    display: contents !important;
+  #structure-content.active #input-panel {
+    grid-area: summary-area !important;
+    display: block !important;
+    width: auto !important;
+    max-width: none !important;
+    flex-basis: auto !important;
+    margin: 0 !important;
+    padding: 0 !important;
+  }
+  
+  #structure-content.active #main-content-panel {
+    grid-area: canvas-area !important;
+    display: block !important;
     width: auto !important;
     max-width: none !important;
     flex-basis: auto !important;
@@ -784,9 +862,9 @@ canvas.mode-transition {
     padding: 0 !important;
   }
 
+  /* Show the contextual panel card properly for print */
+  #structure-content.active #input-panel > .info-card:first-child,
   #input-panel > .info-card:first-child {
-    /* This targets the card holding the summary */
-    grid-area: summary-area !important;
     display: block !important;
     border: 1px solid #ddd !important;
     border-radius: 0.5rem !important;
@@ -801,7 +879,7 @@ canvas.mode-transition {
   #input-panel > .info-card:first-child::before {
     content: "Project Summary" !important;
     position: absolute !important;
-    top: 0 !important;
+    top: 0.25rem !important;
     left: 0.75rem !important;
     font-size: 9pt !important;
     font-weight: 600 !important;
@@ -811,7 +889,40 @@ canvas.mode-transition {
     transform: translateY(-50%) !important;
   }
 
-  #input-panel > .info-card:first-child > *:not(#summarySection) {
+  /* Force all panel sections to be visible in print and show only plan-generated content */
+  .panel-section {
+    display: none !important;
+  }
+  
+  .panel-section.hidden {
+    display: none !important;
+  }
+  
+  #plan-generated-panel {
+    display: block !important;
+    position: relative !important;
+    opacity: 1 !important;
+    transform: none !important;
+  }
+  
+  #plan-generated-panel.hidden {
+    display: block !important;
+  }
+  
+  /* Hide everything in plan-generated-panel except summary */
+  #plan-generated-panel > * {
+    display: none !important;
+  }
+  
+  #plan-generated-panel .panel-title {
+    display: none !important;
+  }
+  
+  #plan-generated-panel .panel-content {
+    display: block !important;
+  }
+  
+  #plan-generated-panel .panel-content > *:not(#summarySection) {
     display: none !important;
   }
   
@@ -819,11 +930,42 @@ canvas.mode-transition {
     display: block !important;
     margin-top: 0.5rem !important;
     border-top: none !important;
-    padding-top: 0 !important;
+    padding-top: 0.25rem !important;
+    visibility: visible !important;
   }
   
   #summarySection h3 {
     display: none !important; /* Hide heading since we're using ::before content */
+  }
+  
+  /* Ensure summary list and its content are visible */
+  #summaryList {
+    display: block !important;
+    visibility: visible !important;
+  }
+  
+  /* Ensure all summary content elements are shown */
+  #summaryList dt,
+  #summaryList dd {
+    display: block !important;
+    visibility: visible !important;
+  }
+  
+  /* Override any global hidden classes in print */
+  .hidden {
+    display: none !important;
+  }
+  
+  #plan-generated-panel.hidden {
+    display: block !important;
+  }
+  
+  #summarySection.hidden {
+    display: block !important;
+  }
+  
+  #summaryList.hidden {
+    display: block !important;
   }
   
   /* Enhance summary list for print - vertical layout with title above content */
@@ -858,8 +1000,11 @@ canvas.mode-transition {
     page-break-inside: avoid !important;
   }
 
+  /* Canvas container within tab structure */
+  #structure-content #canvasContainerWrapper,
   #canvasContainerWrapper {
     grid-area: canvas-area !important;
+    display: block !important;
     padding: 0.75rem !important;
     border: 1px solid #bbb !important;
     border-radius: 0.5rem !important;
@@ -944,17 +1089,19 @@ canvas.mode-transition {
     height: 0.6rem !important;
   }
 
+  /* BOM section within tab structure */
+  #structure-content #bomSection,
   #bomSection {
     grid-area: bom-area !important;
     display: block !important;
-    margin-top: 1.5rem !important;
+    margin: 1.5rem 0 0 0 !important;
     padding: 0.75rem !important;
     border: 1px solid #ddd !important;
     border-radius: 0.5rem !important;
     box-shadow: 0 1px 3px rgba(0,0,0,0.1) !important;
     page-break-inside: avoid !important;
     background-color: #fff !important;
-    width: 100%;
+    width: 100% !important;
     position: relative !important;
   }
   
@@ -1277,5 +1424,304 @@ canvas.mode-transition {
   .action-buttons {
     gap: 0.5rem;
     margin: 1rem 0;
+  }
+}
+
+/* Tab Navigation Styles */
+.tab-navigation {
+  background: linear-gradient(135deg, #ffffff 0%, #f8fafc 100%);
+  border-radius: 0.75rem 0.75rem 0 0;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08), 0 1px 3px rgba(0, 0, 0, 0.1);
+  margin-bottom: 0;
+  border: 1px solid #e2e8f0;
+  border-bottom: none;
+  position: relative;
+  overflow: hidden;
+  width: 100%;
+}
+
+.tab-list {
+  display: flex;
+  padding: 0.5rem;
+  gap: 0.25rem;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+.tab-button {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.75rem 1rem;
+  border: none;
+  background-color: transparent;
+  color: #6b7280;
+  font-weight: 500;
+  font-size: 0.875rem;
+  border-radius: 0.5rem;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  position: relative;
+  white-space: nowrap;
+}
+
+.tab-button:hover {
+  background-color: #f3f4f6;
+  color: #374151;
+  transform: translateY(-1px);
+}
+
+.tab-button.active {
+  background-color: #4A90E2;
+  color: #ffffff;
+  box-shadow: 0 2px 4px rgba(74, 144, 226, 0.3);
+}
+
+.tab-button.active:hover {
+  background-color: #3a80d2;
+  transform: translateY(-1px);
+}
+
+.tab-icon {
+  width: 1.25rem;
+  height: 1.25rem;
+  stroke-width: 2;
+  transition: all 0.2s ease;
+}
+
+.tab-button:hover .tab-icon {
+  transform: scale(1.05);
+}
+
+.tab-label {
+  font-weight: 500;
+}
+
+.coming-soon-badge {
+  display: inline-block;
+  background-color: #fbbf24;
+  color: #92400e;
+  font-size: 0.625rem;
+  font-weight: 600;
+  padding: 0.125rem 0.375rem;
+  border-radius: 0.25rem;
+  margin-left: 0.5rem;
+  text-transform: uppercase;
+  letter-spacing: 0.025em;
+}
+
+.tab-button.active .coming-soon-badge {
+  background-color: rgba(255, 255, 255, 0.2);
+  color: #ffffff;
+}
+
+/* Tab Content Styles */
+.tab-content-container {
+  background-color: #ffffff;
+  border-radius: 0 0 0.75rem 0.75rem;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  overflow: hidden;
+}
+
+.tab-content {
+  display: none;
+  padding: 1.5rem;
+  animation: fadeIn 0.3s ease-in-out;
+}
+
+.tab-content.active {
+  display: block;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Coming Soon Content Styles */
+.coming-soon-content {
+  text-align: center;
+  padding: 3rem 2rem;
+  color: #6b7280;
+}
+
+.coming-soon-icon {
+  width: 4rem;
+  height: 4rem;
+  margin: 0 auto 1.5rem;
+  padding: 1rem;
+  background-color: #f3f4f6;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.coming-soon-icon svg {
+  width: 2rem;
+  height: 2rem;
+  stroke: #9ca3af;
+}
+
+.coming-soon-title {
+  font-size: 1.5rem;
+  font-weight: 600;
+  color: #374151;
+  margin-bottom: 1rem;
+}
+
+.coming-soon-description {
+  font-size: 1rem;
+  line-height: 1.6;
+  color: #6b7280;
+  max-width: 500px;
+  margin: 0 auto 2rem;
+}
+
+.coming-soon-features {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 0.5rem;
+  margin-top: 1.5rem;
+}
+
+.feature-tag {
+  display: inline-block;
+  background-color: #e5e7eb;
+  color: #4b5563;
+  font-size: 0.75rem;
+  font-weight: 500;
+  padding: 0.25rem 0.75rem;
+  border-radius: 1rem;
+  white-space: nowrap;
+}
+
+/* Mobile responsiveness for tabs */
+@media (max-width: 768px) {
+  .tab-list {
+    padding: 0.25rem;
+    gap: 0.125rem;
+  }
+  
+  .tab-button {
+    padding: 0.5rem 0.75rem;
+    font-size: 0.75rem;
+    flex-direction: column;
+    gap: 0.25rem;
+  }
+  
+  .tab-icon {
+    width: 1rem;
+    height: 1rem;
+  }
+  
+  .coming-soon-badge {
+    font-size: 0.5rem;
+    padding: 0.125rem 0.25rem;
+    margin-left: 0;
+    margin-top: 0.125rem;
+  }
+  
+  .tab-content {
+    padding: 1rem;
+  }
+  
+  .coming-soon-content {
+    padding: 2rem 1rem;
+  }
+  
+  .coming-soon-icon {
+    width: 3rem;
+    height: 3rem;
+    margin-bottom: 1rem;
+  }
+  
+  .coming-soon-icon svg {
+    width: 1.5rem;
+    height: 1.5rem;
+  }
+  
+  .coming-soon-title {
+    font-size: 1.25rem;
+  }
+  
+  .coming-soon-description {
+    font-size: 0.875rem;
+  }
+  
+  .feature-tag {
+    font-size: 0.625rem;
+    padding: 0.125rem 0.5rem;
+  }
+  
+  .preview-section {
+    padding: 1.5rem 1rem;
+    margin: 1rem 0;
+  }
+}
+
+@media (max-width: 480px) {
+  .tab-button {
+    padding: 0.5rem 0.75rem;
+    min-width: 70px;
+  }
+  
+  .tab-icon {
+    width: 1rem;
+    height: 1rem;
+  }
+  
+  .tab-label {
+    font-size: 0.5rem;
+  }
+  
+  .coming-soon-title {
+    font-size: 1.25rem;
+  }
+  
+  .coming-soon-features {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+/* High contrast mode support */
+@media (prefers-contrast: high) {
+  .tab-button {
+    border: 2px solid currentColor;
+  }
+  
+  .tab-button.active {
+    background: #000000;
+    color: #ffffff;
+  }
+  
+  .coming-soon-badge {
+    border: 1px solid currentColor;
+  }
+}
+
+/* Reduced motion support */
+@media (prefers-reduced-motion: reduce) {
+  .tab-button,
+  .tab-icon,
+  .tab-content,
+  .coming-soon-icon,
+  .feature-tag {
+    animation: none !important;
+    transition: none !important;
+  }
+  
+  .tab-button:hover {
+    transform: none;
+  }
+  
+  .coming-soon-badge {
+    animation: none;
   }
 }
