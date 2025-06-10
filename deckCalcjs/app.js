@@ -9,6 +9,8 @@ import * as deckCalculations from "./deckCalculations.js";
 import * as stairCalculations from "./stairCalculations.js";
 import * as canvasLogic from "./canvasLogic.js";
 import * as bomCalculations from "./bomCalculations.js";
+import * as shapeValidator from "./shapeValidator.js";
+import * as shapeDecomposer from "./shapeDecomposer.js";
 
 // --- Application State ---
 const appState = {
@@ -18,7 +20,7 @@ const appState = {
   currentMousePos: null,
   currentModelMousePos: null,
   wallSelectionMode: false,
-  selectedWallIndex: -1,
+  selectedWallIndices: [], // Array of selected wall indices for ledger attachment
   stairPlacementMode: false,
   selectedStairIndex: -1,
   isDraggingStairs: false,
@@ -32,6 +34,10 @@ const appState = {
   stairs: [],
   bom: [],
   isPrinting: false,
+
+  // Complex shape decomposition
+  rectangularSections: [], // Will store the decomposed rectangles
+  showDecompositionShading: false, // For testing visualization (initially off)
 
   // Viewport State
   viewportScale: 1.0,
@@ -68,6 +74,7 @@ const zoomInBtn = document.getElementById("zoomInBtn");
 const zoomOutBtn = document.getElementById("zoomOutBtn");
 const centerFitBtn = document.getElementById("centerFitBtn");
 const blueprintToggleBtn = document.getElementById("blueprintToggleBtn");
+const toggleDecompositionBtn = document.getElementById("toggleDecompositionBtn");
 
 // Legend elements
 const blueprintLegend = document.getElementById("blueprintLegend");
@@ -118,10 +125,10 @@ function getCurrentPanelMode() {
   if (appState.structuralComponents && !appState.structuralComponents.error) {
     return 'plan-generated';
   }
-  if (appState.isShapeClosed && appState.selectedWallIndex === -1) {
+  if (appState.isShapeClosed && appState.selectedWallIndices.length === 0) {
     return 'wall-selection';
   }
-  if (appState.isShapeClosed && appState.selectedWallIndex !== -1) {
+  if (appState.isShapeClosed && appState.selectedWallIndices.length > 0) {
     return 'wall-selection'; // Still show wall selection panel since it now has Generate Plan button
   }
   return 'drawing';
@@ -233,7 +240,116 @@ function focusStairConfiguration() {
   }
 }
 
+// --- Multi-Wall Selection Functions ---
+
+/**
+ * Checks if two walls are parallel (within EPSILON tolerance)
+ * @param {number} wallIndex1 - Index of first wall
+ * @param {number} wallIndex2 - Index of second wall
+ * @param {Array<{x: number, y: number}>} points - Array of polygon points
+ * @returns {boolean} True if walls are parallel
+ */
+function areWallsParallel(wallIndex1, wallIndex2, points) {
+  if (wallIndex1 === wallIndex2) return true; // Same wall
+  
+  const wall1P1 = points[wallIndex1];
+  const wall1P2 = points[(wallIndex1 + 1) % points.length];
+  const wall2P1 = points[wallIndex2];
+  const wall2P2 = points[(wallIndex2 + 1) % points.length];
+  
+  // Calculate direction vectors
+  const dir1 = {
+    x: wall1P2.x - wall1P1.x,
+    y: wall1P2.y - wall1P1.y
+  };
+  const dir2 = {
+    x: wall2P2.x - wall2P1.x,
+    y: wall2P2.y - wall2P1.y
+  };
+  
+  // Normalize vectors
+  const len1 = Math.sqrt(dir1.x * dir1.x + dir1.y * dir1.y);
+  const len2 = Math.sqrt(dir2.x * dir2.x + dir2.y * dir2.y);
+  
+  if (len1 < config.EPSILON || len2 < config.EPSILON) return false;
+  
+  dir1.x /= len1;
+  dir1.y /= len1;
+  dir2.x /= len2;
+  dir2.y /= len2;
+  
+  // Check if vectors are parallel (dot product close to ±1)
+  const dotProduct = Math.abs(dir1.x * dir2.x + dir1.y * dir2.y);
+  return Math.abs(dotProduct - 1.0) < config.EPSILON;
+}
+
+/**
+ * Validates that all selected walls are parallel
+ * @param {Array<number>} wallIndices - Array of selected wall indices
+ * @param {Array<{x: number, y: number}>} points - Array of polygon points
+ * @returns {{isValid: boolean, error?: string}} Validation result
+ */
+function validateSelectedWalls(wallIndices, points) {
+  if (wallIndices.length === 0) {
+    return { isValid: false, error: "No walls selected" };
+  }
+  
+  if (wallIndices.length === 1) {
+    return { isValid: true }; // Single wall is always valid
+  }
+  
+  // Check that all walls are parallel to the first one
+  const firstWallIndex = wallIndices[0];
+  for (let i = 1; i < wallIndices.length; i++) {
+    if (!areWallsParallel(firstWallIndex, wallIndices[i], points)) {
+      return { 
+        isValid: false, 
+        error: "All selected walls must be parallel to each other" 
+      };
+    }
+  }
+  
+  return { isValid: true };
+}
+
 // --- Core Application Logic Functions ---
+
+function decomposeClosedShape() {
+  if (!appState.isShapeClosed || appState.points.length < 4) {
+    appState.rectangularSections = [];
+    return;
+  }
+
+  try {
+    // Ensure we have a properly closed polygon for decomposition
+    let pointsForDecomposition = [...appState.points];
+    
+    // Check if the shape is properly closed (first and last points should be the same)
+    const firstPoint = pointsForDecomposition[0];
+    const lastPoint = pointsForDecomposition[pointsForDecomposition.length - 1];
+    const distance = Math.sqrt(
+      Math.pow(firstPoint.x - lastPoint.x, 2) + Math.pow(firstPoint.y - lastPoint.y, 2)
+    );
+    
+    if (distance > 0.1) { // If not closed, add closing point
+      pointsForDecomposition.push({ ...firstPoint });
+    }
+    
+    // Use first ledger wall index if selected, otherwise default to 0
+    const ledgerWallIndex = appState.selectedWallIndices.length > 0 ? appState.selectedWallIndices[0] : 0;
+    
+    // Decompose the shape into rectangles
+    appState.rectangularSections = shapeDecomposer.decomposeShape(pointsForDecomposition, ledgerWallIndex);
+    
+    console.log(`Shape decomposed into ${appState.rectangularSections.length} rectangular sections`);
+    
+  } catch (error) {
+    console.error("Shape decomposition failed:", error);
+    appState.rectangularSections = [];
+    uiController.updateCanvasStatus("Warning: Could not decompose shape into rectangles. Using simplified calculations.");
+  }
+}
+
 function calculateAndUpdateDeckDimensions() {
   if (!appState.isShapeClosed || appState.points.length < 3) {
     appState.deckDimensions = null;
@@ -356,7 +472,7 @@ function resetAppState() {
   appState.currentMousePos = null;
   appState.currentModelMousePos = null;
   appState.wallSelectionMode = false;
-  appState.selectedWallIndex = -1;
+  appState.selectedWallIndices = [];
   appState.stairPlacementMode = false;
   appState.selectedStairIndex = -1;
   appState.isDraggingStairs = false;
@@ -366,6 +482,10 @@ function resetAppState() {
   appState.stairs = [];
   appState.bom = [];
   appState.isPanning = false; // Reset panning state
+  
+  // Reset decomposition state
+  appState.rectangularSections = [];
+  appState.showDecompositionShading = false;
   
   // Reset dimension input state
   appState.isDimensionInputActive = false;
@@ -598,9 +718,9 @@ function handleGeneratePlan() {
     );
     return;
   }
-  if (appState.selectedWallIndex === -1) {
+  if (appState.selectedWallIndices.length === 0) {
     uiController.updateCanvasStatus(
-      "Error: Please select the attached wall first."
+      "Error: Please select the attached wall(s) first."
     );
     return;
   }
@@ -819,6 +939,10 @@ function handleCanvasClick(viewMouseX, viewMouseY) {
     if (clickedWallIndex !== -1) {
       appState.selectedWallIndex = clickedWallIndex;
       appState.wallSelectionMode = false;
+      
+      // Now that we have the ledger wall selected, decompose the shape
+      decomposeClosedShape();
+      
       updateContextualPanel();
     }
   } else if (
@@ -875,7 +999,7 @@ function handleCanvasClick(viewMouseX, viewMouseY) {
       appState.selectedWallIndex !== clickedWallIdx
     ) {
       appState.wallSelectionMode = true;
-      appState.selectedWallIndex = -1;
+      appState.selectedWallIndices = [];
       appState.structuralComponents = null;
       appState.bom = [];
       uiController.resetUIOutputs();
@@ -913,9 +1037,12 @@ function handleCanvasClick(viewMouseX, viewMouseY) {
       if (
         utils.distance(snappedModelPos, appState.points[0]) < modelSnapTolerance
       ) {
+        // Create a temporary shape for validation that includes corner point and closing
+        let tempPoints = [...appState.points];
+        
         // Create orthogonal closing path if needed
-        const lastPoint = appState.points[appState.points.length - 1];
-        const startPoint = appState.points[0];
+        const lastPoint = tempPoints[tempPoints.length - 1];
+        const startPoint = tempPoints[0];
         
         if (Math.abs(lastPoint.x - startPoint.x) > config.EPSILON && 
             Math.abs(lastPoint.y - startPoint.y) > config.EPSILON) {
@@ -933,8 +1060,25 @@ function handleCanvasClick(viewMouseX, viewMouseY) {
             cornerPoint.y = startPoint.y;
           }
           
-          // Add the corner point before closing
-          appState.points.push(cornerPoint);
+          // Add the corner point to temp array
+          tempPoints.push(cornerPoint);
+        }
+        
+        // Add closing point to temp array
+        tempPoints.push({ ...tempPoints[0] });
+        
+        // Validate the complete shape before accepting it
+        const validation = shapeValidator.validateShape(tempPoints);
+        if (!validation.isValid) {
+          uiController.updateCanvasStatus(`Shape validation failed: ${validation.error}`);
+          redrawApp();
+          return;
+        }
+        
+        // If validation passed, actually apply the changes
+        if (tempPoints.length > appState.points.length + 1) {
+          // Corner point was added
+          appState.points.push(tempPoints[tempPoints.length - 2]); // Add corner point
           uiController.updateCanvasStatus(
             "Added corner point to maintain 90-degree angles."
           );
@@ -942,6 +1086,7 @@ function handleCanvasClick(viewMouseX, viewMouseY) {
         
         // Now close the shape
         appState.points.push({ ...appState.points[0] });
+        
         appState.isShapeClosed = true;
         appState.isDrawing = false;
         appState.currentMousePos = null;
@@ -956,7 +1101,12 @@ function handleCanvasClick(viewMouseX, viewMouseY) {
         }
         
         calculateAndUpdateDeckDimensions();
+        
+        // Reset decomposition since no wall is selected yet
+        appState.rectangularSections = [];
+        
         appState.wallSelectionMode = true;
+        
         updateContextualPanel();
       } else {
         // Simply add the point - we'll let keyboard input activate dimension entry if needed
@@ -1468,6 +1618,24 @@ function handleBlueprintToggle() {
   }, 500);
 }
 
+// --- Decomposition Visualization Toggle ---
+function handleToggleDecomposition() {
+  appState.showDecompositionShading = !appState.showDecompositionShading;
+  
+  // Update button appearance
+  if (appState.showDecompositionShading) {
+    toggleDecompositionBtn.classList.add('btn-primary');
+    toggleDecompositionBtn.classList.remove('btn-secondary');
+    uiController.updateCanvasStatus("Decomposition view: Showing rectangle decomposition");
+  } else {
+    toggleDecompositionBtn.classList.add('btn-secondary');
+    toggleDecompositionBtn.classList.remove('btn-primary');
+    uiController.updateCanvasStatus("Standard view: Rectangle decomposition hidden");
+  }
+  
+  redrawApp();
+}
+
 // --- Initialization ---
 document.addEventListener("DOMContentLoaded", () => {
   dataManager.loadAndParseData();
@@ -1500,6 +1668,7 @@ document.addEventListener("DOMContentLoaded", () => {
   if (zoomOutBtn) zoomOutBtn.addEventListener("click", () => handleZoom(false));
   if (centerFitBtn) centerFitBtn.addEventListener("click", handleCenterFit);
   if (blueprintToggleBtn) blueprintToggleBtn.addEventListener("click", handleBlueprintToggle);
+  if (toggleDecompositionBtn) toggleDecompositionBtn.addEventListener("click", handleToggleDecomposition);
 
   // Add dimension input button event listeners
   if (applyDimensionBtn) applyDimensionBtn.addEventListener("click", handleDimensionInputApply);
@@ -1658,6 +1827,7 @@ function syncMainSpecValues() {
     fasteners.value = modifyFasteners.value;
   }
 }
+
 
 // --- Tab Navigation Functions ---
 window.switchTab = function(tabName) {

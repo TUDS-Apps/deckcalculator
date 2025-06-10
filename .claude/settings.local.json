@@ -19,7 +19,23 @@
       "Bash(/home/shane/.npm-global/lib/node_modules/@anthropic-ai/claude-code/vendor/ripgrep/x64-linux/rg -A 10 \"spec-editor\" deckcalculatorstyles.css)",
       "Bash(/home/shane/.npm-global/lib/node_modules/@anthropic-ai/claude-code/vendor/ripgrep/x64-linux/rg -A 5 -B 5 \"collapsible.*hidden\" deckcalculatorstyles.css)",
       "Bash(/home/shane/.npm-global/lib/node_modules/@anthropic-ai/claude-code/vendor/ripgrep/x64-linux/rg -A 5 \"hidden\" deckcalculatorstyles.css)",
-      "Bash(node:*)"
+      "Bash(node:*)",
+      "Bash(rg:*)",
+      "Bash(python3:*)",
+      "Bash(/home/shane/.npm-global/lib/node_modules/@anthropic-ai/claude-code/vendor/ripgrep/x64-linux/rg -n \"decomposeShape\" --type js)",
+      "Bash(/home/shane/.npm-global/lib/node_modules/@anthropic-ai/claude-code/vendor/ripgrep/x64-linux/rg -n -A 5 -B 5 \"rectangularSections\" --type js)",
+      "Bash(/home/shane/.npm-global/lib/node_modules/@anthropic-ai/claude-code/vendor/ripgrep/x64-linux/rg -n -A 10 -B 5 \"rectangularSections|decomposeShape\" deckCalcjs/deckCalculations.js)",
+      "Bash(/home/shane/.npm-global/lib/node_modules/@anthropic-ai/claude-code/vendor/ripgrep/x64-linux/rg -n \"rect\" deckCalcjs/)",
+      "Bash(/home/shane/.npm-global/lib/node_modules/@anthropic-ai/claude-code/vendor/ripgrep/x64-linux/rg \"decomposeShape\" -A 5 -B 5)",
+      "Bash(/home/shane/.npm-global/lib/node_modules/@anthropic-ai/claude-code/vendor/ripgrep/x64-linux/rg \"decomposeClosedShape\" -A 10 -B 10)",
+      "Bash(/home/shane/.npm-global/lib/node_modules/@anthropic-ai/claude-code/vendor/ripgrep/x64-linux/rg \"function decomposeClosedShape\" -A 50)",
+      "Bash(/home/shane/.npm-global/lib/node_modules/@anthropic-ai/claude-code/vendor/ripgrep/x64-linux/rg -n \"decomposeShape|rectangularSections\" deckCalcjs/app.js)",
+      "Bash(/home/shane/.npm-global/lib/node_modules/@anthropic-ai/claude-code/vendor/ripgrep/x64-linux/rg -n \"decomposeShape\" .)",
+      "Bash(/home/shane/.npm-global/lib/node_modules/@anthropic-ai/claude-code/vendor/ripgrep/x64-linux/rg -n \"toggleDecomposition|showDecomposition\" .)",
+      "Bash(/home/shane/.npm-global/lib/node_modules/@anthropic-ai/claude-code/vendor/ripgrep/x64-linux/rg -n \"toggleDecomposition|Decomposition\" index.html)",
+      "Bash(/home/shane/.npm-global/lib/node_modules/@anthropic-ai/claude-code/vendor/ripgrep/x64-linux/rg -n -A 5 \"toggleDecompositionBtn\" deckCalcjs/app.js)",
+      "Bash(/home/shane/.npm-global/lib/node_modules/@anthropic-ai/claude-code/vendor/ripgrep/x64-linux/rg -n -B 5 -A 10 \"handleToggleDecomposition\" deckCalcjs/app.js)",
+      "Bash(python:*)"
     ],
     "deny": []
   }

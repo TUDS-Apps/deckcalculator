@@ -245,6 +245,15 @@ function drawDeckContent(currentCtx, state) {
     });
   }
 
+  // Draw decomposition shading (behind structural elements but above grid)
+  if (isShapeClosed && state.showDecompositionShading && state.rectangularSections && state.rectangularSections.length > 0) {
+    drawDecompositionShading(
+      currentCtx,
+      state.rectangularSections,
+      effectiveScale
+    );
+  }
+
   if (points.length >= 2) {
     drawAllDimensions(
       currentCtx,
@@ -755,6 +764,82 @@ export function findClickedWallIndex(
     }
   }
   return -1;
+}
+
+function drawDecompositionShading(currentCtx, rectangularSections, scale) {
+  if (!currentCtx || !rectangularSections || rectangularSections.length === 0 || scale === 0) return;
+
+  const colors = [
+    'rgba(255,0,0,0.1)',   // Red
+    'rgba(0,255,0,0.1)',   // Green
+    'rgba(0,0,255,0.1)',   // Blue
+    'rgba(255,255,0,0.1)', // Yellow
+    'rgba(255,0,255,0.1)', // Magenta
+    'rgba(0,255,255,0.1)', // Cyan
+    'rgba(255,128,0,0.1)', // Orange
+    'rgba(128,0,255,0.1)'  // Purple
+  ];
+
+  rectangularSections.forEach((rect, index) => {
+    if (!rect.corners || rect.corners.length < 3) return;
+
+    // Fill the rectangle area
+    currentCtx.fillStyle = colors[index % colors.length];
+    currentCtx.beginPath();
+    currentCtx.moveTo(rect.corners[0].x, rect.corners[0].y);
+    for (let i = 1; i < rect.corners.length; i++) {
+      currentCtx.lineTo(rect.corners[i].x, rect.corners[i].y);
+    }
+    currentCtx.closePath();
+    currentCtx.fill();
+
+    // Draw rectangle border
+    currentCtx.strokeStyle = colors[index % colors.length].replace('0.1', '0.5');
+    currentCtx.lineWidth = Math.max(0.5 / scale, 2 / scale);
+    currentCtx.setLineDash([]);
+    currentCtx.stroke();
+
+    // Draw label
+    const centerX = rect.corners.reduce((sum, corner) => sum + corner.x, 0) / rect.corners.length;
+    const centerY = rect.corners.reduce((sum, corner) => sum + corner.y, 0) / rect.corners.length;
+    
+    currentCtx.fillStyle = colors[index % colors.length].replace('0.1', '0.8');
+    currentCtx.font = `${Math.max(8, 12 / scale)}px Arial`;
+    currentCtx.textAlign = 'center';
+    currentCtx.textBaseline = 'middle';
+    
+    const label = `R${index + 1}${rect.isLedgerRectangle ? ' (Ledger)' : ''}`;
+    currentCtx.fillText(label, centerX, centerY);
+  });
+}
+
+function drawRectangleShading(currentCtx, rectangle, colorIndex, scale) {
+  if (!currentCtx || !rectangle || !rectangle.corners || scale === 0) return;
+
+  const colors = [
+    'rgba(255,0,0,0.1)',   // Red
+    'rgba(0,255,0,0.1)',   // Green
+    'rgba(0,0,255,0.1)',   // Blue
+    'rgba(255,255,0,0.1)', // Yellow
+    'rgba(255,0,255,0.1)', // Magenta
+    'rgba(0,255,255,0.1)', // Cyan
+    'rgba(255,128,0,0.1)', // Orange
+    'rgba(128,0,255,0.1)'  // Purple
+  ];
+
+  const color = colors[colorIndex % colors.length];
+  const opacity = Math.min(0.3, Math.max(0.05, 0.2 / scale)); // Adjust opacity based on scale
+
+  currentCtx.fillStyle = color.replace('0.1', opacity.toString());
+  currentCtx.beginPath();
+  currentCtx.moveTo(rectangle.corners[0].x, rectangle.corners[0].y);
+  
+  for (let i = 1; i < rectangle.corners.length; i++) {
+    currentCtx.lineTo(rectangle.corners[i].x, rectangle.corners[i].y);
+  }
+  
+  currentCtx.closePath();
+  currentCtx.fill();
 }
 
 function drawStructuralComponentsInternal(

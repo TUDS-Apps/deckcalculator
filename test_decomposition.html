@@ -1,0 +1,226 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Shape Decomposition Test</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .test-case { border: 1px solid #ccc; margin: 20px 0; padding: 15px; border-radius: 5px; }
+        .test-title { font-weight: bold; color: #333; margin-bottom: 10px; }
+        .test-input { background: #f5f5f5; padding: 10px; margin: 10px 0; }
+        .test-output { background: #e8f5e8; padding: 10px; margin: 10px 0; }
+        .test-error { background: #ffe8e8; padding: 10px; margin: 10px 0; color: red; }
+        pre { margin: 0; white-space: pre-wrap; }
+        canvas { border: 1px solid #ddd; margin: 10px 0; }
+    </style>
+</head>
+<body>
+    <h1>Shape Decomposition Test</h1>
+    <p>This page tests the new recursive shape decomposition algorithm.</p>
+
+    <div id="test-container"></div>
+
+    <script type="module">
+        // Import the modules
+        import { decomposeShape, visualizeDecomposition, canDecomposeShape } from './deckCalcjs/shapeDecomposer.js';
+
+        // Test cases
+        const testCases = [
+            {
+                name: "Simple Rectangle",
+                points: [
+                    { x: 0, y: 0 },
+                    { x: 120, y: 0 },
+                    { x: 120, y: 96 },
+                    { x: 0, y: 96 },
+                    { x: 0, y: 0 }
+                ],
+                ledgerWallIndex: 0
+            },
+            {
+                name: "L-Shape",
+                points: [
+                    { x: 0, y: 0 },
+                    { x: 144, y: 0 },
+                    { x: 144, y: 96 },
+                    { x: 72, y: 96 },
+                    { x: 72, y: 192 },
+                    { x: 0, y: 192 },
+                    { x: 0, y: 0 }
+                ],
+                ledgerWallIndex: 0
+            },
+            {
+                name: "U-Shape",
+                points: [
+                    { x: 0, y: 0 },
+                    { x: 192, y: 0 },
+                    { x: 192, y: 144 },
+                    { x: 144, y: 144 },
+                    { x: 144, y: 48 },
+                    { x: 48, y: 48 },
+                    { x: 48, y: 144 },
+                    { x: 0, y: 144 },
+                    { x: 0, y: 0 }
+                ],
+                ledgerWallIndex: 0
+            },
+            {
+                name: "T-Shape",
+                points: [
+                    { x: 48, y: 0 },
+                    { x: 144, y: 0 },
+                    { x: 144, y: 48 },
+                    { x: 192, y: 48 },
+                    { x: 192, y: 144 },
+                    { x: 0, y: 144 },
+                    { x: 0, y: 48 },
+                    { x: 48, y: 48 },
+                    { x: 48, y: 0 }
+                ],
+                ledgerWallIndex: 0
+            }
+        ];
+
+        function drawShape(canvas, points, rectangles = null) {
+            const ctx = canvas.getContext('2d');
+            const padding = 20;
+            
+            // Find bounds
+            let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
+            points.forEach(p => {
+                minX = Math.min(minX, p.x);
+                maxX = Math.max(maxX, p.x);
+                minY = Math.min(minY, p.y);
+                maxY = Math.max(maxY, p.y);
+            });
+            
+            const width = maxX - minX;
+            const height = maxY - minY;
+            const scale = Math.min((canvas.width - 2 * padding) / width, (canvas.height - 2 * padding) / height);
+            
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            ctx.save();
+            
+            // Center and scale
+            ctx.translate(padding + (canvas.width - 2 * padding - width * scale) / 2, 
+                         padding + (canvas.height - 2 * padding - height * scale) / 2);
+            ctx.scale(scale, scale);
+            ctx.translate(-minX, -minY);
+            
+            // Draw rectangles if provided
+            if (rectangles) {
+                rectangles.forEach((rect, index) => {
+                    ctx.fillStyle = rect.color || `rgba(${index * 60 % 255}, ${(index * 80) % 255}, ${(index * 100) % 255}, 0.3)`;
+                    ctx.strokeStyle = rect.strokeColor || '#333';
+                    ctx.lineWidth = 2;
+                    
+                    ctx.beginPath();
+                    rect.corners.forEach((corner, i) => {
+                        if (i === 0) ctx.moveTo(corner.x, corner.y);
+                        else ctx.lineTo(corner.x, corner.y);
+                    });
+                    ctx.closePath();
+                    ctx.fill();
+                    ctx.stroke();
+                    
+                    // Add label
+                    const bounds = {
+                        minX: Math.min(...rect.corners.map(c => c.x)),
+                        maxX: Math.max(...rect.corners.map(c => c.x)),
+                        minY: Math.min(...rect.corners.map(c => c.y)),
+                        maxY: Math.max(...rect.corners.map(c => c.y))
+                    };
+                    const centerX = (bounds.minX + bounds.maxX) / 2;
+                    const centerY = (bounds.minY + bounds.maxY) / 2;
+                    
+                    ctx.fillStyle = '#000';
+                    ctx.font = '12px Arial';
+                    ctx.textAlign = 'center';
+                    ctx.fillText(rect.label || rect.rectangleId, centerX, centerY);
+                });
+            }
+            
+            // Draw original shape outline
+            ctx.strokeStyle = '#000';
+            ctx.lineWidth = 3;
+            ctx.beginPath();
+            points.forEach((point, index) => {
+                if (index === 0) ctx.moveTo(point.x, point.y);
+                else ctx.lineTo(point.x, point.y);
+            });
+            ctx.stroke();
+            
+            ctx.restore();
+        }
+
+        function runTest(testCase) {
+            const container = document.getElementById('test-container');
+            const testDiv = document.createElement('div');
+            testDiv.className = 'test-case';
+            
+            let html = `<div class="test-title">${testCase.name}</div>`;
+            
+            // Show input
+            html += `<div class="test-input"><strong>Input:</strong><br>`;
+            html += `Points: ${testCase.points.length - 1} vertices (${testCase.points.slice(0, -1).map(p => `(${p.x}, ${p.y})`).join(', ')})<br>`;
+            html += `Ledger Wall Index: ${testCase.ledgerWallIndex}</div>`;
+            
+            try {
+                // Test if shape can be decomposed
+                const canDecompose = canDecomposeShape(testCase.points);
+                if (!canDecompose) {
+                    html += `<div class="test-error">Shape cannot be decomposed (not rectilinear)</div>`;
+                    testDiv.innerHTML = html;
+                    container.appendChild(testDiv);
+                    return;
+                }
+                
+                // Decompose the shape
+                const start = performance.now();
+                const rectangles = decomposeShape(testCase.points, testCase.ledgerWallIndex);
+                const end = performance.now();
+                
+                // Create visualization data
+                const visualization = visualizeDecomposition(rectangles);
+                
+                // Show output
+                html += `<div class="test-output"><strong>Output:</strong><br>`;
+                html += `Decomposition Time: ${(end - start).toFixed(2)}ms<br>`;
+                html += `Number of Rectangles: ${rectangles.length}<br><br>`;
+                
+                rectangles.forEach((rect, index) => {
+                    html += `<strong>Rectangle ${index + 1} (${rect.id}):</strong><br>`;
+                    html += `- Corners: ${rect.corners.map(c => `(${c.x}, ${c.y})`).join(', ')}<br>`;
+                    html += `- Is Ledger Rectangle: ${rect.isLedgerRectangle}<br>`;
+                    html += `- Adjacent Rectangles: [${rect.adjacentRectangles.join(', ')}]<br>`;
+                    html += `- Shared Edges: ${rect.sharedEdges.length}<br><br>`;
+                });
+                
+                html += `</div>`;
+                
+                testDiv.innerHTML = html;
+                
+                // Add canvas for visualization
+                const canvas = document.createElement('canvas');
+                canvas.width = 400;
+                canvas.height = 300;
+                testDiv.appendChild(canvas);
+                
+                // Draw the result
+                drawShape(canvas, testCase.points, visualization);
+                
+            } catch (error) {
+                html += `<div class="test-error"><strong>Error:</strong><br><pre>${error.message}\n${error.stack}</pre></div>`;
+                testDiv.innerHTML = html;
+            }
+            
+            container.appendChild(testDiv);
+        }
+
+        // Run all tests
+        testCases.forEach(runTest);
+    </script>
+</body>
+</html>
