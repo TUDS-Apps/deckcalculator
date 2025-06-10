@@ -358,11 +358,13 @@ function calculateAllJoists(
       // This joist will be a single, full-depth piece.
       // It implies a mid-beam exists (or was required), and joistEndFixedCoord2 is the true outer end.
       if (isWallHorizontal) {
+        // Horizontal wall/ledger: joists run perpendicular (vertically in Y direction), spaced along X axis
         p1_s1 = { x: pos, y: joistStartFixedCoord };
-        p2_s1 = { x: pos, y: joistEndFixedCoord2 }; // Target the actual outer end
+        p2_s1 = { x: pos, y: joistEndFixedCoord2 }; // Joists run vertically (Y direction)
       } else {
+        // Vertical wall/ledger: joists run perpendicular (horizontally in X direction), spaced along Y axis
         p1_s1 = { x: joistStartFixedCoord, y: pos };
-        p2_s1 = { x: joistEndFixedCoord2, y: pos }; // Target the actual outer end
+        p2_s1 = { x: joistEndFixedCoord2, y: pos }; // Joists run horizontally (X direction)
       }
       if (distance(p1_s1, p2_s1) > EPSILON) {
         joists.push({

@@ -35,7 +35,8 @@
       "Bash(/home/shane/.npm-global/lib/node_modules/@anthropic-ai/claude-code/vendor/ripgrep/x64-linux/rg -n \"toggleDecomposition|Decomposition\" index.html)",
       "Bash(/home/shane/.npm-global/lib/node_modules/@anthropic-ai/claude-code/vendor/ripgrep/x64-linux/rg -n -A 5 \"toggleDecompositionBtn\" deckCalcjs/app.js)",
       "Bash(/home/shane/.npm-global/lib/node_modules/@anthropic-ai/claude-code/vendor/ripgrep/x64-linux/rg -n -B 5 -A 10 \"handleToggleDecomposition\" deckCalcjs/app.js)",
-      "Bash(python:*)"
+      "Bash(python:*)",
+      "Bash(sed:*)"
     ],
     "deny": []
   }

@@ -12,6 +12,8 @@ import * as bomCalculations from "./bomCalculations.js";
 import * as shapeValidator from "./shapeValidator.js";
 import * as shapeDecomposer from "./shapeDecomposer.js";
 
+import * as multiSectionCalculations from "./multiSectionCalculations.js";
+
 // --- Application State ---
 const appState = {
   points: [],
@@ -25,6 +27,7 @@ const appState = {
   selectedStairIndex: -1,
   isDraggingStairs: false,
   draggedStairIndex: -1,
+  hoveredStairIndex: -1,
   dragStartX: 0, // For stair dragging (view space)
   dragStartY: 0, // For stair dragging (view space)
   dragInitialStairX: 0, // model space
@@ -65,7 +68,6 @@ const appState = {
 // --- DOM Element References ---
 const generatePlanBtn = document.getElementById("generatePlanBtn");
 const addStairsBtn = document.getElementById("addStairsBtn");
-const cancelStairsBtn = document.getElementById("cancelStairsBtn");
 const clearCanvasBtn = document.getElementById("clearCanvasBtn");
 const deckCanvas = document.getElementById("deckCanvas");
 const canvasContainer = document.getElementById("canvasContainer");
@@ -312,6 +314,26 @@ function validateSelectedWalls(wallIndices, points) {
   return { isValid: true };
 }
 
+// --- Shape Analysis Functions ---
+
+/**
+ * Determines if the current shape is complex (requires multi-section calculations)
+ * @returns {boolean} True if shape requires multi-section calculations
+ */
+function isComplexShape() {
+  // Use multi-section calculations if we have multiple rectangular sections
+  return appState.rectangularSections && 
+         appState.rectangularSections.length > 1;
+}
+
+/**
+ * Determines if shape has only one rectangular section (simple rectangle)
+ * @returns {boolean} True if shape is a simple rectangle
+ */
+function isSimpleRectangle() {
+  return multiSectionCalculations.isSimpleRectangle(appState.rectangularSections);
+}
+
 // --- Core Application Logic Functions ---
 
 function decomposeClosedShape() {
@@ -431,6 +453,9 @@ function redrawApp() {
   } else {
     uiController.resetUIOutputs();
   }
+  
+  // Update stair management UI
+  updateStairList();
 }
 
 // Update Blueprint Mode UI elements
@@ -477,6 +502,7 @@ function resetAppState() {
   appState.selectedStairIndex = -1;
   appState.isDraggingStairs = false;
   appState.draggedStairIndex = -1;
+  appState.hoveredStairIndex = -1;
   appState.deckDimensions = null;
   appState.structuralComponents = null;
   appState.stairs = [];
@@ -742,12 +768,28 @@ function handleGeneratePlan() {
     return;
   }
   try {
-    appState.structuralComponents = deckCalculations.calculateStructure(
-      appState.points,
-      appState.selectedWallIndices[0], // Use first selected wall for now
-      inputs,
-      appState.deckDimensions
-    );
+    // Check if we should use multi-section calculations
+    if (isComplexShape()) {
+      console.log("Using multi-section calculations for complex shape");
+      appState.structuralComponents = multiSectionCalculations.calculateMultiSectionStructure(
+        appState.rectangularSections,
+        inputs,
+        appState.selectedWallIndices,
+        appState.points
+      );
+    } else {
+      console.log("Using standard calculations for simple shape");
+      appState.structuralComponents = deckCalculations.calculateStructure(
+        appState.points,
+        appState.selectedWallIndices[0], // Use first selected wall for simple shapes
+        inputs,
+        appState.deckDimensions
+      );
+    }
+    
+    // Log calculation results for debugging
+    console.log("Structural calculation result:", appState.structuralComponents);
+    
     if (appState.structuralComponents && !appState.structuralComponents.error) {
       recalculateAndUpdateBOM();
     } else {
@@ -762,6 +804,8 @@ function handleGeneratePlan() {
     
     // Update contextual panel if plan generation was successful
     if (appState.structuralComponents && !appState.structuralComponents.error) {
+      // Disable wall selection mode after successful plan generation
+      appState.wallSelectionMode = false;
       updateContextualPanel();
     } else {
       uiController.updateCanvasStatus(
@@ -810,6 +854,23 @@ function handleCancelStairs() {
   redrawApp();
 }
 
+function handleFinishStairs() {
+  appState.stairPlacementMode = false;
+  uiController.toggleStairsInputSection(false);
+  updateContextualPanel();
+  
+  // Keep the stair management section visible
+  const stairSection = document.getElementById('stairManagementSection');
+  const mainBtn = document.getElementById('mainStairsBtn');
+  if (stairSection && mainBtn) {
+    stairSection.classList.remove('hidden');
+    mainBtn.classList.add('active');
+  }
+  
+  uiController.updateCanvasStatus(`Finished adding stairs. Total: ${appState.stairs.length} sets. You can now drag stairs to reposition them.`);
+  redrawApp();
+}
+
 function handleClearCanvas() {
   if (confirm("Are you sure you want to clear the drawing and all results?")) {
     resetAppState();
@@ -828,6 +889,13 @@ function handleKeyDown(event) {
   if (event.key === "Escape" && appState.isDimensionInputActive) {
     event.preventDefault();
     handleDimensionInputCancel();
+    return;
+  }
+  
+  // Handle Escape key for stair placement mode
+  if (event.key === "Escape" && appState.stairPlacementMode) {
+    event.preventDefault();
+    handleCancelStairs();
     return;
   }
   
@@ -903,6 +971,7 @@ function handleKeyDown(event) {
       appState.stairs.splice(appState.selectedStairIndex, 1);
       appState.selectedStairIndex = -1;
       uiController.updateCanvasStatus(`Stair set deleted.`);
+      updateStairList(); // Update the stair management UI
       recalculateAndUpdateBOM();
       redrawApp();
     }
@@ -929,6 +998,8 @@ function handleCanvasClick(viewMouseX, viewMouseY) {
     handleStairPlacementClick(modelMouse.x, modelMouse.y);
     return;
   }
+  
+  // Delete button clicks are now handled through the UI panel, not canvas clicks
   if (appState.wallSelectionMode) {
     const clickedWallIndex = canvasLogic.findClickedWallIndex(
       modelMouse.x,
@@ -1201,12 +1272,21 @@ function handleStairPlacementClick(modelMouseX, modelMouseY) {
       uiController.updateCanvasStatus(`Error: ${newStair.calculationError}`);
     } else {
       appState.stairs.push(newStair);
-      appState.stairPlacementMode = false;
-      uiController.toggleStairsInputSection(false);
-      updateContextualPanel(); // Return to plan-generated panel
+      // Keep the stair configuration panel visible so user can add more or finish
+      // Don't exit placement mode yet - let user click "Add More" or "Finish"
+      
+      // Keep the stair management section visible
+      const stairSection = document.getElementById('stairManagementSection');
+      const mainBtn = document.getElementById('mainStairsBtn');
+      if (stairSection && mainBtn) {
+        stairSection.classList.remove('hidden');
+        mainBtn.classList.add('active');
+      }
+      
       uiController.updateCanvasStatus(
-        `Stairs added. Total: ${appState.stairs.length}.`
+        `Stairs added. Total: ${appState.stairs.length}. Click another edge to add more stairs or "Finish Adding" when done.`
       );
+      updateStairList(); // Update the stair management UI
       recalculateAndUpdateBOM();
     }
   } else {
@@ -1264,12 +1344,40 @@ function handleCanvasMouseMove(viewMouseX, viewMouseY) {
     }
   }
 
+  // Update hovered stair index when not dragging
+  if (!appState.isDraggingStairs && !appState.stairPlacementMode && appState.isShapeClosed) {
+    let newHoveredIndex = -1;
+    
+    if (appState.stairs.length > 0) {
+      newHoveredIndex = canvasLogic.findHoveredStairIndex(
+        modelMouse.x,
+        modelMouse.y,
+        appState.stairs,
+        appState.deckDimensions,
+        appState.viewportScale
+      );
+    }
+    
+    if (newHoveredIndex !== appState.hoveredStairIndex) {
+      appState.hoveredStairIndex = newHoveredIndex;
+      
+      // Set cursor to pointer when hovering over stairs for selection
+      if (deckCanvas) {
+        deckCanvas.style.cursor = newHoveredIndex >= 0 ? "pointer" : "default";
+      }
+      
+      redrawApp();
+      return; // Redraw triggered
+    }
+  }
+
   if (
     appState.isDrawing ||
     appState.wallSelectionMode ||
     appState.isDraggingStairs ||
     appState.stairPlacementMode ||
-    appState.selectedStairIndex !== -1
+    appState.selectedStairIndex !== -1 ||
+    appState.hoveredStairIndex !== -1
   ) {
     redrawApp();
   }
@@ -1687,8 +1795,10 @@ document.addEventListener("DOMContentLoaded", () => {
   if (generatePlanBtn)
     generatePlanBtn.addEventListener("click", handleGeneratePlan);
   if (addStairsBtn) addStairsBtn.addEventListener("click", handleAddStairs);
-  if (cancelStairsBtn)
-    cancelStairsBtn.addEventListener("click", handleCancelStairs);
+  
+  // Add event listener for finish stairs button
+  const finishStairsBtn = document.getElementById("finishStairsBtn");
+  if (finishStairsBtn) finishStairsBtn.addEventListener("click", handleFinishStairs);
   if (clearCanvasBtn)
     clearCanvasBtn.addEventListener("click", handleClearCanvas);
   if (printBomBtn) printBomBtn.addEventListener("click", handlePrintPage);
@@ -1763,6 +1873,59 @@ window.regeneratePlan = function() {
   
   // Regenerate the plan
   handleGeneratePlan();
+};
+
+window.handleMainStairsButton = function() {
+  const stairSection = document.getElementById('stairManagementSection');
+  const mainBtn = document.getElementById('mainStairsBtn');
+  
+  if (stairSection && mainBtn) {
+    const isHidden = stairSection.classList.contains('hidden');
+    
+    if (isHidden) {
+      // Show the stair management section first
+      stairSection.classList.remove('hidden');
+      mainBtn.classList.add('active');
+      updateStairList();
+      
+      // Then immediately enter stair adding mode
+      handleAddStairs();
+    } else {
+      // Hide the stair management section
+      stairSection.classList.add('hidden');
+      mainBtn.classList.remove('active');
+      
+      // Also deselect any selected stairs
+      appState.selectedStairIndex = -1;
+      redrawApp();
+    }
+  }
+};
+
+window.toggleStairsManagement = function() {
+  const stairSection = document.getElementById('stairManagementSection');
+  const mainBtn = document.getElementById('mainStairsBtn');
+  
+  if (stairSection && mainBtn) {
+    const isHidden = stairSection.classList.contains('hidden');
+    
+    if (isHidden) {
+      // Show the stair management section
+      stairSection.classList.remove('hidden');
+      mainBtn.classList.add('active');
+      
+      // Update the stair list display
+      updateStairList();
+    } else {
+      // Hide the stair management section
+      stairSection.classList.add('hidden');
+      mainBtn.classList.remove('active');
+      
+      // Also deselect any selected stairs
+      appState.selectedStairIndex = -1;
+      redrawApp();
+    }
+  }
 };
 
 function syncModifySpecValues() {
@@ -1902,3 +2065,151 @@ window.switchTab = function(tabName) {
       break;
   }
 };
+
+// --- Stair Management Functions ---
+
+function updateStairList() {
+  const stairList = document.getElementById('stairList');
+  const stairCount = document.getElementById('stairCount');
+  
+  if (!stairList || !stairCount) return;
+  
+  // Update stair count
+  const count = appState.stairs.length;
+  stairCount.textContent = count === 1 ? '1 set' : `${count} sets`;
+  
+  // Don't automatically show/hide the section - let the toggle button control visibility
+  
+  // Clear existing stairs
+  stairList.innerHTML = '';
+  
+  // Add each stair to the list
+  appState.stairs.forEach((stair, index) => {
+    const stairItem = createStairListItem(stair, index);
+    stairList.appendChild(stairItem);
+  });
+  
+}
+
+function createStairListItem(stair, index) {
+  const item = document.createElement('div');
+  item.className = `stair-item ${appState.selectedStairIndex === index ? 'selected' : ''}`;
+  item.dataset.stairIndex = index;
+  
+  // Format stair information
+  const widthText = `${stair.widthFt || 4}' wide`;
+  const stepInfo = stair.calculatedNumSteps ? `${stair.calculatedNumSteps} steps` : 'Steps: TBD';
+  const stringerInfo = stair.calculatedStringerQty ? `${stair.calculatedStringerQty} stringers` : 'Stringers: TBD';
+  
+  item.innerHTML = `
+    <div class="stair-item-header">
+      <div class="stair-item-title">Stairs ${index + 1}</div>
+      <div class="stair-item-actions">
+        <button class="btn btn-secondary btn-icon stair-action-btn" 
+                data-action="edit" data-stair-index="${index}"
+                title="Edit stair properties">
+          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+          </svg>
+        </button>
+        <button class="btn btn-danger btn-icon stair-action-btn" 
+                data-action="delete" data-stair-index="${index}"
+                title="Delete this stair set">
+          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+          </svg>
+        </button>
+      </div>
+    </div>
+    <div class="stair-item-info">
+      ${widthText} • ${stepInfo} • ${stringerInfo}
+    </div>
+  `;
+  
+  // Add click listener for selection
+  item.addEventListener('click', (e) => {
+    // Don't select if clicking on action buttons
+    if (e.target.closest('.stair-action-btn')) return;
+    
+    selectStair(index);
+  });
+  
+  // Add action button listeners
+  const editBtn = item.querySelector('[data-action="edit"]');
+  const deleteBtn = item.querySelector('[data-action="delete"]');
+  
+  editBtn?.addEventListener('click', (e) => {
+    e.stopPropagation();
+    editStair(index);
+  });
+  
+  deleteBtn?.addEventListener('click', (e) => {
+    e.stopPropagation();
+    deleteStair(index);
+  });
+  
+  return item;
+}
+
+function selectStair(index) {
+  // Select the stair in app state
+  appState.selectedStairIndex = appState.selectedStairIndex === index ? -1 : index;
+  
+  // Update the stair list display
+  updateStairList();
+  
+  // Redraw canvas to show selection
+  redrawApp();
+}
+
+
+function editStair(index) {
+  if (index < 0 || index >= appState.stairs.length) return;
+  
+  // For now, we'll implement a simple prompt-based editor
+  // In a more advanced implementation, you could create a modal or inline editor
+  const stair = appState.stairs[index];
+  
+  const newWidth = prompt(`Edit stair width (current: ${stair.widthFt}'):`, stair.widthFt);
+  if (newWidth && !isNaN(newWidth) && newWidth > 0) {
+    stair.widthFt = parseFloat(newWidth);
+    
+    // Recalculate stair details
+    const inputs = uiController.getFormInputs();
+    const deckHeight = inputs.deckHeight;
+    if (typeof deckHeight === "number" && deckHeight > 0) {
+      stairCalculations.calculateStairDetails(stair, deckHeight);
+    }
+    
+    // Update UI and recalculate BOM
+    updateStairList();
+    recalculateAndUpdateBOM();
+    redrawApp();
+    
+    uiController.updateCanvasStatus(`Stair ${index + 1} updated to ${newWidth}' wide.`);
+  }
+}
+
+function deleteStair(index) {
+  if (index < 0 || index >= appState.stairs.length) return;
+  
+  if (confirm(`Delete Stairs ${index + 1}?`)) {
+    appState.stairs.splice(index, 1);
+    
+    // Adjust selected index if necessary
+    if (appState.selectedStairIndex === index) {
+      appState.selectedStairIndex = -1;
+    } else if (appState.selectedStairIndex > index) {
+      appState.selectedStairIndex--;
+    }
+    
+    // Update UI
+    updateStairList();
+    recalculateAndUpdateBOM();
+    redrawApp();
+    
+    uiController.updateCanvasStatus(`Stair set deleted. Remaining: ${appState.stairs.length}.`);
+  }
+}
+
+

@@ -286,7 +286,10 @@ function drawDeckContent(currentCtx, state) {
       deckDimensions,
       effectiveScale,
       isScaledForPrint,
-      currentModelMousePos
+      currentModelMousePos,
+      state.hoveredStairIndex || -1,
+      structuralComponents,
+      points
     );
   }
 }
@@ -853,6 +856,12 @@ function drawStructuralComponentsInternal(
   isBlueprintMode = false
 ) {
   if (!currentCtx || !components || components.error || scale === 0) return;
+  
+  // Performance optimization: early exit for very small scale
+  if (scale < 0.01 && !isScaledForPrint) {
+    console.log("Skipping detailed structural rendering at very small scale");
+    return;
+  }
   const {
     ledger,
     beams = [],
@@ -875,7 +884,7 @@ function drawStructuralComponentsInternal(
   const LUMBER_THICKNESS_PIXELS = LUMBER_THICKNESS_FEET * config.PIXELS_PER_FOOT;
   
   // Draw to-scale components based on their actual dimensions
-  function drawToScaleLine(p1, p2, width, color, isDashed = false) {
+  function drawToScaleLine(p1, p2, width, color, isDashed = false, lineWidthMultiplier = 1.0) {
     if (!p1 || !p2) return;
     
     // Calculate perpendicular unit vector for thickness
@@ -904,7 +913,7 @@ function drawStructuralComponentsInternal(
     if (blueprintMode) {
       // Draw outline only (no fill) - to-scale width components
       currentCtx.strokeStyle = color;
-      currentCtx.lineWidth = Math.max(0.5 / scale, 1 / scale);
+      currentCtx.lineWidth = Math.max(0.5 / scale, (1 * lineWidthMultiplier) / scale);
       currentCtx.beginPath();
       currentCtx.moveTo(corners[0].x, corners[0].y);
       currentCtx.lineTo(corners[1].x, corners[1].y);
@@ -922,7 +931,7 @@ function drawStructuralComponentsInternal(
     } else {
       // Draw simple centerline (default mode)
       currentCtx.strokeStyle = color;
-      currentCtx.lineWidth = Math.max(0.5 / scale, 1.5 / scale);
+      currentCtx.lineWidth = Math.max(0.5 / scale, (1.5 * lineWidthMultiplier) / scale);
       
       if (isDashed) {
         currentCtx.setLineDash([scaledLineWidth(4), scaledLineWidth(4)]);
@@ -939,7 +948,7 @@ function drawStructuralComponentsInternal(
   }
   
   // Draw multiple boards side by side (for multi-ply beams)
-  function drawMultiplyBoard(p1, p2, plyCount, color) {
+  function drawMultiplyBoard(p1, p2, plyCount, color, isMerged = false) {
     if (!p1 || !p2 || plyCount < 1) return;
     
     // Direction vector along the board
@@ -966,8 +975,13 @@ function drawStructuralComponentsInternal(
         y: p2.y + perpY * offset
       };
       
-      // Draw individual board
-      drawToScaleLine(offsetP1, offsetP2, LUMBER_THICKNESS_PIXELS, color);
+      // Draw individual board with enhanced styling for merged beams
+      if (isMerged && i === 0) {
+        // Draw first ply of merged beam with slightly thicker line to indicate merging
+        drawToScaleLine(offsetP1, offsetP2, LUMBER_THICKNESS_PIXELS, color, false, 1.5);
+      } else {
+        drawToScaleLine(offsetP1, offsetP2, LUMBER_THICKNESS_PIXELS, color);
+      }
     }
   }
 
@@ -977,21 +991,47 @@ function drawStructuralComponentsInternal(
   }
   
   // Draw beams (typically 2-ply or 3-ply)
+  // Enhanced for multi-section: merged beams may be longer and span multiple sections
   beams.forEach((beam) => {
     // Default to 2-ply if not specified
     const plyCount = beam.ply || 2;
-    drawMultiplyBoard(beam.p1, beam.p2, plyCount, config.BEAM_COLOR);
+    
+    // Enhanced beam rendering for multi-section structures
+    if (beam.isMerged) {
+      // Draw merged beams with slightly different styling to indicate they span sections
+      drawMultiplyBoard(beam.p1, beam.p2, plyCount, config.BEAM_COLOR, true);
+    } else {
+      drawMultiplyBoard(beam.p1, beam.p2, plyCount, config.BEAM_COLOR);
+    }
   });
 
   // Draw joists (single 2x boards)
+  // Enhanced for multi-section: joists may span sections or be section-specific
   currentCtx.strokeStyle = config.JOIST_RIM_COLOR;
   joists.forEach((joist) => {
-    drawToScaleLine(joist.p1, joist.p2, LUMBER_THICKNESS_PIXELS, config.JOIST_RIM_COLOR);
+    // Check if this joist spans multiple sections (indicated by extended length)
+    const joistLength = Math.sqrt(
+      Math.pow(joist.p2.x - joist.p1.x, 2) + Math.pow(joist.p2.y - joist.p1.y, 2)
+    );
+    
+    // Draw joist with appropriate styling
+    if (joist.spansSections) {
+      // Draw spanning joists with slightly thicker line to indicate continuity
+      drawToScaleLine(joist.p1, joist.p2, LUMBER_THICKNESS_PIXELS, config.JOIST_RIM_COLOR, false, 1.2);
+    } else {
+      drawToScaleLine(joist.p1, joist.p2, LUMBER_THICKNESS_PIXELS, config.JOIST_RIM_COLOR);
+    }
   });
   
   // Draw rim joists (typically single 2x boards around the perimeter)
+  // Enhanced for multi-section: rim joists may be merged across sections
   rimJoists.forEach((rim) => {
-    drawToScaleLine(rim.p1, rim.p2, LUMBER_THICKNESS_PIXELS, config.JOIST_RIM_COLOR);
+    if (rim.isMerged) {
+      // Draw merged rim joists with enhanced styling to show continuity
+      drawToScaleLine(rim.p1, rim.p2, LUMBER_THICKNESS_PIXELS, config.JOIST_RIM_COLOR, false, 1.3);
+    } else {
+      drawToScaleLine(rim.p1, rim.p2, LUMBER_THICKNESS_PIXELS, config.JOIST_RIM_COLOR);
+    }
   });
 
   // Draw blocking (typically single 2x boards between joists)
@@ -1005,6 +1045,7 @@ function drawStructuralComponentsInternal(
   });
 
   // Draw footings
+  // Enhanced for multi-section: footings are deduplicated at shared locations
   const footingScreenRadius = isScaledForPrint ? 7 : 8;
   const footingModelRadius = footingScreenRadius / scale;
   footings.forEach((f) => {
@@ -1014,24 +1055,37 @@ function drawStructuralComponentsInternal(
       // In blueprint mode, draw a circle representing the footing
       currentCtx.arc(f.x, f.y, footingModelRadius, 0, Math.PI * 2);
       currentCtx.strokeStyle = config.FOOTING_STROKE_COLOR;
-      currentCtx.lineWidth = Math.max(0.5 / scale, 1 / scale);
+      currentCtx.lineWidth = Math.max(0.5 / scale, (f.isShared ? 1.5 : 1) / scale);
       currentCtx.stroke();
+      
+      // Add visual indicator for shared footings
+      if (f.isShared) {
+        currentCtx.beginPath();
+        currentCtx.arc(f.x, f.y, footingModelRadius * 1.2, 0, Math.PI * 2);
+        currentCtx.strokeStyle = config.FOOTING_STROKE_COLOR;
+        currentCtx.lineWidth = Math.max(0.3 / scale, 0.5 / scale);
+        currentCtx.setLineDash([Math.max(2 / scale, 1), Math.max(2 / scale, 1)]);
+        currentCtx.stroke();
+        currentCtx.setLineDash([]);
+      }
     } else {
       // Normal mode - draw a simple small square
       const smallSize = Math.max(5 / scale, 3 / scale);
+      const sizeMultiplier = f.isShared ? 1.2 : 1;
       currentCtx.rect(
-        f.x - smallSize / 2,
-        f.y - smallSize / 2,
-        smallSize,
-        smallSize
+        f.x - (smallSize * sizeMultiplier) / 2,
+        f.y - (smallSize * sizeMultiplier) / 2,
+        smallSize * sizeMultiplier,
+        smallSize * sizeMultiplier
       );
       currentCtx.strokeStyle = config.FOOTING_STROKE_COLOR;
-      currentCtx.lineWidth = Math.max(0.5 / scale, 1 / scale);
+      currentCtx.lineWidth = Math.max(0.5 / scale, (f.isShared ? 1.5 : 1) / scale);
       currentCtx.stroke();
     }
   });
 
   // Draw posts - using actual post dimensions (typically 4x4 or 6x6)
+  // Enhanced for multi-section: posts are deduplicated at shared locations
   posts.forEach((p) => {
     // Default to 4x4 if not specified (actual dimensions 3.5" x 3.5")
     const postSizeInches = p.size ? (p.size === "6x6" ? 5.5 : 3.5) : 3.5;
@@ -1048,20 +1102,37 @@ function drawStructuralComponentsInternal(
         postSizePixels
       );
       currentCtx.strokeStyle = config.POST_STROKE_COLOR;
-      currentCtx.lineWidth = Math.max(0.5 / scale, 1 / scale);
+      currentCtx.lineWidth = Math.max(0.5 / scale, (p.isShared ? 1.5 : 1) / scale);
       currentCtx.stroke();
+      
+      // Add visual indicator for shared posts (from multiple sections)
+      if (p.isShared) {
+        currentCtx.beginPath();
+        currentCtx.rect(
+          p.x - (postSizePixels * 1.1) / 2,
+          p.y - (postSizePixels * 1.1) / 2,
+          postSizePixels * 1.1,
+          postSizePixels * 1.1
+        );
+        currentCtx.strokeStyle = config.POST_STROKE_COLOR;
+        currentCtx.lineWidth = Math.max(0.3 / scale, 0.5 / scale);
+        currentCtx.setLineDash([Math.max(2 / scale, 1), Math.max(2 / scale, 1)]);
+        currentCtx.stroke();
+        currentCtx.setLineDash([]);
+      }
     } else {
       // Normal mode - draw a small square
       const smallSize = Math.max(6 / scale, 4 / scale);
+      const sizeMultiplier = p.isShared ? 1.2 : 1;
       currentCtx.beginPath();
       currentCtx.rect(
-        p.x - smallSize / 2,
-        p.y - smallSize / 2,
-        smallSize,
-        smallSize
+        p.x - (smallSize * sizeMultiplier) / 2,
+        p.y - (smallSize * sizeMultiplier) / 2,
+        smallSize * sizeMultiplier,
+        smallSize * sizeMultiplier
       );
       currentCtx.strokeStyle = config.POST_STROKE_COLOR;
-      currentCtx.lineWidth = Math.max(0.5 / scale, 1 / scale);
+      currentCtx.lineWidth = Math.max(0.5 / scale, (p.isShared ? 1.5 : 1) / scale);
       currentCtx.stroke();
     }
   });
@@ -1076,7 +1147,10 @@ function drawStairsInternal(
   deckDimensions,
   scale,
   isScaledForPrint,
-  currentModelMousePos
+  currentModelMousePos,
+  hoveredStairIndex = -1,
+  structuralComponents = null,
+  deckPoints = null
 ) {
   if (!currentCtx || !stairsData || !deckDimensions || scale === 0) return;
   const scaledLineWidth = (width) => Math.max(0.5 / scale, width / scale);
@@ -1104,13 +1178,64 @@ function drawStairsInternal(
 
     let perpX = -rimUnitY;
     let perpY = rimUnitX;
-    const deckCenterX = (deckDimensions.minX + deckDimensions.maxX) / 2;
-    const deckCenterY = (deckDimensions.minY + deckDimensions.maxY) / 2;
-    const vecToRimX = midRimX - deckCenterX;
-    const vecToRimY = midRimY - deckCenterY;
-    if (perpX * vecToRimX + perpY * vecToRimY < 0) {
-      perpX *= -1;
-      perpY *= -1;
+    
+    // Determine stair direction by testing which side is actually inside the deck polygon
+    // We need access to the deck points to do proper point-in-polygon testing
+    if (deckPoints && deckPoints.length >= 3) {
+      
+      // Test points on both sides of the stair edge
+      const testDistance = 24; // 1 foot in model pixels
+      const testPoint1X = midRimX + perpX * testDistance;
+      const testPoint1Y = midRimY + perpY * testDistance;
+      const testPoint2X = midRimX - perpX * testDistance;
+      const testPoint2Y = midRimY - perpY * testDistance;
+      
+      // Point-in-polygon test function
+      function isPointInPolygon(x, y, polygon) {
+        let inside = false;
+        for (let i = 0, j = polygon.length - 1; i < polygon.length; j = i++) {
+          const xi = polygon[i].x, yi = polygon[i].y;
+          const xj = polygon[j].x, yj = polygon[j].y;
+          
+          if (((yi > y) !== (yj > y)) && (x < (xj - xi) * (y - yi) / (yj - yi) + xi)) {
+            inside = !inside;
+          }
+        }
+        return inside;
+      }
+      
+      const point1Inside = isPointInPolygon(testPoint1X, testPoint1Y, deckPoints);
+      const point2Inside = isPointInPolygon(testPoint2X, testPoint2Y, deckPoints);
+      
+      // Point stairs toward whichever test point is NOT inside the deck polygon
+      if (point1Inside && !point2Inside) {
+        // Point 1 is inside deck, point 2 is outside - flip direction to point toward point 2
+        perpX *= -1;
+        perpY *= -1;
+      } else if (!point1Inside && point2Inside) {
+        // Point 1 is outside deck, point 2 is inside - keep direction toward point 1
+        // No change needed
+      } else {
+        // Both inside or both outside - fallback to distance from center method
+        const deckCenterX = (deckDimensions.minX + deckDimensions.maxX) / 2;
+        const deckCenterY = (deckDimensions.minY + deckDimensions.maxY) / 2;
+        const vecToRimX = midRimX - deckCenterX;
+        const vecToRimY = midRimY - deckCenterY;
+        if (perpX * vecToRimX + perpY * vecToRimY < 0) {
+          perpX *= -1;
+          perpY *= -1;
+        }
+      }
+    } else {
+      // Fallback method when no deck points available
+      const deckCenterX = (deckDimensions.minX + deckDimensions.maxX) / 2;
+      const deckCenterY = (deckDimensions.minY + deckDimensions.maxY) / 2;
+      const vecToRimX = midRimX - deckCenterX;
+      const vecToRimY = midRimY - deckCenterY;
+      if (perpX * vecToRimX + perpY * vecToRimY < 0) {
+        perpX *= -1;
+        perpY *= -1;
+      }
     }
 
     const stairRimP1Model = {
@@ -1240,6 +1365,76 @@ function drawStairsInternal(
       currentCtx.fillText(dim2Text, 0, -Math.max(0.5, 2 / scale));
       currentCtx.restore();
     }
+
+    // Enhanced visual feedback for selected stairs
+    if (index === selectedIndex && !isScaledForPrint) {
+      // Draw selection outline around the entire stair area
+      const outlineCorners = [
+        { x: stairRimP1Model.x, y: stairRimP1Model.y },
+        { x: stairRimP2Model.x, y: stairRimP2Model.y },
+        { x: stairRimP2Model.x + perpX * totalRunPixelsModel, y: stairRimP2Model.y + perpY * totalRunPixelsModel },
+        { x: stairRimP1Model.x + perpX * totalRunPixelsModel, y: stairRimP1Model.y + perpY * totalRunPixelsModel }
+      ];
+      
+      currentCtx.save();
+      
+      // Draw subtle selection background
+      currentCtx.fillStyle = "rgba(59, 130, 246, 0.1)"; // Blue with low opacity
+      currentCtx.beginPath();
+      currentCtx.moveTo(outlineCorners[0].x, outlineCorners[0].y);
+      for (let i = 1; i < outlineCorners.length; i++) {
+        currentCtx.lineTo(outlineCorners[i].x, outlineCorners[i].y);
+      }
+      currentCtx.closePath();
+      currentCtx.fill();
+      
+      // Draw selection border
+      currentCtx.strokeStyle = config.STAIR_SELECTED_COLOR;
+      currentCtx.lineWidth = scaledLineWidth(2);
+      currentCtx.setLineDash([scaledLineWidth(8), scaledLineWidth(4)]);
+      currentCtx.stroke();
+      
+      // Draw selection indicator at the top-left corner
+      const indicatorSize = Math.max(12 / scale, 8 / scale);
+      currentCtx.fillStyle = config.STAIR_SELECTED_COLOR;
+      currentCtx.setLineDash([]);
+      currentCtx.beginPath();
+      currentCtx.arc(outlineCorners[0].x, outlineCorners[0].y, indicatorSize, 0, Math.PI * 2);
+      currentCtx.fill();
+      
+      // Add stair number in the selection indicator
+      currentCtx.fillStyle = "white";
+      currentCtx.font = `${Math.max(8, 10 / scale)}px Arial`;
+      currentCtx.textAlign = "center";
+      currentCtx.textBaseline = "middle";
+      currentCtx.fillText(index + 1, outlineCorners[0].x, outlineCorners[0].y);
+      
+      currentCtx.restore();
+    } else if (index === hoveredStairIndex && !isScaledForPrint && !isBeingDragged) {
+      // Draw subtle hover effect
+      const outlineCorners = [
+        { x: stairRimP1Model.x, y: stairRimP1Model.y },
+        { x: stairRimP2Model.x, y: stairRimP2Model.y },
+        { x: stairRimP2Model.x + perpX * totalRunPixelsModel, y: stairRimP2Model.y + perpY * totalRunPixelsModel },
+        { x: stairRimP1Model.x + perpX * totalRunPixelsModel, y: stairRimP1Model.y + perpY * totalRunPixelsModel }
+      ];
+      
+      currentCtx.save();
+      currentCtx.strokeStyle = "rgba(59, 130, 246, 0.6)";
+      currentCtx.lineWidth = scaledLineWidth(1.5);
+      currentCtx.setLineDash([scaledLineWidth(4), scaledLineWidth(2)]);
+      currentCtx.beginPath();
+      currentCtx.moveTo(outlineCorners[0].x, outlineCorners[0].y);
+      for (let i = 1; i < outlineCorners.length; i++) {
+        currentCtx.lineTo(outlineCorners[i].x, outlineCorners[i].y);
+      }
+      currentCtx.closePath();
+      currentCtx.stroke();
+      currentCtx.restore();
+    }
+    
+    // Clear delete button bounds (no longer using hover-based delete)
+    stair.deleteButtonBounds = null;
   });
 }
 
@@ -1286,6 +1481,39 @@ export function findClickedRimJoistIndex(
     }
   }
   return clickedIndex;
+}
+
+export function findHoveredStairIndex(
+  modelMouseX,
+  modelMouseY,
+  stairs,
+  deckDimensions,
+  viewportScale
+) {
+  if (!stairs || stairs.length === 0 || !deckDimensions || viewportScale === 0) return -1;
+
+  for (let i = 0; i < stairs.length; i++) {
+    if (isPointInStairBounds(modelMouseX, modelMouseY, stairs[i], deckDimensions, viewportScale)) {
+      return i;
+    }
+  }
+  return -1;
+}
+
+export function isPointInStairDeleteButton(
+  modelMouseX,
+  modelMouseY,
+  stair
+) {
+  if (!stair || !stair.deleteButtonBounds) return false;
+  
+  const bounds = stair.deleteButtonBounds;
+  const distance = Math.sqrt(
+    Math.pow(modelMouseX - bounds.centerX, 2) + 
+    Math.pow(modelMouseY - bounds.centerY, 2)
+  );
+  
+  return distance <= bounds.radius;
 }
 
 export function isPointInStairBounds(

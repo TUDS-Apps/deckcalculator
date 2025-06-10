@@ -272,22 +272,35 @@
             <div id="plan-generated-panel" class="panel-section hidden">
               <h2 class="panel-title">Your Deck Plan</h2>
               <div class="panel-content">
+                <!-- Top action buttons -->
+                <div class="top-action-buttons flex gap-3 mb-4">
+                  <button type="button" id="mainStairsBtn" class="btn btn-primary flex-1" onclick="handleMainStairsButton()">
+                    +/- Stairs
+                  </button>
+                  <button type="button" class="btn btn-secondary flex-1 modify-specs-btn" onclick="toggleSpecEditor()">
+                    Modify
+                  </button>
+                </div>
+                
+                <!-- Stair Management Section (hidden by default, moved to top) -->
+                <div id="stairManagementSection" class="stair-management-section hidden">
+                  <div class="flex justify-between items-center mb-3">
+                    <h3 class="text-lg font-semibold text-[#333333]">Stairs</h3>
+                    <span id="stairCount" class="text-sm text-gray-600">0 sets</span>
+                  </div>
+                  
+                  <div id="stairList" class="stair-list space-y-2 mb-4">
+                    <!-- Stairs will be dynamically populated here -->
+                  </div>
+                  
+                </div>
+                
                 <!-- Project summary prominently displayed -->
                 <div id="summarySection">
                   <h3 class="text-lg font-semibold mb-2 text-[#333333]">
                     Project Summary
                   </h3>
                   <dl id="summaryList" class="summary-list text-sm"></dl>
-                </div>
-                
-                <!-- Action buttons -->
-                <div class="action-buttons">
-                  <button id="addStairsBtn" class="btn btn-primary btn-full-width">
-                    Add Stairs
-                  </button>
-                  <button type="button" class="btn btn-secondary btn-full-width modify-specs-btn" onclick="toggleSpecEditor()">
-                    Modify Specifications
-                  </button>
                 </div>
                 
                 <!-- Full specification editor (replaces summary when active) -->
@@ -460,13 +473,15 @@
                 </div>
                 
                 <div class="stair-actions">
-                  <button
-                    type="button"
-                    id="cancelStairsBtn"
-                    class="btn btn-secondary btn-full-width"
-                  >
-                    Cancel Adding Stairs
-                  </button>
+                  <div class="flex gap-2 mb-3">
+                    <button
+                      type="button"
+                      id="finishStairsBtn"
+                      class="btn btn-primary btn-full-width"
+                    >
+                      Finish Adding
+                    </button>
+                  </div>
                   <p class="text-sm text-gray-600 mt-2">
                     Select options above, then click a deck edge (rim joist) to place the stairs.
                   </p>
