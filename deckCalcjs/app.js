@@ -335,11 +335,11 @@ function decomposeClosedShape() {
       pointsForDecomposition.push({ ...firstPoint });
     }
     
-    // Use first ledger wall index if selected, otherwise default to 0
-    const ledgerWallIndex = appState.selectedWallIndices.length > 0 ? appState.selectedWallIndices[0] : 0;
+    // Use selected wall indices if available, otherwise default to first wall
+    const ledgerWallIndices = appState.selectedWallIndices.length > 0 ? appState.selectedWallIndices : [0];
     
-    // Decompose the shape into rectangles
-    appState.rectangularSections = shapeDecomposer.decomposeShape(pointsForDecomposition, ledgerWallIndex);
+    // Decompose the shape into rectangles with all selected ledger walls
+    appState.rectangularSections = shapeDecomposer.decomposeShape(pointsForDecomposition, ledgerWallIndices);
     
     console.log(`Shape decomposed into ${appState.rectangularSections.length} rectangular sections`);
     
@@ -744,7 +744,7 @@ function handleGeneratePlan() {
   try {
     appState.structuralComponents = deckCalculations.calculateStructure(
       appState.points,
-      appState.selectedWallIndex,
+      appState.selectedWallIndices[0], // Use first selected wall for now
       inputs,
       appState.deckDimensions
     );
@@ -937,12 +937,41 @@ function handleCanvasClick(viewMouseX, viewMouseY) {
       appState.viewportScale
     );
     if (clickedWallIndex !== -1) {
-      appState.selectedWallIndex = clickedWallIndex;
-      appState.wallSelectionMode = false;
+      // Handle multi-wall selection
+      const currentIndex = appState.selectedWallIndices.indexOf(clickedWallIndex);
       
-      // Now that we have the ledger wall selected, decompose the shape
-      decomposeClosedShape();
+      if (currentIndex === -1) {
+        // Wall not selected - add it if parallel validation passes
+        const tempIndices = [...appState.selectedWallIndices, clickedWallIndex];
+        const validation = validateSelectedWalls(tempIndices, appState.points);
+        
+        if (validation.isValid) {
+          appState.selectedWallIndices.push(clickedWallIndex);
+          uiController.updateCanvasStatus(
+            `${appState.selectedWallIndices.length} wall(s) selected for ledger attachment.`
+          );
+        } else {
+          uiController.updateCanvasStatus(`Error: ${validation.error}`);
+        }
+      } else {
+        // Wall already selected - remove it
+        appState.selectedWallIndices.splice(currentIndex, 1);
+        uiController.updateCanvasStatus(
+          appState.selectedWallIndices.length > 0 
+            ? `${appState.selectedWallIndices.length} wall(s) selected for ledger attachment.`
+            : "Click wall edges to select for ledger attachment."
+        );
+      }
       
+      // Update decomposition if we have at least one wall selected
+      if (appState.selectedWallIndices.length > 0) {
+        decomposeClosedShape();
+      } else {
+        appState.rectangularSections = [];
+      }
+      
+      // Only exit wall selection mode when Generate Plan is clicked
+      // Keep wall selection mode active for multi-selection
       updateContextualPanel();
     }
   } else if (
@@ -996,7 +1025,7 @@ function handleCanvasClick(viewMouseX, viewMouseY) {
     );
     if (
       clickedWallIdx !== -1 &&
-      appState.selectedWallIndex !== clickedWallIdx
+      !appState.selectedWallIndices.includes(clickedWallIdx)
     ) {
       appState.wallSelectionMode = true;
       appState.selectedWallIndices = [];

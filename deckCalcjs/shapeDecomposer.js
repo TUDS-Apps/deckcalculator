@@ -7,7 +7,7 @@ import { distance } from "./utils.js";
 /**
  * Decomposes a rectilinear polygon into rectangular sections using recursive splitting
  * @param {Array<{x: number, y: number}>} points - Array of points defining the shape (including closing point)
- * @param {number} ledgerWallIndex - Index of the wall that will have the ledger attachment
+ * @param {number|Array<number>} ledgerWallIndex - Index or array of indices of walls that will have ledger attachment
  * @returns {Array<Object>} Array of rectangle objects
  */
 export function decomposeShape(points, ledgerWallIndex) {
@@ -18,17 +18,22 @@ export function decomposeShape(points, ledgerWallIndex) {
     throw new Error("Shape must have at least 4 points for decomposition");
   }
 
-  // Get the original ledger wall before decomposition
-  const originalLedgerWall = {
-    p1: points[ledgerWallIndex],
-    p2: points[(ledgerWallIndex + 1) % points.length]
-  };
+  // Handle both single index and array of indices
+  const ledgerWallIndices = Array.isArray(ledgerWallIndex) ? ledgerWallIndex : [ledgerWallIndex];
+  const primaryLedgerIndex = ledgerWallIndices[0]; // Use first wall for decomposition algorithm
 
-  // Use ledger projection decomposition algorithm
-  const rawRectangles = recursivelyDecompose(shapePoints, ledgerWallIndex);
+  // Get all original ledger walls before decomposition
+  const originalLedgerWalls = ledgerWallIndices.map(index => ({
+    index: index,
+    p1: points[index],
+    p2: points[(index + 1) % points.length]
+  }));
+
+  // Use ledger projection decomposition algorithm with primary ledger wall
+  const rawRectangles = recursivelyDecompose(shapePoints, primaryLedgerIndex);
   
-  // Process the raw rectangles into the final format
-  const rectangles = processRawRectangles(rawRectangles, originalLedgerWall);
+  // Process the raw rectangles into the final format with all ledger walls
+  const rectangles = processRawRectangles(rawRectangles, originalLedgerWalls);
   
   return rectangles;
 }
@@ -814,10 +819,10 @@ function isValidSplitLine(polygon, splitLine) {
 /**
  * Processes raw rectangles into the final format with IDs, adjacency, and ledger information
  * @param {Array<Array<{x: number, y: number}>>} rawRectangles - Array of rectangle corner arrays
- * @param {Object} originalLedgerWall - Original ledger wall object
+ * @param {Array<Object>} originalLedgerWalls - Array of original ledger wall objects
  * @returns {Array<Object>} Array of formatted rectangle objects
  */
-function processRawRectangles(rawRectangles, originalLedgerWall) {
+function processRawRectangles(rawRectangles, originalLedgerWalls) {
   const rectangles = [];
 
   // Create rectangle objects with unique IDs
@@ -825,14 +830,24 @@ function processRawRectangles(rawRectangles, originalLedgerWall) {
     const corners = rawRectangles[i];
     const rectId = `rect_${i}`;
     
-    // Check if this rectangle contains part of the original ledger wall
-    const ledgerInfo = findLedgerWallInRectangle(corners, originalLedgerWall);
+    // Check if this rectangle contains part of any ledger wall
+    let isLedgerRectangle = false;
+    let ledgerWalls = [];
+    
+    originalLedgerWalls.forEach(originalWall => {
+      const ledgerInfo = findLedgerWallInRectangle(corners, originalWall);
+      if (ledgerInfo.isLedgerRectangle) {
+        isLedgerRectangle = true;
+        ledgerWalls.push(ledgerInfo.ledgerWall);
+      }
+    });
     
     const rectangle = {
       id: rectId,
       corners: ensureClockwiseOrder(corners),
-      ledgerWall: ledgerInfo.ledgerWall,
-      isLedgerRectangle: ledgerInfo.isLedgerRectangle,
+      ledgerWall: ledgerWalls.length > 0 ? ledgerWalls[0] : null, // Keep first for backward compatibility
+      ledgerWalls: ledgerWalls, // All ledger walls in this rectangle
+      isLedgerRectangle: isLedgerRectangle,
       adjacentRectangles: [], // Will be populated below
       sharedEdges: [] // Will be populated below
     };

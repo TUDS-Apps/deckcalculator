@@ -156,7 +156,7 @@ function drawDeckContent(currentCtx, state) {
   const {
     points = [],
     isShapeClosed = false,
-    selectedWallIndex = -1,
+    selectedWallIndices = [],
     wallSelectionMode = false,
     structuralComponents = null,
     stairs = [],
@@ -189,14 +189,17 @@ function drawDeckContent(currentCtx, state) {
     if (isShapeClosed) {
       currentCtx.closePath();
       currentCtx.stroke();
-      if (selectedWallIndex !== -1 && !wallSelectionMode) {
-        highlightWall(
-          currentCtx,
-          points,
-          selectedWallIndex,
-          false,
-          effectiveScale
-        );
+      if (selectedWallIndices.length > 0) {
+        // Highlight all selected walls (both during and after selection)
+        selectedWallIndices.forEach(wallIndex => {
+          highlightWall(
+            currentCtx,
+            points,
+            wallIndex,
+            false,
+            effectiveScale
+          );
+        });
       }
     } else {
       currentCtx.stroke();
