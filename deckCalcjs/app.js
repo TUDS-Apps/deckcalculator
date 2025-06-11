@@ -1692,6 +1692,18 @@ function beforePrintHandler() {
   // Add classes for print styling
   document.body.classList.add('is-printing');
   
+  // Move BOM outside of main-content-panel for proper print layout
+  const bomSection = document.getElementById('bomSection');
+  const structureContent = document.getElementById('structure-content');
+  
+  if (bomSection && structureContent) {
+    // Store original parent for restoration
+    appState.bomOriginalParent = bomSection.parentNode;
+    
+    // Move BOM to be a direct child of structure-content (after main-layout-container)
+    structureContent.appendChild(bomSection);
+  }
+  
   redrawApp();
 }
 
@@ -1733,6 +1745,13 @@ function afterPrintHandler() {
   // Remove print-specific attributes and classes
   document.body.removeAttribute('data-print-date');
   document.body.classList.remove('is-printing');
+  
+  // Restore BOM to its original location
+  const bomSection = document.getElementById('bomSection');
+  if (bomSection && appState.bomOriginalParent) {
+    appState.bomOriginalParent.appendChild(bomSection);
+    delete appState.bomOriginalParent;
+  }
   
   redrawApp();
 }

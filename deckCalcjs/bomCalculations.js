@@ -127,9 +127,8 @@ function addItemToBOMAggregated(bomItems, stockItem, usage, qty = 1, category = 
     return;
   }
 
-  // Create a composite key that includes category to separate same items used in different categories
-  const baseId = stockItem.system_id;
-  const id = category ? `${baseId}_${category}` : baseId;
+  // Use only the system_id as the key - no category separation
+  const id = stockItem.system_id;
   
   const unitPrice = stockItem.retail_price || 0;
   if (!bomItems[id]) {
@@ -140,7 +139,6 @@ function addItemToBOMAggregated(bomItems, stockItem, usage, qty = 1, category = 
       unitPrice: unitPrice,
       totalPrice: 0,
       _usages: new Set([safeUsage]),
-      _category: category,
     };
   }
   bomItems[id].qty += qty;

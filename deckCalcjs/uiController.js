@@ -217,66 +217,14 @@ export function populateBOMTable(bomData, errorMessage = null) {
   // Store current BOM data for editing
   currentBOMData = bomData.map(item => ({...item})); // Deep copy
   
-
-  // Categorize BOM items with global indices
-  const categories = {
-    "BEAMS, POSTS & FOOTINGS": [],
-    "JOISTS, LEDGER, RIMS & BLOCKING": [],
-    "STAIRS": []
-  };
-
+  // Add global indices to all items for tracking
   currentBOMData.forEach((item, globalIndex) => {
-    const desc = (item.description || "").toLowerCase();
-    const itemName = (item.item || "").toLowerCase();
-    
-    // Add global index to item for tracking
     item.globalIndex = globalIndex;
-    item.originalGlobalIndex = globalIndex; // For section filtering
-    
-    // Check for stairs first
-    if (desc.includes("stair") || desc.includes("step") || desc.includes("stringer") || 
-        desc.includes("landing") || desc.includes("lscz") || desc.includes("grk fasteners for pylex")) {
-      categories["STAIRS"].push(item);
-    }
-    // Check for beams, posts, footings
-    else if (desc.includes("beam") || desc.includes("post") || desc.includes("footing") || 
-        desc.includes("ledger fastener") || desc.includes("wall rim fastener") ||
-        itemName.includes("gh deck leveller") || itemName.includes("pylex") || 
-        itemName.includes("helical") || itemName.includes("deck slab") ||
-        itemName.includes("quikrete")) {
-      categories["BEAMS, POSTS & FOOTINGS"].push(item);
-    }
-    // Everything else goes to joists group (including hardware)
-    else {
-      categories["JOISTS, LEDGER, RIMS & BLOCKING"].push(item);
-    }
+    item.originalGlobalIndex = globalIndex;
   });
 
-  // Function to add subheading row
-  const addSubheadingRow = (title) => {
-    const subheadingRow = bomTableBody.insertRow();
-    
-    // Use inline styles to ensure visibility
-    subheadingRow.style.backgroundColor = "#dbeafe";
-    subheadingRow.style.fontWeight = "bold";
-    subheadingRow.style.borderTop = "2px solid #3b82f6";
-    
-    const subheadingCell = subheadingRow.insertCell();
-    subheadingCell.colSpan = 5;
-    subheadingCell.textContent = title;
-    
-    // Use inline styles to ensure visibility
-    subheadingCell.style.textAlign = "left";
-    subheadingCell.style.padding = "8px 12px";
-    subheadingCell.style.color = "#1e40af";
-    subheadingCell.style.fontSize = "14px";
-    subheadingCell.style.textTransform = "uppercase";
-    subheadingCell.style.letterSpacing = "0.05em";
-  };
-
-  // Function to add items from a category
-  const addCategoryItems = (items) => {
-    items.forEach((item) => {
+  // Display all items without categorization
+  currentBOMData.forEach((item) => {
       const row = bomTableBody.insertRow();
       const cellQty = row.insertCell();
       const cellItem = row.insertCell();
@@ -327,15 +275,6 @@ export function populateBOMTable(bomData, errorMessage = null) {
         currency: "CAD",
       });
       cellTotalPrice.classList.add("price-col");
-    });
-  };
-
-  // Add each category with its items (only show categories that have items)
-  Object.entries(categories).forEach(([categoryName, items]) => {
-    if (items.length > 0) {
-      addSubheadingRow(categoryName);
-      addCategoryItems(items);
-    }
   });
 
   // We'll still create the total row but it'll be hidden by CSS

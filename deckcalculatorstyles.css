@@ -726,6 +726,7 @@ canvas.mode-transition {
 /* --- PRINT STYLES --- */
 @media print {
   /* Global print styles */
+  
   body {
     font-size: 10pt;
     margin: 20px !important;
@@ -740,21 +741,14 @@ canvas.mode-transition {
   }
   
   /* Add print header with title and project name */
+  /* Remove the CSS-generated title to prevent duplication */
   body::before {
-    content: "Deck Calculator - " attr(data-project-name) " - Plan and Bill of Materials";
-    display: block;
-    text-align: center;
-    font-size: 16pt;
-    font-weight: bold;
-    color: #1A2B49;
-    margin-bottom: 0.5cm;
-    padding-bottom: 0.5cm;
-    border-bottom: 1px solid #ccc;
+    display: none !important;
   }
   
-  /* Fallback header when no project name is set */
+  /* Remove fallback header as well */
   body:not([data-project-name])::before {
-    content: "Deck Calculator - Plan and Bill of Materials";
+    display: none !important;
   }
   
   /* Add print footer info */
@@ -813,29 +807,19 @@ canvas.mode-transition {
     margin: 0 !important;
   }
   
-  /* Ensure structure tab content displays properly */
+  /* Main structure tab layout for print */
   #structure-content.active {
-    display: grid !important;
+    display: block !important;
     padding: 0 !important;
     margin: 0 !important;
-    grid-template-columns: 1fr !important;
-    grid-template-rows: auto auto !important;
-    grid-template-areas:
-      "canvas-area"
-      "bom-area" !important;
-    gap: 1rem !important;
+    width: 100% !important;
+    position: relative !important;
+    overflow: visible !important;
   }
   
-  /* Ensure the flex container within structure tab works */
-  #structure-content.active > .flex {
-    display: grid !important;
-    grid-template-columns: 1fr !important;
-    grid-template-rows: auto auto !important;
-    grid-template-areas:
-      "canvas-area"
-      "bom-area" !important;
-    gap: 1rem !important;
-  }
+  /* Remove the CSS-generated title since it's already in the HTML */
+  
+  /* Remove duplicate rules */
 
   /* Hide elements not needed for the specified print layout */
   #generatePlanBtn,
@@ -853,46 +837,43 @@ canvas.mode-transition {
   #blueprintToggleBtn,
   #toggleDecompositionBtn,
   .floating-controls,
-  #printBomBtn {
+  #printBomBtn,
+  #resetAllBomBtn,
+  #resetAllBtn,
+  #bomSection .flex.justify-between.items-center.mb-4:last-child,
+  #bomSection button,
+  button#resetAllBtn {
     /* Explicitly hide buttons for print view */
     display: none !important;
   }
 
-  /* Structure tab layout for print */
-  #structure-content.active #main-layout-container {
+  /* Remove duplicate input panel rules */
+  
+  /* Remove duplicate main content panel rules */
+  
+  /* Canvas wrapper parent (info-card) */
+  #structure-content.active #main-content-panel > .info-card:first-child {
     display: block !important;
-    width: 100% !important;
-    max-width: 100% !important;
-    padding: 0 !important;
     margin: 0 !important;
   }
   
-  /* Create a two-column layout for summary and canvas */
-  #structure-content.active #main-layout-container > .flex {
-    display: grid !important;
-    grid-template-columns: 0.25fr 0.75fr !important;
-    gap: 1rem !important;
-    margin-bottom: 1rem !important;
-  }
-
-  #structure-content.active #input-panel {
-    grid-area: summary-area !important;
+  /* Canvas stays in the right column */
+  #structure-content.active #canvasContainerWrapper {
     display: block !important;
-    width: auto !important;
-    max-width: none !important;
-    flex-basis: auto !important;
     margin: 0 !important;
-    padding: 0 !important;
   }
   
-  #structure-content.active #main-content-panel {
-    grid-area: canvas-area !important;
-    display: block !important;
-    width: auto !important;
-    max-width: none !important;
-    flex-basis: auto !important;
-    margin: 0 !important;
-    padding: 0 !important;
+  /* Remove duplicate BOM positioning */
+  
+  /* Remove grid-specific rules */
+  
+  /* Hide legend in print - it's between input-panel and main-content-panel */
+  .legend-card,
+  #legend,
+  #structure-content .legend-card,
+  #structure-content #legend,
+  #main-layout-container .legend-card {
+    display: none !important;
   }
 
   /* Show the contextual panel card properly for print */
@@ -1036,7 +1017,6 @@ canvas.mode-transition {
   /* Canvas container within tab structure */
   #structure-content #canvasContainerWrapper,
   #canvasContainerWrapper {
-    grid-area: canvas-area !important;
     display: block !important;
     padding: 0.75rem !important;
     border: 1px solid #bbb !important;
@@ -1045,6 +1025,8 @@ canvas.mode-transition {
     margin: 0 !important;
     background-color: #fff !important;
     position: relative !important;
+    width: 100% !important;
+    height: auto !important;
   }
   
   #canvasContainerWrapper::before {
@@ -1121,8 +1103,7 @@ canvas.mode-transition {
     height: 0.6rem !important;
   }
 
-  /* BOM section within tab structure */
-  #structure-content #bomSection,
+  /* BOM section within tab structure - base styles */
   #bomSection {
     display: block !important;
     margin: 1rem 0 0 0 !important;
@@ -1133,7 +1114,88 @@ canvas.mode-transition {
     background-color: #fff !important;
     width: 100% !important;
     position: relative !important;
+    page-break-before: auto !important;
+    clear: both !important;
   }
+  
+  /* FIXED TWO-COLUMN PRINT LAYOUT */
+  
+  /* Add title at top */
+  #structure-content.active::before {
+    content: "Deck Calculator - My Deck Project - Plan and Bill of Materials" !important;
+    display: block !important;
+    text-align: center !important;
+    font-size: 16pt !important;
+    font-weight: bold !important;
+    color: #1A2B49 !important;
+    margin-bottom: 1rem !important;
+    padding-bottom: 0.5rem !important;
+    border-bottom: 1px solid #ccc !important;
+  }
+  
+  /* FORCE TWO-COLUMN LAYOUT WITH GRID - ADJUSTED WIDTHS TO FIT */
+  #structure-content.active #main-layout-container {
+    display: grid !important;
+    grid-template-columns: 35% 64% !important;
+    grid-gap: 1% !important;
+    width: 100% !important;
+    margin-bottom: 1rem !important;
+    align-items: start !important;
+  }
+  
+  /* Place input panel in first column */
+  #structure-content.active #input-panel {
+    grid-column: 1 !important;
+    grid-row: 1 !important;
+    width: 100% !important;
+    display: block !important;
+    margin: 0 !important;
+    padding: 0 !important;
+  }
+  
+  /* Place main content panel in second column */
+  #structure-content.active #main-content-panel {
+    grid-column: 2 !important;
+    grid-row: 1 !important;
+    width: 100% !important;
+    display: block !important;
+    margin: 0 !important;
+    padding: 0 !important;
+  }
+  
+  /* Hide any element between the panels (like legend) */
+  #structure-content.active #main-layout-container > *:not(#input-panel):not(#main-content-panel) {
+    display: none !important;
+  }
+  
+  /* Override any Tailwind width classes */
+  #structure-content.active .lg\\:w-1\\/4 {
+    width: 30% !important;
+    max-width: 30% !important;
+  }
+  
+  #structure-content.active .lg\\:w-3\\/4 {
+    width: 68% !important;
+    max-width: 68% !important;
+  }
+  
+  /* Ensure proper stacking of BOM below the two-column layout */
+  body.is-printing #structure-content.active {
+    position: relative !important;
+  }
+  
+  /* During print, move BOM to full-width below the columns */
+  body.is-printing #bomSection {
+    position: relative !important;
+    width: 100% !important;
+    margin: 2rem 0 0 0 !important;
+    padding: 0.75rem !important;
+    display: block !important;
+    clear: both !important;
+    page-break-inside: avoid !important;
+  }
+  
+  /* Remove redundant media query */
   
   #bomSection::before {
     content: "Materials List" !important;
@@ -1150,6 +1212,14 @@ canvas.mode-transition {
   
   #bomSection h2 {
     display: none !important; /* Hide the heading since we're using the ::before content */
+  }
+  
+  /* Hide all BOM buttons including Reset All */
+  #bomSection .flex.justify-end,
+  #bomSection button,
+  #bomSection .btn,
+  .flex:has(#resetAllBtn) {
+    display: none !important;
   }
   
   .bom-table {
@@ -1184,6 +1254,9 @@ canvas.mode-transition {
     box-shadow: none !important;
     border: 1px solid #ddd !important;
     background-color: #fff !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    margin: 0 !important;
   }
 
   .lg\:shadow-xl {
@@ -1191,7 +1264,15 @@ canvas.mode-transition {
   }
   .container.mx-auto.max-w-7xl {
     max-width: 100% !important;
+    width: 100% !important;
     padding: 0 !important;
+  }
+  
+  /* Ensure structure content uses full width */
+  #structure-content,
+  #structure-content.active {
+    width: 100% !important;
+    max-width: 100% !important;
   }
 }
 
