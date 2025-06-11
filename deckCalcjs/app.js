@@ -65,6 +65,9 @@ const appState = {
   currentPanelMode: 'drawing' // 'drawing', 'wall-selection', 'specification', 'plan-generated', 'stair-config'
 };
 
+// Make appState available globally for section tab debugging
+window.appState = appState;
+
 // --- DOM Element References ---
 const generatePlanBtn = document.getElementById("generatePlanBtn");
 const addStairsBtn = document.getElementById("addStairsBtn");
@@ -866,6 +869,9 @@ function handleFinishStairs() {
     stairSection.classList.remove('hidden');
     mainBtn.classList.add('active');
   }
+  
+  // Recalculate BOM to include all stairs
+  recalculateAndUpdateBOM();
   
   uiController.updateCanvasStatus(`Finished adding stairs. Total: ${appState.stairs.length} sets. You can now drag stairs to reposition them.`);
   redrawApp();

@@ -1,5 +1,17 @@
 # Complex Deck Shapes Implementation Plan
 
+## Completed Features
+
+### Beam Merging Logic Fix (Completed)
+- Fixed the beam merging logic in `multiSectionCalculations.js`
+- Corrected property references: using 'size' instead of 'actualSize'
+- Updated compatibility check: now checks 'usage' compatibility instead of exact 'beamType' match
+- Added logic to merge beams with compatible usage types (e.g., "Outer Beam" sections can merge)
+- Enhanced merged beam calculation to show correct combined length with feet/inches display
+- Added detailed logging for debugging beam merging process
+- Added comments about post/footing recalculation needs for merged beams
+- Created test file `test_beam_merging.html` to verify the logic works correctly
+
 ## Overview
 This plan implements support for complex deck shapes with 90-degree corners that are automatically decomposed into rectangular sections for structural calculations.
 

@@ -825,20 +825,29 @@ function isValidSplitLine(polygon, splitLine) {
 function processRawRectangles(rawRectangles, originalLedgerWalls) {
   const rectangles = [];
 
+  console.log(`\nProcessing ${rawRectangles.length} raw rectangles with ${originalLedgerWalls.length} original ledger walls...`);
+  
   // Create rectangle objects with unique IDs
   for (let i = 0; i < rawRectangles.length; i++) {
     const corners = rawRectangles[i];
     const rectId = `rect_${i}`;
     
+    console.log(`\nProcessing rectangle ${i + 1}/${rawRectangles.length} (${rectId}):`);
+    
     // Check if this rectangle contains part of any ledger wall
     let isLedgerRectangle = false;
     let ledgerWalls = [];
     
-    originalLedgerWalls.forEach(originalWall => {
+    originalLedgerWalls.forEach((originalWall, wallIndex) => {
+      console.log(`  Checking against ledger wall ${wallIndex + 1}/${originalLedgerWalls.length}:`);
       const ledgerInfo = findLedgerWallInRectangle(corners, originalWall);
       if (ledgerInfo.isLedgerRectangle) {
         isLedgerRectangle = true;
         ledgerWalls.push(ledgerInfo.ledgerWall);
+        const ledgerLength = getLineSegmentLength(ledgerInfo.ledgerWall.p1, ledgerInfo.ledgerWall.p2) / 24;
+        console.log(`    ✓ Rectangle ${rectId} contains ${ledgerLength.toFixed(2)}' of ledger`);
+      } else {
+        console.log(`    ✗ Rectangle ${rectId} does not contain this ledger wall`);
       }
     });
     
@@ -851,6 +860,8 @@ function processRawRectangles(rawRectangles, originalLedgerWalls) {
       adjacentRectangles: [], // Will be populated below
       sharedEdges: [] // Will be populated below
     };
+    
+    console.log(`  Final: Rectangle ${rectId} - isLedgerRectangle: ${isLedgerRectangle}, ledgerWalls: ${ledgerWalls.length}`);
     
     rectangles.push(rectangle);
   }
@@ -872,6 +883,9 @@ function findLedgerWallInRectangle(corners, originalLedgerWall) {
   const ledgerStart = originalLedgerWall.p1;
   const ledgerEnd = originalLedgerWall.p2;
 
+  console.log(`Checking rectangle for ledger wall: ledger from (${ledgerStart.x}, ${ledgerStart.y}) to (${ledgerEnd.x}, ${ledgerEnd.y})`);
+  console.log(`Rectangle bounds: (${bounds.minX}, ${bounds.minY}) to (${bounds.maxX}, ${bounds.maxY})`);
+
   // Check if the ledger wall segment intersects with any edge of the rectangle
   for (let i = 0; i < corners.length; i++) {
     const edgeStart = corners[i];
@@ -881,6 +895,11 @@ function findLedgerWallInRectangle(corners, originalLedgerWall) {
     const overlap = findLineSegmentOverlap(ledgerStart, ledgerEnd, edgeStart, edgeEnd);
     
     if (overlap) {
+      // Calculate the actual length of the overlapping segment
+      const overlapLength = getLineSegmentLength(overlap.p1, overlap.p2);
+      
+      console.log(`✓ Found direct ledger overlap: ${(overlapLength / 24).toFixed(2)} feet in rectangle`);
+      
       return {
         ledgerWall: overlap,
         isLedgerRectangle: true
@@ -888,6 +907,117 @@ function findLedgerWallInRectangle(corners, originalLedgerWall) {
     }
   }
 
+  // Enhanced detection for L-shaped decks: Check if this rectangle should be part of 
+  // a continuous ledger structure
+  const ledgerDirection = {
+    x: ledgerEnd.x - ledgerStart.x,
+    y: ledgerEnd.y - ledgerStart.y
+  };
+  
+  const isLedgerHorizontal = Math.abs(ledgerDirection.x) > Math.abs(ledgerDirection.y);
+  console.log(`Ledger is ${isLedgerHorizontal ? 'horizontal' : 'vertical'}`);
+  
+  // For L-shaped decks, check if this rectangle is collinear with the ledger
+  // and should be considered part of the continuous ledger structure
+  if (isLedgerHorizontal) {
+    // For horizontal ledgers, check if rectangle has an edge at the same Y coordinate
+    const ledgerY = ledgerStart.y;
+    const tolerance = 2.0; // 2 pixel tolerance
+    
+    for (let i = 0; i < corners.length; i++) {
+      const edgeStart = corners[i];
+      const edgeEnd = corners[(i + 1) % corners.length];
+      
+      // Check if this is a horizontal edge at the ledger's Y coordinate
+      if (Math.abs(edgeStart.y - edgeEnd.y) < EPSILON && 
+          Math.abs(edgeStart.y - ledgerY) < tolerance) {
+        
+        // Check if this edge could be a continuation of the ledger
+        const edgeMinX = Math.min(edgeStart.x, edgeEnd.x);
+        const edgeMaxX = Math.max(edgeStart.x, edgeEnd.x);
+        const ledgerMinX = Math.min(ledgerStart.x, ledgerEnd.x);
+        const ledgerMaxX = Math.max(ledgerStart.x, ledgerEnd.x);
+        
+        // Check if edges are adjacent or overlapping (could be continuous ledger)
+        const gap = Math.min(Math.abs(edgeMinX - ledgerMaxX), Math.abs(ledgerMinX - edgeMaxX));
+        
+        if (gap < tolerance || (edgeMaxX >= ledgerMinX && edgeMinX <= ledgerMaxX)) {
+          const edgeLength = getLineSegmentLength(edgeStart, edgeEnd);
+          console.log(`✓ Found collinear ledger continuation: ${(edgeLength / 24).toFixed(2)} feet (horizontal)`);
+          
+          return {
+            ledgerWall: {
+              p1: edgeStart,
+              p2: edgeEnd
+            },
+            isLedgerRectangle: true
+          };
+        }
+      }
+    }
+  } else {
+    // For vertical ledgers, check if rectangle has an edge at the same X coordinate
+    const ledgerX = ledgerStart.x;
+    const tolerance = 2.0; // 2 pixel tolerance
+    
+    for (let i = 0; i < corners.length; i++) {
+      const edgeStart = corners[i];
+      const edgeEnd = corners[(i + 1) % corners.length];
+      
+      // Check if this is a vertical edge at the ledger's X coordinate
+      if (Math.abs(edgeStart.x - edgeEnd.x) < EPSILON && 
+          Math.abs(edgeStart.x - ledgerX) < tolerance) {
+        
+        // Check if this edge could be a continuation of the ledger
+        const edgeMinY = Math.min(edgeStart.y, edgeEnd.y);
+        const edgeMaxY = Math.max(edgeStart.y, edgeEnd.y);
+        const ledgerMinY = Math.min(ledgerStart.y, ledgerEnd.y);
+        const ledgerMaxY = Math.max(ledgerStart.y, ledgerEnd.y);
+        
+        // Check if edges are adjacent or overlapping (could be continuous ledger)
+        const gap = Math.min(Math.abs(edgeMinY - ledgerMaxY), Math.abs(ledgerMinY - edgeMaxY));
+        
+        if (gap < tolerance || (edgeMaxY >= ledgerMinY && edgeMinY <= ledgerMaxY)) {
+          const edgeLength = getLineSegmentLength(edgeStart, edgeEnd);
+          console.log(`✓ Found collinear ledger continuation: ${(edgeLength / 24).toFixed(2)} feet (vertical)`);
+          
+          return {
+            ledgerWall: {
+              p1: edgeStart,
+              p2: edgeEnd
+            },
+            isLedgerRectangle: true
+          };
+        }
+      }
+    }
+  }
+  
+  // Legacy check for adjacent rectangles (keeping for compatibility)
+  for (const corner of corners) {
+    const distanceToLedgerLine = distanceFromPointToLine(corner, ledgerStart, ledgerEnd);
+    
+    if (distanceToLedgerLine < 1.0) { // Within 1 pixel tolerance
+      // Check if this corner is along the extension of the ledger
+      const isAlongLedgerExtension = isPointAlongLineExtension(corner, ledgerStart, ledgerEnd);
+      
+      if (isAlongLedgerExtension) {
+        console.log(`Rectangle is adjacent to extended ledger line - treating as ledger rectangle`);
+        
+        // Create a virtual ledger segment for this rectangle along the adjacent edge
+        const adjacentEdge = findAdjacentEdgeToLedger(corners, ledgerStart, ledgerEnd);
+        
+        if (adjacentEdge) {
+          return {
+            ledgerWall: adjacentEdge,
+            isLedgerRectangle: true
+          };
+        }
+      }
+    }
+  }
+
+  console.log(`✗ Rectangle does not contain ledger wall`);
   return {
     ledgerWall: null,
     isLedgerRectangle: false
@@ -1192,6 +1322,125 @@ function isPointInsidePolygon(point, polygon) {
   }
   
   return inside;
+}
+
+/**
+ * Calculates the distance from a point to a line
+ * @param {Object} point - Point {x, y}
+ * @param {Object} lineStart - Start of line {x, y}
+ * @param {Object} lineEnd - End of line {x, y}
+ * @returns {number} Distance from point to line
+ */
+function distanceFromPointToLine(point, lineStart, lineEnd) {
+  const A = lineEnd.x - lineStart.x;
+  const B = lineEnd.y - lineStart.y;
+  const C = lineStart.x - point.x;
+  const D = lineStart.y - point.y;
+  
+  const dot = A * C + B * D;
+  const lenSq = A * A + B * B;
+  
+  if (lenSq === 0) {
+    // Line is actually a point
+    return Math.sqrt(C * C + D * D);
+  }
+  
+  const param = -dot / lenSq;
+  
+  let xx, yy;
+  
+  if (param < 0) {
+    xx = lineStart.x;
+    yy = lineStart.y;
+  } else if (param > 1) {
+    xx = lineEnd.x;
+    yy = lineEnd.y;
+  } else {
+    xx = lineStart.x + param * A;
+    yy = lineStart.y + param * B;
+  }
+  
+  const dx = point.x - xx;
+  const dy = point.y - yy;
+  
+  return Math.sqrt(dx * dx + dy * dy);
+}
+
+/**
+ * Checks if a point is along the extension of a line
+ * @param {Object} point - Point to test {x, y}
+ * @param {Object} lineStart - Start of line {x, y}
+ * @param {Object} lineEnd - End of line {x, y}
+ * @returns {boolean} True if point is along line extension
+ */
+function isPointAlongLineExtension(point, lineStart, lineEnd) {
+  // Calculate distance from point to line
+  const distanceToLine = distanceFromPointToLine(point, lineStart, lineEnd);
+  
+  if (distanceToLine > 1.0) { // Not close enough to line
+    return false;
+  }
+  
+  // Check if point is along the same direction as the line
+  const lineVector = {
+    x: lineEnd.x - lineStart.x,
+    y: lineEnd.y - lineStart.y
+  };
+  
+  const pointVector1 = {
+    x: point.x - lineStart.x,
+    y: point.y - lineStart.y
+  };
+  
+  const pointVector2 = {
+    x: point.x - lineEnd.x,
+    y: point.y - lineEnd.y
+  };
+  
+  // If point is beyond the line segment in either direction, it's on the extension
+  const dot1 = pointVector1.x * lineVector.x + pointVector1.y * lineVector.y;
+  const dot2 = pointVector2.x * (-lineVector.x) + pointVector2.y * (-lineVector.y);
+  
+  return dot1 < 0 || dot2 < 0;
+}
+
+/**
+ * Finds the edge of a rectangle that is adjacent to a ledger line
+ * @param {Array<{x: number, y: number}>} corners - Rectangle corners
+ * @param {Object} ledgerStart - Start of ledger line {x, y}
+ * @param {Object} ledgerEnd - End of ledger line {x, y}
+ * @returns {Object|null} Adjacent edge or null
+ */
+function findAdjacentEdgeToLedger(corners, ledgerStart, ledgerEnd) {
+  const isLedgerHorizontal = Math.abs(ledgerStart.y - ledgerEnd.y) < EPSILON;
+  
+  // Look for an edge that is parallel to the ledger and close to it
+  for (let i = 0; i < corners.length; i++) {
+    const edgeStart = corners[i];
+    const edgeEnd = corners[(i + 1) % corners.length];
+    
+    const isEdgeHorizontal = Math.abs(edgeStart.y - edgeEnd.y) < EPSILON;
+    
+    // Edge must be parallel to ledger
+    if (isEdgeHorizontal === isLedgerHorizontal) {
+      // Check if edge is close to the ledger line
+      const edgeMidpoint = {
+        x: (edgeStart.x + edgeEnd.x) / 2,
+        y: (edgeStart.y + edgeEnd.y) / 2
+      };
+      
+      const distanceToLedger = distanceFromPointToLine(edgeMidpoint, ledgerStart, ledgerEnd);
+      
+      if (distanceToLedger < 1.0) { // Within tolerance
+        return {
+          p1: edgeStart,
+          p2: edgeEnd
+        };
+      }
+    }
+  }
+  
+  return null;
 }
 
 /**

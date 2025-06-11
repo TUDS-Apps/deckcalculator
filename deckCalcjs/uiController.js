@@ -2,6 +2,10 @@
 // import { getParsedStockData } from "./dataManager.js"; // Not strictly needed for these changes
 import { decimalToFraction, formatFeetInches } from "./utils.js";
 
+// Store reference to current BOM data for editable functionality
+let currentBOMData = null;
+
+
 // --- DOM Element References ---
 const deckSpecsForm = document.getElementById("deckSpecsForm");
 const deckHeightFeetInput = document.getElementById("deckHeightFeet");
@@ -20,6 +24,142 @@ const bomSection = document.getElementById("bomSection");
 const bomTableBody = document.getElementById("bomTableBody");
 const summarySection = document.getElementById("summarySection");
 const summaryList = document.getElementById("summaryList");
+
+// --- BOM Interactive Functions ---
+function createQuantityControls(item, globalIndex) {
+  const isModified = item.qty !== item.originalQty;
+  const modifiedClass = isModified ? 'qty-modified' : '';
+  
+  return `
+    <div class="qty-controls ${modifiedClass}">
+      <input 
+        type="number" 
+        class="qty-input ${modifiedClass}" 
+        value="${item.qty || 0}" 
+        min="0" 
+        onchange="updateQuantity(${globalIndex}, this.value)"
+        onblur="validateQuantity(${globalIndex}, this)"
+        title="Use spinner controls or type quantity. Enter 0 to remove item."
+      />
+    </div>
+    ${isModified ? `<div class="qty-original">Original: ${item.originalQty}</div>` : ''}
+  `;
+}
+
+function updateQuantity(index, newValue) {
+  if (!currentBOMData || index >= currentBOMData.length) return;
+  
+  const qty = Math.max(0, parseInt(newValue) || 0);
+  
+  // If quantity is 0, remove the item
+  if (qty === 0) {
+    currentBOMData.splice(index, 1);
+  } else {
+    currentBOMData[index].qty = qty;
+  }
+  
+  // Update the app state
+  updateAppStateBOM();
+  
+  // Refresh the BOM table
+  populateBOMTable(currentBOMData);
+}
+
+function validateQuantity(index, input) {
+  const value = parseInt(input.value) || 0;
+  if (value < 0) {
+    input.value = 0;
+  }
+  updateQuantity(index, value);
+}
+
+function resetAllQuantities() {
+  if (!currentBOMData) return;
+  
+  if (confirm('Reset all quantities to original calculated values?')) {
+    currentBOMData.forEach(item => {
+      item.qty = item.originalQty;
+    });
+    
+    // Update the app state
+    updateAppStateBOM();
+    
+    // Refresh the BOM table
+    populateBOMTable(currentBOMData);
+  }
+}
+
+function updateAppStateBOM() {
+  // Update the global app state if it exists
+  if (window.appState && window.appState.bom) {
+    window.appState.bom = [...currentBOMData];
+  }
+}
+
+// Copy item name function
+function copyItemName(itemText, iconElement) {
+  // Use the modern clipboard API if available
+  if (navigator.clipboard && window.isSecureContext) {
+    navigator.clipboard.writeText(itemText).then(() => {
+      showCopyFeedback(iconElement);
+    }).catch(err => {
+      console.error('Failed to copy text: ', err);
+      fallbackCopyTextToClipboard(itemText, iconElement);
+    });
+  } else {
+    // Fallback for older browsers or non-secure contexts
+    fallbackCopyTextToClipboard(itemText, iconElement);
+  }
+}
+
+function fallbackCopyTextToClipboard(text, iconElement) {
+  const textArea = document.createElement("textarea");
+  textArea.value = text;
+  
+  // Avoid scrolling to bottom
+  textArea.style.top = "0";
+  textArea.style.left = "0";
+  textArea.style.position = "fixed";
+  
+  document.body.appendChild(textArea);
+  textArea.focus();
+  textArea.select();
+  
+  try {
+    const successful = document.execCommand('copy');
+    if (successful) {
+      showCopyFeedback(iconElement);
+    }
+  } catch (err) {
+    console.error('Fallback: Oops, unable to copy', err);
+  }
+  
+  document.body.removeChild(textArea);
+}
+
+function showCopyFeedback(iconElement) {
+  // Change icon temporarily to show success
+  const originalSVG = iconElement.innerHTML;
+  iconElement.innerHTML = `
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <polyline points="20,6 9,17 4,12"/>
+    </svg>
+  `;
+  iconElement.style.color = '#10b981'; // Green color for success
+  
+  setTimeout(() => {
+    iconElement.innerHTML = originalSVG;
+    iconElement.style.color = ''; // Reset color
+  }, 1000);
+}
+
+
+// Make functions globally available
+window.updateQuantity = updateQuantity;
+window.validateQuantity = validateQuantity;
+window.resetAllQuantities = resetAllQuantities;
+window.copyItemName = copyItemName;
+
 // --- UI Update Functions ---
 export function updateCanvasStatus(message) {
   // Console logging for debugging purposes - canvas status panel removed
@@ -58,7 +198,6 @@ export function getFormInputs() {
 }
 
 export function populateBOMTable(bomData, errorMessage = null) {
-  // ... (same as v27)
   bomTableBody.innerHTML = "";
   let totalCost = 0;
 
@@ -71,39 +210,132 @@ export function populateBOMTable(bomData, errorMessage = null) {
   if (!bomData || bomData.length === 0) {
     const msg = "No materials calculated. Generate a plan or add components.";
     bomTableBody.innerHTML = `<tr><td colspan="5" class="text-center text-gray-500 py-4">${msg}</td></tr>`;
+    currentBOMData = null;
     return;
   }
 
-  bomData.forEach((item) => {
-    const row = bomTableBody.insertRow();
-    const cellQty = row.insertCell();
-    const cellItem = row.insertCell();
-    const cellDesc = row.insertCell();
-    
-    // We'll still create these cells but they'll be hidden by CSS
-    const cellUnitPrice = row.insertCell();
-    const cellTotalPrice = row.insertCell();
+  // Store current BOM data for editing
+  currentBOMData = bomData.map(item => ({...item})); // Deep copy
+  
 
-    const unitPrice = item.unitPrice || 0;
-    const lineTotal = (item.qty || 0) * unitPrice;
-    totalCost += lineTotal;
+  // Categorize BOM items with global indices
+  const categories = {
+    "BEAMS, POSTS & FOOTINGS": [],
+    "JOISTS, LEDGER, RIMS & BLOCKING": [],
+    "STAIRS": []
+  };
 
-    cellQty.textContent = item.qty || 0;
-    cellQty.classList.add("qty-col");
-    cellItem.textContent = item.item || "N/A";
-    cellDesc.textContent = item.description || "N/A";
+  currentBOMData.forEach((item, globalIndex) => {
+    const desc = (item.description || "").toLowerCase();
+    const itemName = (item.item || "").toLowerCase();
     
-    // Still set the text content but they'll be hidden
-    cellUnitPrice.textContent = unitPrice.toLocaleString("en-CA", {
-      style: "currency",
-      currency: "CAD",
+    // Add global index to item for tracking
+    item.globalIndex = globalIndex;
+    item.originalGlobalIndex = globalIndex; // For section filtering
+    
+    // Check for stairs first
+    if (desc.includes("stair") || desc.includes("step") || desc.includes("stringer") || 
+        desc.includes("landing") || desc.includes("lscz") || desc.includes("grk fasteners for pylex")) {
+      categories["STAIRS"].push(item);
+    }
+    // Check for beams, posts, footings
+    else if (desc.includes("beam") || desc.includes("post") || desc.includes("footing") || 
+        desc.includes("ledger fastener") || desc.includes("wall rim fastener") ||
+        itemName.includes("gh deck leveller") || itemName.includes("pylex") || 
+        itemName.includes("helical") || itemName.includes("deck slab") ||
+        itemName.includes("quikrete")) {
+      categories["BEAMS, POSTS & FOOTINGS"].push(item);
+    }
+    // Everything else goes to joists group (including hardware)
+    else {
+      categories["JOISTS, LEDGER, RIMS & BLOCKING"].push(item);
+    }
+  });
+
+  // Function to add subheading row
+  const addSubheadingRow = (title) => {
+    const subheadingRow = bomTableBody.insertRow();
+    
+    // Use inline styles to ensure visibility
+    subheadingRow.style.backgroundColor = "#dbeafe";
+    subheadingRow.style.fontWeight = "bold";
+    subheadingRow.style.borderTop = "2px solid #3b82f6";
+    
+    const subheadingCell = subheadingRow.insertCell();
+    subheadingCell.colSpan = 5;
+    subheadingCell.textContent = title;
+    
+    // Use inline styles to ensure visibility
+    subheadingCell.style.textAlign = "left";
+    subheadingCell.style.padding = "8px 12px";
+    subheadingCell.style.color = "#1e40af";
+    subheadingCell.style.fontSize = "14px";
+    subheadingCell.style.textTransform = "uppercase";
+    subheadingCell.style.letterSpacing = "0.05em";
+  };
+
+  // Function to add items from a category
+  const addCategoryItems = (items) => {
+    items.forEach((item) => {
+      const row = bomTableBody.insertRow();
+      const cellQty = row.insertCell();
+      const cellItem = row.insertCell();
+      const cellDesc = row.insertCell();
+      
+      // We'll still create these cells but they'll be hidden by CSS
+      const cellUnitPrice = row.insertCell();
+      const cellTotalPrice = row.insertCell();
+
+      // Store original quantity if not already stored
+      if (item.originalQty === undefined) {
+        item.originalQty = item.qty || 0;
+      }
+
+      const unitPrice = item.unitPrice || 0;
+      const lineTotal = (item.qty || 0) * unitPrice;
+      totalCost += lineTotal;
+
+      // Create interactive quantity controls using global index
+      const quantityHTML = createQuantityControls(item, item.globalIndex);
+      cellQty.innerHTML = quantityHTML;
+      cellQty.classList.add("qty-col");
+      
+      // Add data attribute for print quantity
+      cellQty.setAttribute('data-print-qty', item.qty || 0);
+      
+      // Add copy icon and item text
+      const itemText = item.item || "N/A";
+      cellItem.innerHTML = `
+        <span class="copy-icon" onclick="copyItemName('${itemText.replace(/'/g, "\\'")}', this)" title="Copy item name">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="9" y="9" width="13" height="13" rx="2" ry="2"/>
+            <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>
+          </svg>
+        </span>
+        ${itemText}
+      `;
+      cellDesc.textContent = item.description || "N/A";
+      
+      // Still set the text content but they'll be hidden
+      cellUnitPrice.textContent = unitPrice.toLocaleString("en-CA", {
+        style: "currency",
+        currency: "CAD",
+      });
+      cellUnitPrice.classList.add("price-col");
+      cellTotalPrice.textContent = lineTotal.toLocaleString("en-CA", {
+        style: "currency",
+        currency: "CAD",
+      });
+      cellTotalPrice.classList.add("price-col");
     });
-    cellUnitPrice.classList.add("price-col");
-    cellTotalPrice.textContent = lineTotal.toLocaleString("en-CA", {
-      style: "currency",
-      currency: "CAD",
-    });
-    cellTotalPrice.classList.add("price-col");
+  };
+
+  // Add each category with its items (only show categories that have items)
+  Object.entries(categories).forEach(([categoryName, items]) => {
+    if (items.length > 0) {
+      addSubheadingRow(categoryName);
+      addCategoryItems(items);
+    }
   });
 
   // We'll still create the total row but it'll be hidden by CSS

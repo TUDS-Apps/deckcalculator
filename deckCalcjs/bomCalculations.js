@@ -26,7 +26,7 @@ function applyLongLengthFallback(
 ) {
   if (!stockOptions || stockOptions.length === 0) {
     const descForMissing = `${String(usageDesc)} - No ${size} Stock Options`;
-    bomAdderFn(null, descForMissing, 1);
+    bomAdderFn(null, descForMissing, 1, getCategoryForUsage(usageDesc));
     return;
   }
 
@@ -42,7 +42,7 @@ function applyLongLengthFallback(
         currentRequiredLength / longestAvailable.lumber_length_ft
       );
       if (numLongestPieces > 0) {
-        bomAdderFn(longestAvailable, String(usageDesc), numLongestPieces);
+        bomAdderFn(longestAvailable, String(usageDesc), numLongestPieces, getCategoryForUsage(usageDesc));
         currentRequiredLength -=
           numLongestPieces * longestAvailable.lumber_length_ft;
       }
@@ -59,26 +59,47 @@ function applyLongLengthFallback(
     );
 
     if (shortestFittingStock) {
-      bomAdderFn(shortestFittingStock, String(usageDesc), 1);
+      bomAdderFn(shortestFittingStock, String(usageDesc), 1, getCategoryForUsage(usageDesc));
     } else if (stockOptions.length > 0) {
       const smallestStockOverall = sortedStockOptionsByShortest[0];
       if (smallestStockOverall) {
-        bomAdderFn(smallestStockOverall, String(usageDesc), 1);
+        bomAdderFn(smallestStockOverall, String(usageDesc), 1, getCategoryForUsage(usageDesc));
       } else {
         const descForError = `${String(
           usageDesc
         )} - Remainder Unfulfilled Error`;
-        bomAdderFn(null, descForError, 1);
+        bomAdderFn(null, descForError, 1, getCategoryForUsage(usageDesc));
       }
     } else {
       const descForNoStock = `${String(usageDesc)} - No Stock for Remainder`;
-      bomAdderFn(null, descForNoStock, 1);
+      bomAdderFn(null, descForNoStock, 1, getCategoryForUsage(usageDesc));
     }
   }
 }
 
+// --- Helper function to map usage strings to BOM categories ---
+function getCategoryForUsage(usage) {
+  if (!usage) return null;
+  const usageStr = String(usage).toLowerCase();
+  
+  // Check for stairs first
+  if (usageStr.includes("stair") || usageStr.includes("step") || usageStr.includes("stringer") || 
+      usageStr.includes("landing") || usageStr.includes("lscz") || usageStr.includes("grk fasteners for pylex")) {
+    return "STAIRS";
+  }
+  
+  // Check for beams, posts, footings
+  if (usageStr.includes("beam") || usageStr.includes("post") || usageStr.includes("footing") || 
+      usageStr.includes("ledger fastener") || usageStr.includes("wall rim fastener")) {
+    return "BEAMS, POSTS & FOOTINGS";
+  }
+  
+  // Everything else goes to joists group (including hardware)
+  return "JOISTS, LEDGER, RIMS & BLOCKING";
+}
+
 // --- BOM Item Aggregation Helper ---
-function addItemToBOMAggregated(bomItems, stockItem, usage, qty = 1) {
+function addItemToBOMAggregated(bomItems, stockItem, usage, qty = 1, category = null) {
   if (qty <= 0) {
     return;
   }
@@ -106,7 +127,10 @@ function addItemToBOMAggregated(bomItems, stockItem, usage, qty = 1) {
     return;
   }
 
-  const id = stockItem.system_id;
+  // Create a composite key that includes category to separate same items used in different categories
+  const baseId = stockItem.system_id;
+  const id = category ? `${baseId}_${category}` : baseId;
+  
   const unitPrice = stockItem.retail_price || 0;
   if (!bomItems[id]) {
     bomItems[id] = {
@@ -116,6 +140,7 @@ function addItemToBOMAggregated(bomItems, stockItem, usage, qty = 1) {
       unitPrice: unitPrice,
       totalPrice: 0,
       _usages: new Set([safeUsage]),
+      _category: category,
     };
   }
   bomItems[id].qty += qty;
@@ -158,7 +183,8 @@ function optimizeLumberCutting(
       bomAdderFn(
         exactMatchStock,
         `${piece.usage} (${materialSize}, ${formatFeetInches(piece.length)})`,
-        1
+        1,
+        getCategoryForUsage(piece.usage)
       );
     } else {
       remainingPiecesToCut.push(piece);
@@ -260,7 +286,7 @@ function optimizeLumberCutting(
         })
         .join("; ");
       const detailedUsageDesc = `Cut ${materialSize} for: ${cutDetails}`;
-      bomAdderFn(bestStockItemChoice, detailedUsageDesc, 1);
+      bomAdderFn(bestStockItemChoice, detailedUsageDesc, 1, getCategoryForUsage(cutsMadeFromBestStock[0]?.usage));
 
       cutsMadeFromBestStock.forEach((cutPieceMade) => {
         const indexToRemove = piecesToCutForOptimizer.findIndex(
@@ -298,13 +324,15 @@ function optimizeLumberCutting(
           bomAdderFn(
             bestFitForLongest,
             `${longestRemainingPiece.usage} (${materialSize}, ${formattedLength})`,
-            1
+            1,
+            getCategoryForUsage(longestRemainingPiece.usage)
           );
         } else {
           bomAdderFn(
             bestFitForLongest,
             `Cut for ${longestRemainingPiece.usage} (${materialSize}, ${formattedLength})`,
-            1
+            1,
+            getCategoryForUsage(longestRemainingPiece.usage)
           );
         }
       } else {
@@ -315,7 +343,7 @@ function optimizeLumberCutting(
             longestRemainingPiece.length
           )})`,
           availableStockForSizeAll,
-          bomAdderFn
+          (stock, usage, qty) => bomAdderFn(stock, usage, qty, getCategoryForUsage(longestRemainingPiece.usage))
         );
       }
     } else {
@@ -378,8 +406,8 @@ function processLumber(structure, inputs, bomItems, parsedStockData) {
     return acc;
   }, {});
 
-  const wrappedBomAdder = (stock, usage, qty) =>
-    addItemToBOMAggregated(bomItems, stock, usage, qty);
+  const wrappedBomAdder = (stock, usage, qty, category = null) =>
+    addItemToBOMAggregated(bomItems, stock, usage, qty, category);
 
   for (const materialSize in requiredLumberByMaterialSize) {
     let piecesToCutForThisSize = [
@@ -406,7 +434,8 @@ function processLumber(structure, inputs, bomItems, parsedStockData) {
           bomItems,
           null,
           `${piece.usage} (${materialSize}) - No Stock`,
-          1
+          1,
+          getCategoryForUsage(piece.usage)
         )
       );
       continue;
@@ -438,7 +467,8 @@ function processLumber(structure, inputs, bomItems, parsedStockData) {
               `${piece.usage} (${materialSize}, ${formatFeetInches(
                 piece.length
               )}) using 20ft Override`,
-              1
+              1,
+              getCategoryForUsage(piece.usage)
             );
           } else {
             piecesToCutForThisSize.push(piece);
@@ -485,13 +515,15 @@ function processFootings(structure, inputs, bomItems, parsedStockData) {
       );
       footingDesc = "Helical Pile (Installed)";
     }
-    addItemToBOMAggregated(bomItems, footingItem, footingDesc, footingCount);
+    
+    addItemToBOMAggregated(bomItems, footingItem, footingDesc, footingCount, "BEAMS, POSTS & FOOTINGS");
     if (slabItem)
       addItemToBOMAggregated(
         bomItems,
         slabItem,
         "Deck Slab 16x16",
-        footingCount
+        footingCount,
+        "BEAMS, POSTS & FOOTINGS"
       );
   }
 }
@@ -527,7 +559,7 @@ function processHardwareAndAccessories(
         i.item?.includes('4"') &&
         i.item?.toLowerCase().includes("single")
     );
-    addItemToBOMAggregated(bomItems, item, 'Ledger Fastener (GRK 4")', count);
+    addItemToBOMAggregated(bomItems, item, 'Ledger Fastener (GRK 4")', count, "BEAMS, POSTS & FOOTINGS");
   } else if (
     inputs.attachmentType === "concrete" &&
     structure.rimJoists?.some((r) => r.usage === "Wall Rim Joist")
@@ -546,7 +578,8 @@ function processHardwareAndAccessories(
         bomItems,
         item,
         "Wall Rim Fastener (Titen HD 1/2X4)",
-        count
+        count,
+        "BEAMS, POSTS & FOOTINGS"
       );
     }
   }
@@ -564,7 +597,7 @@ function processHardwareAndAccessories(
     const h25Item = parsedStockData.find((i) =>
       i.item?.toLowerCase().includes("h2.5az")
     );
-    addItemToBOMAggregated(bomItems, h25Item, "H2.5 Tie", tieCount);
+    addItemToBOMAggregated(bomItems, h25Item, "H2.5 Tie", tieCount, "JOISTS, LEDGER, RIMS & BLOCKING");
     if (h25Item) totalScrews1_5 += tieCount * 10;
   }
 
@@ -639,7 +672,8 @@ function processHardwareAndAccessories(
         bomItems,
         item,
         `Joist Hanger (${primaryJoistSize} for Joist/PF Joist)`,
-        hanger_count_final
+        hanger_count_final,
+        "JOISTS, LEDGER, RIMS & BLOCKING"
       );
       if (item) {
         totalScrews1_5 += hanger_count_final * screws_1_5_per_hanger;
@@ -678,7 +712,8 @@ function processHardwareAndAccessories(
         bomItems,
         item,
         `Beam Connector (${pSize} Post, ${beamPlyForConnector}-ply Beam)`,
-        postCount
+        postCount,
+        "BEAMS, POSTS & FOOTINGS"
       );
       if (item) totalScrews2_5 += postCount * screws_per_bcs;
     }
@@ -711,7 +746,8 @@ function processHardwareAndAccessories(
         bomItems,
         item,
         `Corner Angle (${angleLookup.toUpperCase()})`,
-        numCornerAngles
+        numCornerAngles,
+        "JOISTS, LEDGER, RIMS & BLOCKING"
       );
       if (item) totalScrews1_5 += numCornerAngles * screws_per_angle;
     }
@@ -758,13 +794,14 @@ function processHardwareAndAccessories(
       fDesc = `Framing Nails (Paslode 3-1/4")`;
     }
   }
-  if (fItem && fQty > 0) addItemToBOMAggregated(bomItems, fItem, fDesc, fQty);
+  if (fItem && fQty > 0) addItemToBOMAggregated(bomItems, fItem, fDesc, fQty, "JOISTS, LEDGER, RIMS & BLOCKING");
   else
     addItemToBOMAggregated(
       bomItems,
       null,
       `${fDesc} - No Stock Found or Zero Qty`,
-      1
+      1,
+      "JOISTS, LEDGER, RIMS & BLOCKING"
     );
 
   if (inputs.joistProtection !== "none") {
@@ -785,7 +822,8 @@ function processHardwareAndAccessories(
           bomItems,
           item,
           'G-Tape (2" for Joists/Rims/Ledger)',
-          rolls
+          rolls,
+          "JOISTS, LEDGER, RIMS & BLOCKING"
         );
       }
       structure.beams?.forEach((b) => {
@@ -802,7 +840,8 @@ function processHardwareAndAccessories(
             bomItems,
             item,
             `G-Tape (${tapeWidth} for ${b.usage})`,
-            rolls
+            rolls,
+            getCategoryForUsage(b.usage)
           );
         }
       });
@@ -815,7 +854,7 @@ function processHardwareAndAccessories(
         const item = parsedStockData.find((i) =>
           i.item?.toLowerCase().includes("deck frame coating")
         );
-        addItemToBOMAggregated(bomItems, item, "Deck Frame Coating", pails);
+        addItemToBOMAggregated(bomItems, item, "Deck Frame Coating", pails, "JOISTS, LEDGER, RIMS & BLOCKING");
       }
     }
   }
@@ -828,13 +867,13 @@ function processHardwareAndAccessories(
     const sealer = parsedStockData.find((i) =>
       i.item?.toLowerCase().includes("end cut sealer")
     );
-    addItemToBOMAggregated(bomItems, sealer, "End Cut Sealer", 1);
+    addItemToBOMAggregated(bomItems, sealer, "End Cut Sealer", 1, "JOISTS, LEDGER, RIMS & BLOCKING");
 
     if (sealer || inputs.joistProtection === "coating") {
       const brush = parsedStockData.find((i) =>
         i.item?.toLowerCase().includes("polyester stain brush")
       );
-      addItemToBOMAggregated(bomItems, brush, "Applicator Brush", 1);
+      addItemToBOMAggregated(bomItems, brush, "Applicator Brush", 1, "JOISTS, LEDGER, RIMS & BLOCKING");
     }
   }
   return { totalScrews1_5, totalScrews2_5 };
@@ -851,8 +890,8 @@ function processStairs(
   let currentTotalScrews1_5 = initialScrews1_5;
   let currentTotalScrews2_5 = initialScrews2_5;
   let totalPylexStringerPiecesForFasteners = 0;
-  const wrappedBomAdder = (stock, usage, qty) =>
-    addItemToBOMAggregated(bomItems, stock, usage, qty);
+  const wrappedBomAdder = (stock, usage, qty, category = null) =>
+    addItemToBOMAggregated(bomItems, stock, usage, qty, category);
 
   if (stairs && stairs.length > 0) {
     const allPylexStringerItems = parsedStockData.filter(
@@ -879,7 +918,8 @@ function processStairs(
           bomItems,
           null,
           `Stair ${index + 1} - Error: ${stair.calculationError}`,
-          1
+          1,
+          "STAIRS"
         );
         return;
       }
@@ -896,7 +936,8 @@ function processStairs(
             bomItems,
             null,
             `Pylex Stringers${stairDescSuffix} - No Pylex Stock Found`,
-            stair.calculatedStringerQty
+            stair.calculatedStringerQty,
+            "STAIRS"
           );
         } else if (stair.calculatedNumSteps <= maxAvailablePylexStepSize) {
           const stepsToLookup = Math.min(
@@ -911,7 +952,8 @@ function processStairs(
             bomItems,
             pylexItem,
             `Pylex Stringer (${stepsToLookup}-Step)${stairDescSuffix}`,
-            stair.calculatedStringerQty
+            stair.calculatedStringerQty,
+            "STAIRS"
           );
         } else {
           needsPylexConnectorsForThisStairSet = true;
@@ -925,7 +967,8 @@ function processStairs(
             bomItems,
             firstPylexItem,
             `Pylex Stringer (${firstPartSteps}-Step Upper)${stairDescSuffix}`,
-            stair.calculatedStringerQty
+            stair.calculatedStringerQty,
+            "STAIRS"
           );
           remainingStepsForThisStair -= firstPartSteps;
           if (remainingStepsForThisStair > 0) {
@@ -942,7 +985,8 @@ function processStairs(
               bomItems,
               secondPylexItem,
               `Pylex Stringer (${secondPartSteps}-Step Lower)${stairDescSuffix}`,
-              stair.calculatedStringerQty
+              stair.calculatedStringerQty,
+              "STAIRS"
             );
           }
         }
@@ -956,7 +1000,8 @@ function processStairs(
             bomItems,
             connectorItem,
             `Pylex Stringer Connector${stairDescSuffix}`,
-            stair.calculatedStringerQty
+            stair.calculatedStringerQty,
+            "STAIRS"
           );
         }
       } else if (
@@ -980,7 +1025,8 @@ function processStairs(
           bomItems,
           lvlItem,
           `LVL Stringer (${stepsToLookup}-Step)${stairDescSuffix}`,
-          stair.calculatedStringerQty
+          stair.calculatedStringerQty,
+          "STAIRS"
         );
       } else if (
         stair.stringerType === "custom_2x12" &&
@@ -1031,7 +1077,8 @@ function processStairs(
                 bomItems,
                 null,
                 `Custom 2x12 Stringer${stairDescSuffix} - No Stock`,
-                1
+                1,
+                "STAIRS"
               );
             });
           }
@@ -1050,7 +1097,8 @@ function processStairs(
           bomItems,
           slabItem,
           `Landing Slabs (16x16)${stairDescSuffix}`,
-          totalSlabs
+          totalSlabs,
+          "STAIRS"
         );
       } else if (stair.landingType === "concrete_pad") {
         const landingDepthFt = 4.0; // Default depth is 4ft.
@@ -1065,7 +1113,8 @@ function processStairs(
           bomItems,
           concreteItem,
           `Concrete Mix for Landing Pad (${stair.widthFt}'W x ${landingDepthFt}'D)${stairDescSuffix}`,
-          bagsNeeded
+          bagsNeeded,
+          "STAIRS"
         );
 
         const formLumberSize = "2x4";
@@ -1079,14 +1128,15 @@ function processStairs(
             perimeterFt,
             `2x4 Forms for Concrete Pad${stairDescSuffix}`,
             twoByFourStock,
-            wrappedBomAdder
+            (stock, usage, qty) => wrappedBomAdder(stock, usage, qty, "STAIRS")
           );
         } else if (perimeterFt > EPSILON) {
           addItemToBOMAggregated(
             bomItems,
             null,
             `2x4 Forms for Concrete Pad${stairDescSuffix} - No 2x4 Stock`,
-            1
+            1,
+            "STAIRS"
           );
         }
       }
@@ -1106,7 +1156,8 @@ function processStairs(
           bomItems,
           lsczItem,
           `Stair Stringer Connector (LSCZ)${stairDescSuffix}`,
-          numLSCZConnectors
+          numLSCZConnectors,
+          "STAIRS"
         );
         if (lsczItem) {
           currentTotalScrews1_5 += numLSCZConnectors * 12;
@@ -1121,7 +1172,8 @@ function processStairs(
       bomItems,
       grkStockItem,
       "GRK Fasteners for Pylex Stringers",
-      totalPylexStringerPiecesForFasteners * 2
+      totalPylexStringerPiecesForFasteners * 2,
+      "STAIRS"
     );
   }
 
@@ -1196,7 +1248,8 @@ export function calculateBOM(structure, inputs, stairs, deckDimensions) {
           currentBomItems,
           chosenBox,
           `SD Screws ${screwDesc} (Box of ${chosenBox.pkg_qty})`,
-          numBoxes
+          numBoxes,
+          "JOISTS, LEDGER, RIMS & BLOCKING"
         );
         remainingNeeded = 0;
       }
@@ -1213,14 +1266,16 @@ export function calculateBOM(structure, inputs, stairs, deckDimensions) {
             currentBomItems,
             singleItem,
             `SD Screws ${screwDesc} (Singles)`,
-            remainingNeeded
+            remainingNeeded,
+            "JOISTS, LEDGER, RIMS & BLOCKING"
           );
         } else {
           addItemToBOMAggregated(
             currentBomItems,
             null,
             `SD Screws ${screwDesc} - No Suitable Stock/Singles`,
-            remainingNeeded
+            remainingNeeded,
+            "JOISTS, LEDGER, RIMS & BLOCKING"
           );
         }
       }

@@ -1,0 +1,311 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Beam Merging Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+            background-color: #f0f0f0;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #333;
+            margin-bottom: 20px;
+        }
+        .test-case {
+            margin: 20px 0;
+            padding: 15px;
+            background: #f8f8f8;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+        .test-case h3 {
+            margin-top: 0;
+            color: #555;
+        }
+        .beam-info {
+            margin: 10px 0;
+            padding: 10px;
+            background: #e8f4f8;
+            border-left: 3px solid #2196F3;
+        }
+        .result {
+            margin: 10px 0;
+            padding: 10px;
+            border-radius: 4px;
+        }
+        .success {
+            background: #d4edda;
+            border: 1px solid #c3e6cb;
+            color: #155724;
+        }
+        .failure {
+            background: #f8d7da;
+            border: 1px solid #f5c6cb;
+            color: #721c24;
+        }
+        code {
+            background: #f0f0f0;
+            padding: 2px 4px;
+            border-radius: 3px;
+            font-family: 'Courier New', monospace;
+        }
+        .console-output {
+            background: #1e1e1e;
+            color: #d4d4d4;
+            padding: 15px;
+            border-radius: 4px;
+            font-family: 'Courier New', monospace;
+            font-size: 12px;
+            max-height: 300px;
+            overflow-y: auto;
+            margin-top: 10px;
+        }
+        .console-output .log { color: #dcdcdc; }
+        .console-output .info { color: #3794ff; }
+        .console-output .success { color: #4ec9b0; }
+        .console-output .error { color: #f48771; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Beam Merging Logic Test</h1>
+        <p>Testing the beam merging functionality in multiSectionCalculations.js</p>
+        
+        <div id="test-results"></div>
+        
+        <h2>Console Output</h2>
+        <div id="console-output" class="console-output"></div>
+    </div>
+
+    <script type="module">
+        import { handleBeamMerging } from './deckCalcjs/multiSectionCalculations.js';
+        
+        const resultsDiv = document.getElementById('test-results');
+        const consoleDiv = document.getElementById('console-output');
+        
+        // Capture console output
+        const originalLog = console.log;
+        console.log = function(...args) {
+            originalLog.apply(console, args);
+            const message = args.map(arg => 
+                typeof arg === 'object' ? JSON.stringify(arg, null, 2) : arg
+            ).join(' ');
+            consoleDiv.innerHTML += `<div class="log">${message}</div>`;
+        };
+        
+        // Test Case 1: L-shaped deck with collinear beams
+        function testLShapedDeckBeamMerging() {
+            const testCase = document.createElement('div');
+            testCase.className = 'test-case';
+            testCase.innerHTML = '<h3>Test Case 1: L-Shaped Deck Beam Merging</h3>';
+            
+            // Simulate beams from two sections of an L-shaped deck
+            // Section 1: 7'5" beam
+            // Section 2: 8'4" beam
+            // Both are "Outer Beam" with same size, should merge to 15'9"
+            
+            const beams = [
+                {
+                    p1: { x: 0, y: 336 },  // 14' from top (336px)
+                    p2: { x: 178, y: 336 }, // 7'5" wide (178px)
+                    size: "2x10",
+                    lengthFt: 7.417,  // 7'5"
+                    ply: 2,
+                    usage: "Outer Beam",
+                    isFlush: false,
+                    sectionId: 1
+                },
+                {
+                    p1: { x: 178, y: 336 }, // Starts where first beam ends
+                    p2: { x: 378, y: 336 }, // 8'4" wide (200px)
+                    size: "2x10",
+                    lengthFt: 8.333,  // 8'4"
+                    ply: 2,
+                    usage: "Outer Beam",
+                    isFlush: false,
+                    sectionId: 2
+                }
+            ];
+            
+            const beamInfo = document.createElement('div');
+            beamInfo.className = 'beam-info';
+            beamInfo.innerHTML = `
+                <strong>Input Beams:</strong><br>
+                Beam 1: Section R1, 7'5" Outer Beam at Y=336 (${beams[0].p1.x},${beams[0].p1.y}) to (${beams[0].p2.x},${beams[0].p2.y})<br>
+                Beam 2: Section R2, 8'4" Outer Beam at Y=336 (${beams[1].p1.x},${beams[1].p1.y}) to (${beams[1].p2.x},${beams[1].p2.y})<br>
+                <strong>Expected Result:</strong> Single 15'9" beam
+            `;
+            testCase.appendChild(beamInfo);
+            
+            try {
+                const mergedBeams = handleBeamMerging(beams);
+                
+                const result = document.createElement('div');
+                if (mergedBeams.length === 1 && 
+                    Math.abs(mergedBeams[0].lengthFt - 15.75) < 0.01) {
+                    result.className = 'result success';
+                    result.innerHTML = `✓ Success! Beams merged correctly.<br>
+                        Result: ${mergedBeams.length} beam, length = ${mergedBeams[0].lengthFt.toFixed(2)}' (${mergedBeams[0].lengthDisplay || '15\'9"'})`;
+                } else {
+                    result.className = 'result failure';
+                    result.innerHTML = `✗ Failed! Expected 1 beam of 15.75', got ${mergedBeams.length} beam(s).<br>
+                        Lengths: ${mergedBeams.map(b => b.lengthFt.toFixed(2) + "'").join(', ')}`;
+                }
+                testCase.appendChild(result);
+                
+            } catch (error) {
+                const result = document.createElement('div');
+                result.className = 'result failure';
+                result.innerHTML = `✗ Error: ${error.message}`;
+                testCase.appendChild(result);
+            }
+            
+            resultsDiv.appendChild(testCase);
+        }
+        
+        // Test Case 2: Non-collinear beams should not merge
+        function testNonCollinearBeams() {
+            const testCase = document.createElement('div');
+            testCase.className = 'test-case';
+            testCase.innerHTML = '<h3>Test Case 2: Non-Collinear Beams (Should Not Merge)</h3>';
+            
+            const beams = [
+                {
+                    p1: { x: 0, y: 100 },
+                    p2: { x: 200, y: 100 },
+                    size: "2x10",
+                    lengthFt: 8.333,
+                    ply: 2,
+                    usage: "Outer Beam",
+                    isFlush: false,
+                    sectionId: 1
+                },
+                {
+                    p1: { x: 0, y: 200 }, // Different Y coordinate - not collinear
+                    p2: { x: 200, y: 200 },
+                    size: "2x10",
+                    lengthFt: 8.333,
+                    ply: 2,
+                    usage: "Outer Beam",
+                    isFlush: false,
+                    sectionId: 2
+                }
+            ];
+            
+            const beamInfo = document.createElement('div');
+            beamInfo.className = 'beam-info';
+            beamInfo.innerHTML = `
+                <strong>Input Beams:</strong><br>
+                Beam 1: At Y=100<br>
+                Beam 2: At Y=200 (parallel but not collinear)<br>
+                <strong>Expected Result:</strong> 2 separate beams (no merging)
+            `;
+            testCase.appendChild(beamInfo);
+            
+            try {
+                const mergedBeams = handleBeamMerging(beams);
+                
+                const result = document.createElement('div');
+                if (mergedBeams.length === 2) {
+                    result.className = 'result success';
+                    result.innerHTML = `✓ Success! Beams remained separate as expected.<br>
+                        Result: ${mergedBeams.length} beams`;
+                } else {
+                    result.className = 'result failure';
+                    result.innerHTML = `✗ Failed! Expected 2 beams, got ${mergedBeams.length}`;
+                }
+                testCase.appendChild(result);
+                
+            } catch (error) {
+                const result = document.createElement('div');
+                result.className = 'result failure';
+                result.innerHTML = `✗ Error: ${error.message}`;
+                testCase.appendChild(result);
+            }
+            
+            resultsDiv.appendChild(testCase);
+        }
+        
+        // Test Case 3: Different beam sizes should not merge
+        function testDifferentSizeBeams() {
+            const testCase = document.createElement('div');
+            testCase.className = 'test-case';
+            testCase.innerHTML = '<h3>Test Case 3: Different Size Beams (Should Not Merge)</h3>';
+            
+            const beams = [
+                {
+                    p1: { x: 0, y: 100 },
+                    p2: { x: 100, y: 100 },
+                    size: "2x10",
+                    lengthFt: 4.167,
+                    ply: 2,
+                    usage: "Outer Beam",
+                    isFlush: false,
+                    sectionId: 1
+                },
+                {
+                    p1: { x: 100, y: 100 },
+                    p2: { x: 200, y: 100 },
+                    size: "2x8", // Different size
+                    lengthFt: 4.167,
+                    ply: 2,
+                    usage: "Outer Beam",
+                    isFlush: false,
+                    sectionId: 2
+                }
+            ];
+            
+            const beamInfo = document.createElement('div');
+            beamInfo.className = 'beam-info';
+            beamInfo.innerHTML = `
+                <strong>Input Beams:</strong><br>
+                Beam 1: 2x10 size<br>
+                Beam 2: 2x8 size (collinear but different size)<br>
+                <strong>Expected Result:</strong> 2 separate beams (no merging due to size difference)
+            `;
+            testCase.appendChild(beamInfo);
+            
+            try {
+                const mergedBeams = handleBeamMerging(beams);
+                
+                const result = document.createElement('div');
+                if (mergedBeams.length === 2) {
+                    result.className = 'result success';
+                    result.innerHTML = `✓ Success! Beams remained separate due to size difference.<br>
+                        Result: ${mergedBeams.length} beams`;
+                } else {
+                    result.className = 'result failure';
+                    result.innerHTML = `✗ Failed! Expected 2 beams, got ${mergedBeams.length}`;
+                }
+                testCase.appendChild(result);
+                
+            } catch (error) {
+                const result = document.createElement('div');
+                result.className = 'result failure';
+                result.innerHTML = `✗ Error: ${error.message}`;
+                testCase.appendChild(result);
+            }
+            
+            resultsDiv.appendChild(testCase);
+        }
+        
+        // Run all tests
+        consoleDiv.innerHTML = '<div class="info">Starting beam merging tests...</div>';
+        testLShapedDeckBeamMerging();
+        testNonCollinearBeams();
+        testDifferentSizeBeams();
+        consoleDiv.innerHTML += '<div class="success">All tests completed!</div>';
+    </script>
+</body>
+</html>
