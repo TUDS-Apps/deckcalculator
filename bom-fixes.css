@@ -1,0 +1,47 @@
+/* BOM Fixes CSS - to be added to deckcalculatorstyles.css */
+
+/* Bug 7: Fix inconsistent BOM card padding */
+#bomSection {
+  margin-top: 1rem; /* Match the gap between other cards */
+}
+
+/* Bug 8: Align Materials List title with control buttons */
+#bomSection .flex.justify-between.items-center.mb-4 {
+  align-items: center;
+}
+
+#bomSection h2 {
+  margin: 0; /* Remove default margin to align with buttons */
+  line-height: 1;
+}
+
+/* Ensure consistent spacing between all cards */
+#main-content-panel .info-card + .info-card {
+  margin-top: 1rem;
+}
+
+/* Ensure floating controls are properly aligned */
+.floating-controls {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+/* For print - ensure BOM fits on first page when there's space */
+@media print {
+  /* Remove the grid area assignment to allow natural flow */
+  #structure-content #bomSection,
+  #bomSection {
+    grid-area: unset !important;
+  }
+  
+  /* Ensure BOM follows immediately after canvas/summary area */
+  #structure-content.active #main-content-panel {
+    display: block !important;
+  }
+  
+  /* Remove excessive top margin in print */
+  #bomSection {
+    margin-top: 1rem !important;
+  }
+}

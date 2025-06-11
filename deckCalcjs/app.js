@@ -532,8 +532,9 @@ function resetAppState() {
   // Always start with blueprint mode off - user can enable it via the button if needed
   appState.isBlueprintMode = false;
   
-  // Reset contextual panel state
+  // Force contextual panel to drawing mode
   appState.currentPanelMode = 'drawing';
+  showContextualPanel('drawing'); // Directly show drawing panel
   
   // Reset all form inputs to their default values
   resetAllFormInputs();
@@ -542,9 +543,6 @@ function resetAppState() {
 
   uiController.resetUIOutputs();
   uiController.toggleStairsInputSection(false);
-  
-  // Update contextual panel
-  updateContextualPanel();
   
   redrawApp();
 }

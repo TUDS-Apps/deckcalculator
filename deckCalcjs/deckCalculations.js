@@ -1417,6 +1417,12 @@ export function calculateStructure(
     );
   }
 
+  // Merge colinear beams
+  components.beams = mergeColinearBeams(components.beams);
+  
+  // Merge footings for merged beams
+  components.footings = mergeBeamFootings(components.footings, components.beams);
+
   components.beams.sort((a, b) => {
     // Sort beams from wall side to outer side
     const getOrder = (beam) => {
@@ -1433,4 +1439,214 @@ export function calculateStructure(
     return getOrder(a) - getOrder(b);
   });
   return components;
+}
+
+/**
+ * Merges colinear beams that are adjacent to each other
+ * @param {Array} beams - Array of beam objects
+ * @returns {Array} Array of beams with colinear ones merged
+ */
+function mergeColinearBeams(beams) {
+  if (beams.length <= 1) return beams;
+  
+  const mergedBeams = [];
+  const processed = new Set();
+  
+  for (let i = 0; i < beams.length; i++) {
+    if (processed.has(i)) continue;
+    
+    const beam1 = beams[i];
+    let mergedBeam = { ...beam1 };
+    processed.add(i);
+    
+    // Check if this beam is colinear with any other beam
+    for (let j = i + 1; j < beams.length; j++) {
+      if (processed.has(j)) continue;
+      
+      const beam2 = beams[j];
+      
+      // Check if beams are colinear and adjacent
+      if (areBeamsColinearAndAdjacent(mergedBeam, beam2)) {
+        // Merge the beams
+        mergedBeam = mergeTwoBeams(mergedBeam, beam2);
+        processed.add(j);
+      }
+    }
+    
+    mergedBeams.push(mergedBeam);
+  }
+  
+  return mergedBeams;
+}
+
+/**
+ * Checks if two beams are colinear and adjacent
+ * @param {Object} beam1 - First beam
+ * @param {Object} beam2 - Second beam
+ * @returns {boolean} True if beams are colinear and adjacent
+ */
+function areBeamsColinearAndAdjacent(beam1, beam2) {
+  const TOLERANCE = 2; // pixels tolerance for adjacency
+  
+  // Check if beams have the same properties (size, ply, type)
+  if (beam1.size !== beam2.size || beam1.ply !== beam2.ply || beam1.isFlush !== beam2.isFlush) {
+    return false;
+  }
+  
+  // Check if beams are on the same line (using centerline points)
+  const isHorizontal1 = Math.abs(beam1.centerlineP1.y - beam1.centerlineP2.y) < EPSILON;
+  const isHorizontal2 = Math.abs(beam2.centerlineP1.y - beam2.centerlineP2.y) < EPSILON;
+  const isVertical1 = Math.abs(beam1.centerlineP1.x - beam1.centerlineP2.x) < EPSILON;
+  const isVertical2 = Math.abs(beam2.centerlineP1.x - beam2.centerlineP2.x) < EPSILON;
+  
+  // Both must have same orientation
+  if (isHorizontal1 !== isHorizontal2 || isVertical1 !== isVertical2) {
+    return false;
+  }
+  
+  if (isHorizontal1) {
+    // Check if on same horizontal line
+    if (Math.abs(beam1.centerlineP1.y - beam2.centerlineP1.y) > TOLERANCE) {
+      return false;
+    }
+    
+    // Check if adjacent (end of one beam near start of other)
+    const beam1MinX = Math.min(beam1.centerlineP1.x, beam1.centerlineP2.x);
+    const beam1MaxX = Math.max(beam1.centerlineP1.x, beam1.centerlineP2.x);
+    const beam2MinX = Math.min(beam2.centerlineP1.x, beam2.centerlineP2.x);
+    const beam2MaxX = Math.max(beam2.centerlineP1.x, beam2.centerlineP2.x);
+    
+    // Check if beams are adjacent or overlapping
+    return (Math.abs(beam1MaxX - beam2MinX) <= TOLERANCE || 
+            Math.abs(beam2MaxX - beam1MinX) <= TOLERANCE ||
+            (beam1MinX <= beam2MaxX && beam2MinX <= beam1MaxX)); // overlapping
+  } else if (isVertical1) {
+    // Check if on same vertical line
+    if (Math.abs(beam1.centerlineP1.x - beam2.centerlineP1.x) > TOLERANCE) {
+      return false;
+    }
+    
+    // Check if adjacent (end of one beam near start of other)
+    const beam1MinY = Math.min(beam1.centerlineP1.y, beam1.centerlineP2.y);
+    const beam1MaxY = Math.max(beam1.centerlineP1.y, beam1.centerlineP2.y);
+    const beam2MinY = Math.min(beam2.centerlineP1.y, beam2.centerlineP2.y);
+    const beam2MaxY = Math.max(beam2.centerlineP1.y, beam2.centerlineP2.y);
+    
+    // Check if beams are adjacent or overlapping
+    return (Math.abs(beam1MaxY - beam2MinY) <= TOLERANCE || 
+            Math.abs(beam2MaxY - beam1MinY) <= TOLERANCE ||
+            (beam1MinY <= beam2MaxY && beam2MinY <= beam1MaxY)); // overlapping
+  }
+  
+  return false;
+}
+
+/**
+ * Merges two beams into one
+ * @param {Object} beam1 - First beam
+ * @param {Object} beam2 - Second beam
+ * @returns {Object} Merged beam
+ */
+function mergeTwoBeams(beam1, beam2) {
+  const isHorizontal = Math.abs(beam1.centerlineP1.y - beam1.centerlineP2.y) < EPSILON;
+  
+  let mergedBeam = { ...beam1 };
+  
+  if (isHorizontal) {
+    // Find the extreme points for horizontal beams
+    const allX = [
+      beam1.centerlineP1.x, beam1.centerlineP2.x,
+      beam2.centerlineP1.x, beam2.centerlineP2.x
+    ];
+    const minX = Math.min(...allX);
+    const maxX = Math.max(...allX);
+    
+    // Update centerline points
+    mergedBeam.centerlineP1 = { x: minX, y: beam1.centerlineP1.y };
+    mergedBeam.centerlineP2 = { x: maxX, y: beam1.centerlineP1.y };
+    
+    // Update material points (p1, p2)
+    const allMaterialX = [
+      beam1.p1.x, beam1.p2.x,
+      beam2.p1.x, beam2.p2.x
+    ];
+    const minMaterialX = Math.min(...allMaterialX);
+    const maxMaterialX = Math.max(...allMaterialX);
+    
+    mergedBeam.p1 = { x: minMaterialX, y: beam1.p1.y };
+    mergedBeam.p2 = { x: maxMaterialX, y: beam1.p1.y };
+    
+    // Update position coordinate line points
+    mergedBeam.positionCoordinateLineP1 = { x: minX, y: beam1.positionCoordinateLineP1.y };
+    mergedBeam.positionCoordinateLineP2 = { x: maxX, y: beam1.positionCoordinateLineP1.y };
+  } else {
+    // Find the extreme points for vertical beams
+    const allY = [
+      beam1.centerlineP1.y, beam1.centerlineP2.y,
+      beam2.centerlineP1.y, beam2.centerlineP2.y
+    ];
+    const minY = Math.min(...allY);
+    const maxY = Math.max(...allY);
+    
+    // Update centerline points
+    mergedBeam.centerlineP1 = { x: beam1.centerlineP1.x, y: minY };
+    mergedBeam.centerlineP2 = { x: beam1.centerlineP1.x, y: maxY };
+    
+    // Update material points (p1, p2)
+    const allMaterialY = [
+      beam1.p1.y, beam1.p2.y,
+      beam2.p1.y, beam2.p2.y
+    ];
+    const minMaterialY = Math.min(...allMaterialY);
+    const maxMaterialY = Math.max(...allMaterialY);
+    
+    mergedBeam.p1 = { x: beam1.p1.x, y: minMaterialY };
+    mergedBeam.p2 = { x: beam1.p1.x, y: maxMaterialY };
+    
+    // Update position coordinate line points
+    mergedBeam.positionCoordinateLineP1 = { x: beam1.positionCoordinateLineP1.x, y: minY };
+    mergedBeam.positionCoordinateLineP2 = { x: beam1.positionCoordinateLineP1.x, y: maxY };
+  }
+  
+  // Update length
+  mergedBeam.lengthFeet = distance(mergedBeam.p1, mergedBeam.p2) / PIXELS_PER_FOOT;
+  
+  // Merge usage labels
+  if (beam1.usage !== beam2.usage) {
+    mergedBeam.usage = `${beam1.usage} + ${beam2.usage}`;
+  }
+  
+  return mergedBeam;
+}
+
+/**
+ * Merges footings based on merged beams, removing duplicates at merge points
+ * @param {Array} footings - Array of footing objects
+ * @param {Array} mergedBeams - Array of merged beam objects
+ * @returns {Array} Array of footings with duplicates removed
+ */
+function mergeBeamFootings(footings, mergedBeams) {
+  if (footings.length <= 1) return footings;
+  
+  const uniqueFootings = [];
+  const TOLERANCE = 5; // pixels tolerance for same location
+  
+  for (const footing of footings) {
+    let isDuplicate = false;
+    
+    // Check if this footing is a duplicate of an already processed one
+    for (const uniqueFooting of uniqueFootings) {
+      const dist = distance(footing.position, uniqueFooting.position);
+      if (dist < TOLERANCE) {
+        isDuplicate = true;
+        break;
+      }
+    }
+    
+    if (!isDuplicate) {
+      uniqueFootings.push(footing);
+    }
+  }
+  
+  return uniqueFootings;
 }

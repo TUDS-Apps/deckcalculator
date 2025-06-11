@@ -1196,7 +1196,7 @@ function drawStairsInternal(
     if (deckPoints && deckPoints.length >= 3) {
       
       // Test points on both sides of the stair edge
-      const testDistance = 24; // 1 foot in model pixels
+      const testDistance = 12; // 0.5 foot in model pixels - closer test point for more accurate detection
       const testPoint1X = midRimX + perpX * testDistance;
       const testPoint1Y = midRimY + perpY * testDistance;
       const testPoint2X = midRimX - perpX * testDistance;
@@ -1247,24 +1247,23 @@ function drawStairsInternal(
         }
       } else if (!point1Inside && !point2Inside) {
         // Both points are outside - this might happen at corners
-        // Use distance from center to determine which way faces more "outward"
+        // Use a more sophisticated approach: check which direction faces away from the deck center
         const deckCenterX = (deckDimensions.minX + deckDimensions.maxX) / 2;
         const deckCenterY = (deckDimensions.minY + deckDimensions.maxY) / 2;
         
-        // Calculate distances from center to both test points
-        const dist1FromCenter = Math.sqrt(
-          Math.pow(testPoint1X - deckCenterX, 2) + Math.pow(testPoint1Y - deckCenterY, 2)
-        );
-        const dist2FromCenter = Math.sqrt(
-          Math.pow(testPoint2X - deckCenterX, 2) + Math.pow(testPoint2Y - deckCenterY, 2)
-        );
+        // Vector from deck center to stair position
+        const centerToStairX = midRimX - deckCenterX;
+        const centerToStairY = midRimY - deckCenterY;
         
-        // Point toward the test point that's farther from center
-        if (dist2FromCenter > dist1FromCenter) {
+        // Dot product to determine if perpendicular is pointing outward
+        const dotProduct = perpX * centerToStairX + perpY * centerToStairY;
+        
+        // If dot product is negative, perpendicular is pointing inward - flip it
+        if (dotProduct < 0) {
           perpX *= -1;
           perpY *= -1;
           if (index === 0 && !isScaledForPrint) {
-            console.log(`  Both outside - flipping to point toward test point 2 (farther from center)`);
+            console.log(`  Both outside - flipping to point outward from deck center`);
           }
         } else {
           if (index === 0 && !isScaledForPrint) {

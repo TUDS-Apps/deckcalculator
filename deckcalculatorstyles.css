@@ -817,6 +817,8 @@ canvas.mode-transition {
   #centerFitBtn,
   #clearCanvasBtn,
   #blueprintToggleBtn,
+  #toggleDecompositionBtn,
+  .floating-controls,
   #printBomBtn {
     /* Explicitly hide buttons for print view */
     display: none !important;
@@ -824,17 +826,19 @@ canvas.mode-transition {
 
   /* Structure tab layout for print */
   #structure-content.active #main-layout-container {
-    display: grid !important;
-    grid-template-columns: 0.25fr 0.75fr !important;
-    grid-template-rows: auto auto !important;
-    grid-template-areas:
-      "summary-area canvas-area"
-      "bom-area     bom-area" !important;
+    display: block !important;
     width: 100% !important;
     max-width: 100% !important;
-    gap: 1rem !important;
     padding: 0 !important;
     margin: 0 !important;
+  }
+  
+  /* Create a two-column layout for summary and canvas */
+  #structure-content.active #main-layout-container > .flex {
+    display: grid !important;
+    grid-template-columns: 0.25fr 0.75fr !important;
+    gap: 1rem !important;
+    margin-bottom: 1rem !important;
   }
 
   #structure-content.active #input-panel {
@@ -1004,7 +1008,6 @@ canvas.mode-transition {
     border: 1px solid #bbb !important;
     border-radius: 0.5rem !important;
     box-shadow: 0 1px 3px rgba(0,0,0,0.1) !important;
-    page-break-inside: avoid !important;
     margin: 0 !important;
     background-color: #fff !important;
     position: relative !important;
@@ -1035,7 +1038,7 @@ canvas.mode-transition {
   }
   
   #canvasContainer {
-    border: 1px solid #ccc !important;
+    border: none !important;
     border-radius: 0.25rem !important;
     overflow: hidden !important;
     margin-top: 0.25rem !important;
@@ -1087,14 +1090,12 @@ canvas.mode-transition {
   /* BOM section within tab structure */
   #structure-content #bomSection,
   #bomSection {
-    grid-area: bom-area !important;
     display: block !important;
-    margin: 1.5rem 0 0 0 !important;
+    margin: 1rem 0 0 0 !important;
     padding: 0.75rem !important;
     border: 1px solid #ddd !important;
     border-radius: 0.5rem !important;
     box-shadow: 0 1px 3px rgba(0,0,0,0.1) !important;
-    page-break-inside: avoid !important;
     background-color: #fff !important;
     width: 100% !important;
     position: relative !important;
