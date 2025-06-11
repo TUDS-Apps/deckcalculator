@@ -235,8 +235,29 @@ function optimizeLumberCutting(
     }
 
     if (bestStockItemChoice && cutsMadeFromBestStock.length > 0) {
-      const cutDetails = cutsMadeFromBestStock
-        .map((p) => `${formatFeetInches(p.length)} ${p.usage}`)
+      // Group identical cuts to avoid repetition in description
+      const cutGroups = {};
+      cutsMadeFromBestStock.forEach((p) => {
+        const key = `${formatFeetInches(p.length)} ${p.usage}`;
+        if (!cutGroups[key]) {
+          cutGroups[key] = 0;
+        }
+        cutGroups[key]++;
+      });
+      
+      const cutDetails = Object.entries(cutGroups)
+        .map(([description, count]) => {
+          if (count > 1) {
+            // For multiple identical cuts, show count and pluralize usage
+            const parts = description.split(' ');
+            const length = parts[0];
+            const usage = parts.slice(1).join(' ');
+            const pluralUsage = usage.endsWith('g') ? usage : usage + 's'; // Simple pluralization
+            return `(${count}) ${length} ${pluralUsage}`;
+          } else {
+            return description;
+          }
+        })
         .join("; ");
       const detailedUsageDesc = `Cut ${materialSize} for: ${cutDetails}`;
       bomAdderFn(bestStockItemChoice, detailedUsageDesc, 1);

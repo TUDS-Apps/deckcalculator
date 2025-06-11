@@ -1839,17 +1839,20 @@ window.toggleCollapsible = function(button) {
 window.toggleSpecEditor = function() {
   const editor = document.querySelector('.spec-editor');
   const summarySection = document.getElementById('summarySection');
-  const actionButtons = document.querySelector('.action-buttons');
+  const topActionButtons = document.querySelector('.top-action-buttons');
   const button = document.querySelector('.modify-specs-btn');
   
-  if (editor && summarySection && actionButtons && button) {
+  if (editor && summarySection && button) {
     const isHidden = editor.classList.contains('hidden');
     
     if (isHidden) {
       // Show the editor, hide the summary
       editor.classList.remove('hidden');
       summarySection.classList.add('hidden');
-      actionButtons.classList.add('hidden');
+      // Hide top action buttons (stairs and modify) while editing
+      if (topActionButtons) {
+        topActionButtons.classList.add('hidden');
+      }
       button.classList.add('active');
       
       // Sync current values to modify form
@@ -1858,21 +1861,29 @@ window.toggleSpecEditor = function() {
       // Hide the editor, show the summary
       editor.classList.add('hidden');
       summarySection.classList.remove('hidden');
-      actionButtons.classList.remove('hidden');
+      // Show top action buttons again
+      if (topActionButtons) {
+        topActionButtons.classList.remove('hidden');
+      }
       button.classList.remove('active');
     }
   }
 };
 
 window.regeneratePlan = function() {
+  console.log("Regenerating plan with modified values");
+  
   // Copy values from modify form back to main form
   syncMainSpecValues();
   
   // Close the spec editor
   window.toggleSpecEditor();
   
-  // Regenerate the plan
-  handleGeneratePlan();
+  // Add a small delay to ensure DOM updates are processed
+  setTimeout(() => {
+    // Regenerate the plan
+    handleGeneratePlan();
+  }, 10);
 };
 
 window.handleMainStairsButton = function() {
@@ -1962,6 +1973,8 @@ function syncModifySpecValues() {
 }
 
 function syncMainSpecValues() {
+  console.log("Syncing modify form values to main form");
+  
   // Copy values from modify form back to main form
   const modifyHeightFeet = document.getElementById('modifyHeightFeet');
   const modifyHeightInches = document.getElementById('modifyHeightInches');
@@ -1984,40 +1997,51 @@ function syncMainSpecValues() {
   const fasteners = document.getElementById('fasteners');
   
   if (modifyHeightFeet && heightFeet) {
+    console.log(`Syncing height feet: ${modifyHeightFeet.value} -> ${heightFeet.id}`);
     heightFeet.value = modifyHeightFeet.value;
   }
   
   if (modifyHeightInches && heightInches) {
+    console.log(`Syncing height inches: ${modifyHeightInches.value} -> ${heightInches.id}`);
     heightInches.value = modifyHeightInches.value;
   }
   
   if (modifyFootingType && footingType) {
+    console.log(`Syncing footing type: ${modifyFootingType.value} -> ${footingType.id}`);
     footingType.value = modifyFootingType.value;
   }
   
   if (modifyJoistSpacing && joistSpacing) {
+    console.log(`Syncing joist spacing: ${modifyJoistSpacing.value} -> ${joistSpacing.id}`);
     joistSpacing.value = modifyJoistSpacing.value;
   }
   
   if (modifyAttachmentType && attachmentType) {
+    console.log(`Syncing attachment type: ${modifyAttachmentType.value} -> ${attachmentType.id}`);
     attachmentType.value = modifyAttachmentType.value;
   }
   
   if (modifyBeamType && beamType) {
+    console.log(`Syncing beam type: ${modifyBeamType.value} -> ${beamType.id}`);
     beamType.value = modifyBeamType.value;
   }
   
   if (modifyPictureFrame && pictureFrame) {
+    console.log(`Syncing picture frame: ${modifyPictureFrame.value} -> ${pictureFrame.id}`);
     pictureFrame.value = modifyPictureFrame.value;
   }
   
   if (modifyJoistProtection && joistProtection) {
+    console.log(`Syncing joist protection: ${modifyJoistProtection.value} -> ${joistProtection.id}`);
     joistProtection.value = modifyJoistProtection.value;
   }
   
   if (modifyFasteners && fasteners) {
+    console.log(`Syncing fasteners: ${modifyFasteners.value} -> ${fasteners.id}`);
     fasteners.value = modifyFasteners.value;
   }
+  
+  console.log("Sync complete");
 }
 
 
