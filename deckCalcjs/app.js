@@ -173,7 +173,10 @@ function showContextualPanel(mode) {
   });
 
   // Show the appropriate panel with animation
-  const targetPanelId = `${mode.replace('-', '-')}-panel`;
+  const targetPanelId = mode === 'drawing' ? 'drawing-mode-panel' : 
+                        mode === 'wall-selection' ? 'wall-selection-panel' :
+                        mode === 'plan-generated' ? 'plan-generated-panel' :
+                        mode === 'stair-config' ? 'stair-config-panel' : '';
   const targetPanel = document.getElementById(targetPanelId);
   
   if (targetPanel) {
