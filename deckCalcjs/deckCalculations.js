@@ -1417,11 +1417,18 @@ export function calculateStructure(
     );
   }
 
-  // Merge colinear beams
-  components.beams = mergeColinearBeams(components.beams);
-  
-  // Merge footings for merged beams
-  components.footings = mergeBeamFootings(components.footings, components.beams);
+  // Merge colinear beams and recalculate their posts/footings
+  const mergeResult = mergeColinearBeamsWithPosts(
+    components.beams, 
+    components.posts, 
+    components.footings,
+    postSize,
+    deckHeightInches,
+    inputs.footingType
+  );
+  components.beams = mergeResult.beams;
+  components.posts = mergeResult.posts;
+  components.footings = mergeResult.footings;
 
   components.beams.sort((a, b) => {
     // Sort beams from wall side to outer side
@@ -1439,6 +1446,133 @@ export function calculateStructure(
     return getOrder(a) - getOrder(b);
   });
   return components;
+}
+
+/**
+ * Merges colinear beams and recalculates posts/footings for merged beams
+ * @param {Array} beams - Array of beam objects
+ * @param {Array} posts - Array of post objects
+ * @param {Array} footings - Array of footing objects
+ * @param {string} postSize - Size of posts
+ * @param {number} deckHeightInches - Deck height in inches
+ * @param {string} footingType - Type of footings
+ * @returns {Object} Object containing merged beams, posts, and footings
+ */
+function mergeColinearBeamsWithPosts(beams, posts, footings, postSize, deckHeightInches, footingType) {
+  if (beams.length <= 1) {
+    return { beams, posts, footings };
+  }
+  
+  // First, merge the beams
+  const mergedBeams = mergeColinearBeams(beams);
+  
+  // Now recalculate posts and footings for all beams
+  const newPosts = [];
+  const newFootings = [];
+  
+  mergedBeams.forEach(beam => {
+    // Calculate posts for this beam
+    const beamPosts = calculatePostsForBeam(
+      beam,
+      postSize,
+      deckHeightInches
+    );
+    
+    // Add posts
+    newPosts.push(...beamPosts);
+    
+    // Create footings for each post
+    beamPosts.forEach(post => {
+      newFootings.push({
+        position: { x: post.x, y: post.y },
+        type: footingType
+      });
+    });
+  });
+  
+  return {
+    beams: mergedBeams,
+    posts: newPosts,
+    footings: newFootings
+  };
+}
+
+/**
+ * Calculates posts for a single beam following spacing rules
+ * @param {Object} beam - Beam object
+ * @param {string} postSize - Size of posts
+ * @param {number} deckHeightInches - Deck height in inches
+ * @returns {Array} Array of post objects
+ */
+function calculatePostsForBeam(beam, postSize, deckHeightInches) {
+  const beamPosts = [];
+  const beamLengthPixels = distance(beam.centerlineP1, beam.centerlineP2);
+  
+  if (beamLengthPixels < EPSILON) {
+    return beamPosts;
+  }
+  
+  const beamDx = beam.centerlineP2.x - beam.centerlineP1.x;
+  const beamDy = beam.centerlineP2.y - beam.centerlineP1.y;
+  const unitVecX = beamDx / beamLengthPixels;
+  const unitVecY = beamDy / beamLengthPixels;
+  const postInsetPixels = POST_INSET_FEET * PIXELS_PER_FOOT;
+  
+  // For very short beams, place a single post in the center
+  if (beamLengthPixels < postInsetPixels * 2) {
+    beamPosts.push({
+      x: beam.centerlineP1.x + unitVecX * (beamLengthPixels / 2),
+      y: beam.centerlineP1.y + unitVecY * (beamLengthPixels / 2),
+      size: postSize,
+      heightFeet: deckHeightInches / 12,
+      position: {
+        x: beam.centerlineP1.x + unitVecX * (beamLengthPixels / 2),
+        y: beam.centerlineP1.y + unitVecY * (beamLengthPixels / 2)
+      }
+    });
+    return beamPosts;
+  }
+  
+  // Place posts at standard inset from ends
+  const post1 = {
+    x: beam.centerlineP1.x + unitVecX * postInsetPixels,
+    y: beam.centerlineP1.y + unitVecY * postInsetPixels,
+    size: postSize,
+    heightFeet: deckHeightInches / 12
+  };
+  post1.position = { x: post1.x, y: post1.y };
+  
+  const post2 = {
+    x: beam.centerlineP2.x - unitVecX * postInsetPixels,
+    y: beam.centerlineP2.y - unitVecY * postInsetPixels,
+    size: postSize,
+    heightFeet: deckHeightInches / 12
+  };
+  post2.position = { x: post2.x, y: post2.y };
+  
+  beamPosts.push(post1, post2);
+  
+  // Check if we need intermediate posts
+  const postSpanPixels = distance(post1, post2);
+  if (postSpanPixels / PIXELS_PER_FOOT > MAX_POST_SPACING_FEET) {
+    const numIntermediatePosts = Math.floor(
+      postSpanPixels / PIXELS_PER_FOOT / MAX_POST_SPACING_FEET
+    );
+    const intermediateSpacingPixels = postSpanPixels / (numIntermediatePosts + 1);
+    
+    for (let i = 1; i <= numIntermediatePosts; i++) {
+      const intermediatePost = {
+        x: post1.x + unitVecX * (intermediateSpacingPixels * i),
+        y: post1.y + unitVecY * (intermediateSpacingPixels * i),
+        size: postSize,
+        heightFeet: deckHeightInches / 12
+      };
+      intermediatePost.position = { x: intermediatePost.x, y: intermediatePost.y };
+      beamPosts.push(intermediatePost);
+    }
+  }
+  
+  return beamPosts;
 }
 
 /**
@@ -1619,34 +1753,3 @@ function mergeTwoBeams(beam1, beam2) {
   return mergedBeam;
 }
 
-/**
- * Merges footings based on merged beams, removing duplicates at merge points
- * @param {Array} footings - Array of footing objects
- * @param {Array} mergedBeams - Array of merged beam objects
- * @returns {Array} Array of footings with duplicates removed
- */
-function mergeBeamFootings(footings, mergedBeams) {
-  if (footings.length <= 1) return footings;
-  
-  const uniqueFootings = [];
-  const TOLERANCE = 5; // pixels tolerance for same location
-  
-  for (const footing of footings) {
-    let isDuplicate = false;
-    
-    // Check if this footing is a duplicate of an already processed one
-    for (const uniqueFooting of uniqueFootings) {
-      const dist = distance(footing.position, uniqueFooting.position);
-      if (dist < TOLERANCE) {
-        isDuplicate = true;
-        break;
-      }
-    }
-    
-    if (!isDuplicate) {
-      uniqueFootings.push(footing);
-    }
-  }
-  
-  return uniqueFootings;
-}

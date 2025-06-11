@@ -194,6 +194,40 @@ canvas.mode-transition {
   transition: box-shadow 0.3s ease;
 }
 
+/* Add consistent spacing between info-cards in main content panel */
+#main-content-panel .info-card + .info-card {
+  margin-top: 2rem;
+}
+
+/* Add consistent spacing between cards in input panel */
+#input-panel .info-card + .info-card {
+  margin-top: 2rem;
+}
+
+/* Align Materials List title with floating controls */
+#bomSection {
+  position: relative;
+}
+
+#bomSection > .flex:first-child {
+  align-items: center;
+  min-height: 2.25rem; /* Match button container height */
+  margin-bottom: 0; /* Remove margin to merge with button row */
+}
+
+#bomSection h2 {
+  margin: 0;
+  line-height: 1;
+  font-size: 1.25rem; /* Ensure consistent font size */
+}
+
+/* Merge the title row with the button row for better alignment */
+#bomSection > .flex:first-child + .flex {
+  margin-top: -2.25rem; /* Pull buttons up to align with title */
+  position: relative;
+  z-index: 1;
+}
+
 /* Add subtle hover effect to cards */
 .info-card:hover {
   box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);

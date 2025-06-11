@@ -2,7 +2,7 @@
 // Handles structural calculations for decomposed shapes by calculating each section independently
 // and then merging overlapping/collinear structural elements
 
-import { EPSILON } from "./config.js";
+import { EPSILON, PIXELS_PER_FOOT, POST_INSET_FEET, MAX_POST_SPACING_FEET } from "./config.js";
 import * as deckCalculations from "./deckCalculations.js";
 
 /**
@@ -436,8 +436,24 @@ export function mergeSectionResults(sectionResults) {
   
   // Merge overlapping and collinear components
   const mergedBeams = handleBeamMerging(combinedBeams);
-  const mergedPosts = removeDuplicatePosts(combinedPosts);
-  const mergedFootings = removeDuplicateFootings(combinedFootings);
+  
+  // Recalculate posts and footings for merged beams
+  // We need to get the deck height and post size from the first section's inputs
+  const firstSectionInputs = sectionResults[0] ? 
+    { deckHeightInches: (sectionResults[0].structure.posts?.[0]?.heightFeet || 4) * 12,
+      postSize: sectionResults[0].structure.posts?.[0]?.size || '6x6',
+      footingType: sectionResults[0].structure.footings?.[0]?.type || 'concrete' } 
+    : { deckHeightInches: 48, postSize: '6x6', footingType: 'concrete' };
+  
+  const recalculatedPostsAndFootings = recalculatePostsForMergedBeams(
+    mergedBeams,
+    firstSectionInputs.postSize,
+    firstSectionInputs.deckHeightInches,
+    firstSectionInputs.footingType
+  );
+  
+  const mergedPosts = recalculatedPostsAndFootings.posts;
+  const mergedFootings = recalculatedPostsAndFootings.footings;
   const mergedJoists = mergeCollinearJoists(combinedJoists);
   const mergedRimJoists = mergeCollinearRimJoists(combinedRimJoists);
   
@@ -484,19 +500,32 @@ export function handleBeamMerging(allBeams) {
     
     console.log(`\nChecking beam ${i} for potential merges...`);
     
-    // Find all beams that should be merged with this one
-    for (let j = i + 1; j < allBeams.length; j++) {
-      if (processed.has(j)) continue;
+    // Find all beams that should be merged with this group
+    // We need to check against all beams in the merge group, not just beam1
+    let foundNewMerge = true;
+    while (foundNewMerge) {
+      foundNewMerge = false;
       
-      const beam2 = allBeams[j];
-      
-      // Check if beams should be merged (collinear and same type)
-      if (shouldMergeBeams(beam1, beam2)) {
-        console.log(`  ✓ Beam ${j} can merge with beam ${i}`);
-        mergeGroup.push(beam2);
-        processed.add(j);
-      } else {
-        console.log(`  ✗ Beam ${j} cannot merge with beam ${i}`);
+      for (let j = 0; j < allBeams.length; j++) {
+        if (processed.has(j)) continue;
+        
+        const beam2 = allBeams[j];
+        
+        // Check if beam2 can merge with any beam in the current merge group
+        let canMergeWithGroup = false;
+        for (const groupBeam of mergeGroup) {
+          if (shouldMergeBeams(groupBeam, beam2)) {
+            canMergeWithGroup = true;
+            break;
+          }
+        }
+        
+        if (canMergeWithGroup) {
+          console.log(`  ✓ Beam ${j} can merge with group`);
+          mergeGroup.push(beam2);
+          processed.add(j);
+          foundNewMerge = true; // Continue searching for more beams to merge
+        }
       }
     }
     
@@ -515,28 +544,66 @@ export function handleBeamMerging(allBeams) {
 }
 
 /**
- * Checks if two beams should be merged (collinear and same type)
+ * Checks if two beams should be merged (collinear, adjacent, and same type)
  * @param {Object} beam1 - First beam object
  * @param {Object} beam2 - Second beam object
  * @returns {boolean} True if beams should be merged
  */
 function shouldMergeBeams(beam1, beam2) {
+  console.log(`\n  Checking if beams can merge:`);
+  console.log(`    Beam 1: ${beam1.usage}, size: ${beam1.size}, from (${beam1.p1.x.toFixed(0)},${beam1.p1.y.toFixed(0)}) to (${beam1.p2.x.toFixed(0)},${beam1.p2.y.toFixed(0)})`);
+  console.log(`    Beam 2: ${beam2.usage}, size: ${beam2.size}, from (${beam2.p1.x.toFixed(0)},${beam2.p1.y.toFixed(0)}) to (${beam2.p2.x.toFixed(0)},${beam2.p2.y.toFixed(0)})`);
+  
   // Must be same size
   if (beam1.size !== beam2.size) {
+    console.log(`    ✗ Different sizes: ${beam1.size} vs ${beam2.size}`);
     return false;
   }
   
   // Check if beams have compatible usage types
-  // Beams can merge if they have the same usage OR both are "Outer Beam" (from different sections)
+  // Beams can merge if they have the same usage OR if one is Outer and other is Wall-Side
+  // (This happens when sections share a beam at their boundary)
   const areCompatible = beam1.usage === beam2.usage || 
-    (beam1.usage === "Outer Beam" && beam2.usage === "Outer Beam");
+    (beam1.usage === "Outer Beam" && beam2.usage === "Outer Beam") ||
+    (beam1.usage === "Outer Beam" && beam2.usage === "Wall-Side Beam") ||
+    (beam1.usage === "Wall-Side Beam" && beam2.usage === "Outer Beam");
   
   if (!areCompatible) {
+    console.log(`    ✗ Incompatible types: ${beam1.usage} vs ${beam2.usage}`);
     return false;
   }
   
-  // Check if beams are collinear
-  return areBeamsCollinear(beam1, beam2);
+  const collinear = areBeamsCollinear(beam1, beam2);
+  const adjacent = areBeamsAdjacent(beam1, beam2);
+  
+  console.log(`    Collinear: ${collinear}, Adjacent: ${adjacent}`);
+  
+  // Check if beams are collinear and adjacent
+  return collinear && adjacent;
+}
+
+/**
+ * Checks if two beams are adjacent (touching or very close)
+ * @param {Object} beam1 - First beam object
+ * @param {Object} beam2 - Second beam object
+ * @returns {boolean} True if beams are adjacent
+ */
+function areBeamsAdjacent(beam1, beam2) {
+  const TOLERANCE = 1.0 * PIXELS_PER_FOOT; // 1 foot tolerance for adjacency
+  
+  // Check distance between all possible endpoint pairs
+  const distances = [
+    Math.sqrt(Math.pow(beam1.p1.x - beam2.p1.x, 2) + Math.pow(beam1.p1.y - beam2.p1.y, 2)),
+    Math.sqrt(Math.pow(beam1.p1.x - beam2.p2.x, 2) + Math.pow(beam1.p1.y - beam2.p2.y, 2)),
+    Math.sqrt(Math.pow(beam1.p2.x - beam2.p1.x, 2) + Math.pow(beam1.p2.y - beam2.p1.y, 2)),
+    Math.sqrt(Math.pow(beam1.p2.x - beam2.p2.x, 2) + Math.pow(beam1.p2.y - beam2.p2.y, 2))
+  ];
+  
+  const minDistance = Math.min(...distances);
+  console.log(`    Min distance between endpoints: ${(minDistance / PIXELS_PER_FOOT).toFixed(2)} feet`);
+  
+  // Beams are adjacent if any endpoint pair is within tolerance
+  return minDistance <= TOLERANCE;
 }
 
 /**
@@ -551,12 +618,51 @@ function areBeamsCollinear(beam1, beam2) {
   const p3 = beam2.p1;
   const p4 = beam2.p2;
   
-  // Calculate cross product to check collinearity
+  // For beams to be collinear in a deck structure, they should be either:
+  // 1. Both horizontal (same Y coordinate)
+  // 2. Both vertical (same X coordinate)
+  
+  const beam1IsHorizontal = Math.abs(p2.y - p1.y) < PIXELS_PER_FOOT; // Less than 1 foot Y difference
+  const beam1IsVertical = Math.abs(p2.x - p1.x) < PIXELS_PER_FOOT; // Less than 1 foot X difference
+  
+  const beam2IsHorizontal = Math.abs(p4.y - p3.y) < PIXELS_PER_FOOT;
+  const beam2IsVertical = Math.abs(p4.x - p3.x) < PIXELS_PER_FOOT;
+  
+  // Both must have same orientation
+  if (beam1IsHorizontal !== beam2IsHorizontal || beam1IsVertical !== beam2IsVertical) {
+    console.log(`    Different orientations - Beam1: H=${beam1IsHorizontal} V=${beam1IsVertical}, Beam2: H=${beam2IsHorizontal} V=${beam2IsVertical}`);
+    return false;
+  }
+  
+  // For horizontal beams, check if Y coordinates are close
+  if (beam1IsHorizontal) {
+    const avgY1 = (p1.y + p2.y) / 2;
+    const avgY2 = (p3.y + p4.y) / 2;
+    const yDiff = Math.abs(avgY1 - avgY2);
+    const collinear = yDiff < PIXELS_PER_FOOT; // Within 1 foot
+    console.log(`    Horizontal beams - Y difference: ${(yDiff / PIXELS_PER_FOOT).toFixed(2)} feet`);
+    return collinear;
+  }
+  
+  // For vertical beams, check if X coordinates are close
+  if (beam1IsVertical) {
+    const avgX1 = (p1.x + p2.x) / 2;
+    const avgX2 = (p3.x + p4.x) / 2;
+    const xDiff = Math.abs(avgX1 - avgX2);
+    const collinear = xDiff < PIXELS_PER_FOOT; // Within 1 foot
+    console.log(`    Vertical beams - X difference: ${(xDiff / PIXELS_PER_FOOT).toFixed(2)} feet`);
+    return collinear;
+  }
+  
+  // Neither horizontal nor vertical - use cross product method
   const crossProduct1 = (p3.x - p1.x) * (p2.y - p1.y) - (p3.y - p1.y) * (p2.x - p1.x);
   const crossProduct2 = (p4.x - p1.x) * (p2.y - p1.y) - (p4.y - p1.y) * (p2.x - p1.x);
   
+  console.log(`    Cross products: ${crossProduct1.toFixed(2)}, ${crossProduct2.toFixed(2)}`);
+  
   // If both cross products are close to zero, the beams are collinear
-  return Math.abs(crossProduct1) < EPSILON && Math.abs(crossProduct2) < EPSILON;
+  return Math.abs(crossProduct1) < PIXELS_PER_FOOT * PIXELS_PER_FOOT && 
+         Math.abs(crossProduct2) < PIXELS_PER_FOOT * PIXELS_PER_FOOT;
 }
 
 /**
@@ -588,17 +694,31 @@ function mergeBeamGroup(beamGroup) {
   
   let mergedBeam;
   if (isHorizontal) {
+    // For horizontal beams, use the average Y coordinate from all beam endpoints
+    const avgY = beamGroup.reduce((sum, beam) => {
+      return sum + (beam.p1.y + beam.p2.y) / 2;
+    }, 0) / beamGroup.length;
+    
     mergedBeam = {
       ...templateBeam,
-      p1: { x: minX, y: templateBeam.p1.y },
-      p2: { x: maxX, y: templateBeam.p1.y },
+      p1: { x: minX, y: avgY },
+      p2: { x: maxX, y: avgY },
+      centerlineP1: { x: minX, y: avgY },
+      centerlineP2: { x: maxX, y: avgY },
       lengthFt: (maxX - minX) / 24 // Convert pixels to feet
     };
   } else {
+    // For vertical beams, use the average X coordinate from all beam endpoints
+    const avgX = beamGroup.reduce((sum, beam) => {
+      return sum + (beam.p1.x + beam.p2.x) / 2;
+    }, 0) / beamGroup.length;
+    
     mergedBeam = {
       ...templateBeam,
-      p1: { x: templateBeam.p1.x, y: minY },
-      p2: { x: templateBeam.p1.x, y: maxY },
+      p1: { x: avgX, y: minY },
+      p2: { x: avgX, y: maxY },
+      centerlineP1: { x: avgX, y: minY },
+      centerlineP2: { x: avgX, y: maxY },
       lengthFt: (maxY - minY) / 24 // Convert pixels to feet
     };
   }
@@ -615,10 +735,12 @@ function mergeBeamGroup(beamGroup) {
   mergedBeam.lengthDisplay = inches > 0 ? `${feet}'${inches}"` : `${feet}'`;
   
   console.log(`✓ Merged beam total length: ${mergedBeam.lengthDisplay} (${mergedBeam.lengthFt.toFixed(2)} feet)`);
+  console.log(`  Merged beam endpoints: (${mergedBeam.p1.x.toFixed(0)}, ${mergedBeam.p1.y.toFixed(0)}) to (${mergedBeam.p2.x.toFixed(0)}, ${mergedBeam.p2.y.toFixed(0)})`);
+  console.log(`  Centerline: (${mergedBeam.centerlineP1.x.toFixed(0)}, ${mergedBeam.centerlineP1.y.toFixed(0)}) to (${mergedBeam.centerlineP2.x.toFixed(0)}, ${mergedBeam.centerlineP2.y.toFixed(0)})`);
   
   // IMPORTANT NOTE: When beams are merged, the posts and footings need to be recalculated
   // based on the new merged beam length. The merged beam should have posts at:
-  // 1. Both ends of the beam
+  // 1. Both ends of the beam (1' inset)
   // 2. At regular intervals based on the beam span requirements (typically 6-8 feet)
   // This recalculation should happen in the post-processing phase after all beams are merged.
   
@@ -816,4 +938,141 @@ function mergeCollinearRimJoists(rimJoists) {
  */
 export function isSimpleRectangle(rectangularSections) {
   return rectangularSections && rectangularSections.length === 1;
+}
+
+/**
+ * Recalculates posts and footings for merged beams
+ * @param {Array} beams - Array of merged beam objects
+ * @param {string} postSize - Size of posts
+ * @param {number} deckHeightInches - Deck height in inches
+ * @param {string} footingType - Type of footings
+ * @returns {Object} Object containing recalculated posts and footings
+ */
+function recalculatePostsForMergedBeams(beams, postSize, deckHeightInches, footingType) {
+  const newPosts = [];
+  const newFootings = [];
+  
+  beams.forEach(beam => {
+    // Calculate posts for this beam
+    const beamPosts = calculatePostsForBeam(
+      beam,
+      postSize,
+      deckHeightInches
+    );
+    
+    // Add posts with section info if available
+    beamPosts.forEach(post => {
+      if (beam.sectionId) {
+        post.sectionId = beam.sectionId;
+      }
+      newPosts.push(post);
+    });
+    
+    // Create footings for each post
+    beamPosts.forEach(post => {
+      const footing = {
+        position: { x: post.x, y: post.y },
+        type: footingType
+      };
+      if (beam.sectionId) {
+        footing.sectionId = beam.sectionId;
+      }
+      newFootings.push(footing);
+    });
+  });
+  
+  return {
+    posts: newPosts,
+    footings: newFootings
+  };
+}
+
+/**
+ * Calculates posts for a single beam following spacing rules
+ * @param {Object} beam - Beam object
+ * @param {string} postSize - Size of posts
+ * @param {number} deckHeightInches - Deck height in inches
+ * @returns {Array} Array of post objects
+ */
+function calculatePostsForBeam(beam, postSize, deckHeightInches) {
+  const beamPosts = [];
+  
+  // Use centerline points if available, otherwise fall back to p1/p2
+  const beamP1 = beam.centerlineP1 || beam.p1;
+  const beamP2 = beam.centerlineP2 || beam.p2;
+  
+  const beamLengthPixels = Math.sqrt(
+    Math.pow(beamP2.x - beamP1.x, 2) + 
+    Math.pow(beamP2.y - beamP1.y, 2)
+  );
+  
+  if (beamLengthPixels < EPSILON) {
+    return beamPosts;
+  }
+  
+  const beamDx = beamP2.x - beamP1.x;
+  const beamDy = beamP2.y - beamP1.y;
+  const unitVecX = beamDx / beamLengthPixels;
+  const unitVecY = beamDy / beamLengthPixels;
+  const postInsetPixels = POST_INSET_FEET * PIXELS_PER_FOOT;
+  
+  // For very short beams, place a single post in the center
+  if (beamLengthPixels < postInsetPixels * 2) {
+    beamPosts.push({
+      x: beamP1.x + unitVecX * (beamLengthPixels / 2),
+      y: beamP1.y + unitVecY * (beamLengthPixels / 2),
+      size: postSize,
+      heightFeet: deckHeightInches / 12,
+      position: {
+        x: beamP1.x + unitVecX * (beamLengthPixels / 2),
+        y: beamP1.y + unitVecY * (beamLengthPixels / 2)
+      }
+    });
+    return beamPosts;
+  }
+  
+  // Place posts at standard inset from ends
+  const post1 = {
+    x: beamP1.x + unitVecX * postInsetPixels,
+    y: beamP1.y + unitVecY * postInsetPixels,
+    size: postSize,
+    heightFeet: deckHeightInches / 12
+  };
+  post1.position = { x: post1.x, y: post1.y };
+  
+  const post2 = {
+    x: beamP2.x - unitVecX * postInsetPixels,
+    y: beamP2.y - unitVecY * postInsetPixels,
+    size: postSize,
+    heightFeet: deckHeightInches / 12
+  };
+  post2.position = { x: post2.x, y: post2.y };
+  
+  beamPosts.push(post1, post2);
+  
+  // Check if we need intermediate posts
+  const postSpanPixels = Math.sqrt(
+    Math.pow(post2.x - post1.x, 2) + 
+    Math.pow(post2.y - post1.y, 2)
+  );
+  
+  if (postSpanPixels / PIXELS_PER_FOOT > MAX_POST_SPACING_FEET) {
+    const numIntermediatePosts = Math.floor(
+      postSpanPixels / PIXELS_PER_FOOT / MAX_POST_SPACING_FEET
+    );
+    const intermediateSpacingPixels = postSpanPixels / (numIntermediatePosts + 1);
+    
+    for (let i = 1; i <= numIntermediatePosts; i++) {
+      const intermediatePost = {
+        x: post1.x + unitVecX * (intermediateSpacingPixels * i),
+        y: post1.y + unitVecY * (intermediateSpacingPixels * i),
+        size: postSize,
+        heightFeet: deckHeightInches / 12
+      };
+      intermediatePost.position = { x: intermediatePost.x, y: intermediatePost.y };
+      beamPosts.push(intermediatePost);
+    }
+  }
+  
+  return beamPosts;
 }
