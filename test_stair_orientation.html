@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Stair Orientation Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        
+        .test-info {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        
+        .test-info h1 {
+            margin-top: 0;
+            color: #333;
+        }
+        
+        .debug-output {
+            background: #f0f0f0;
+            padding: 15px;
+            border-radius: 4px;
+            margin-top: 20px;
+            font-family: 'Courier New', monospace;
+            font-size: 12px;
+            max-height: 300px;
+            overflow-y: auto;
+        }
+        
+        .instructions {
+            background: #e3f2fd;
+            padding: 15px;
+            border-radius: 4px;
+            margin-bottom: 20px;
+            border-left: 4px solid #2196f3;
+        }
+        
+        .instructions h2 {
+            margin-top: 0;
+            color: #1976d2;
+        }
+        
+        .instructions ol {
+            margin-bottom: 0;
+        }
+        
+        .test-button {
+            background: #4caf50;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 16px;
+            margin-top: 20px;
+        }
+        
+        .test-button:hover {
+            background: #45a049;
+        }
+        
+        code {
+            background: #f5f5f5;
+            padding: 2px 4px;
+            border-radius: 3px;
+            font-family: 'Courier New', monospace;
+        }
+    </style>
+</head>
+<body>
+    <div class="test-info">
+        <h1>Stair Orientation Debug Test</h1>
+        
+        <div class="instructions">
+            <h2>Test Instructions:</h2>
+            <ol>
+                <li>Open the main deck calculator application in another tab</li>
+                <li>Draw a deck shape and generate a plan</li>
+                <li>Click "Add Stairs" and place stairs on a 5'3" rim joist section</li>
+                <li>Watch the browser console (F12) for debug output</li>
+                <li>Note the stair orientation information printed to console</li>
+            </ol>
+        </div>
+        
+        <h3>What This Test Does:</h3>
+        <p>We've added debug logging to the stair drawing code that will output:</p>
+        <ul>
+            <li><strong>Rim direction:</strong> The direction vector of the rim joist edge</li>
+            <li><strong>Initial perpendicular:</strong> The initial perpendicular vector (before orientation correction)</li>
+            <li><strong>Test points:</strong> Two test points on either side of the rim joist</li>
+            <li><strong>Inside/Outside status:</strong> Whether each test point is inside or outside the deck polygon</li>
+            <li><strong>Final direction:</strong> The final perpendicular vector used for stair placement</li>
+        </ul>
+        
+        <h3>Expected Behavior:</h3>
+        <p>Stairs should always point <strong>away</strong> from the deck interior. The debug output will show which test point is outside the deck, and stairs should point in that direction.</p>
+        
+        <h3>Common Issues:</h3>
+        <ul>
+            <li><strong>Wrong initial perpendicular:</strong> The perpendicular calculation might be reversed</li>
+            <li><strong>Inconsistent rim joist direction:</strong> Rim joist p1→p2 might not be consistent</li>
+            <li><strong>Point-in-polygon errors:</strong> The test might incorrectly identify inside/outside</li>
+        </ul>
+        
+        <div class="debug-output" id="debugInfo">
+            <strong>Debug output will appear in the browser console when you place stairs.</strong><br><br>
+            To open the console:<br>
+            - Chrome/Edge: Press F12 or Ctrl+Shift+I (Cmd+Option+I on Mac)<br>
+            - Firefox: Press F12 or Ctrl+Shift+K (Cmd+Option+K on Mac)<br>
+            - Safari: Enable Developer menu in Preferences, then Cmd+Option+C<br><br>
+            Look for lines starting with "Stair 0 orientation debug:"
+        </div>
+        
+        <button class="test-button" onclick="window.open('index.html', '_blank')">
+            Open Deck Calculator
+        </button>
+    </div>
+    
+    <script>
+        // This page is just for documentation - the actual debug code is in canvasLogic.js
+        console.log('%c Stair Orientation Debug Test Loaded', 'background: #4caf50; color: white; padding: 5px 10px; border-radius: 3px;');
+        console.log('Open the deck calculator and place stairs to see debug output.');
+    </script>
+</body>
+</html>

@@ -1169,13 +1169,25 @@ function drawStairsInternal(
 
     const midRimX = stair.positionX;
     const midRimY = stair.positionY;
-    const rimDx = stair.rimP2.x - stair.rimP1.x;
-    const rimDy = stair.rimP2.y - stair.rimP1.y;
+    
+    // Get rim joist direction - ensure consistent ordering
+    let rimDx = stair.rimP2.x - stair.rimP1.x;
+    let rimDy = stair.rimP2.y - stair.rimP1.y;
+    
+    // For debugging - log the original rim direction
+    if (index === 0 && !isScaledForPrint) {
+      console.log(`Original rim P1: (${stair.rimP1.x.toFixed(0)}, ${stair.rimP1.y.toFixed(0)})`);
+      console.log(`Original rim P2: (${stair.rimP2.x.toFixed(0)}, ${stair.rimP2.y.toFixed(0)})`);
+    }
+    
     const rimLength =
       Math.sqrt(rimDx * rimDx + rimDy * rimDy) || config.EPSILON;
     const rimUnitX = rimDx / rimLength;
     const rimUnitY = rimDy / rimLength;
 
+    // Calculate initial perpendicular vector
+    // The cross product of rim direction gives us a perpendicular
+    // We'll determine the correct direction in the next step
     let perpX = -rimUnitY;
     let perpY = rimUnitX;
     
@@ -1207,24 +1219,82 @@ function drawStairsInternal(
       const point1Inside = isPointInPolygon(testPoint1X, testPoint1Y, deckPoints);
       const point2Inside = isPointInPolygon(testPoint2X, testPoint2Y, deckPoints);
       
+      // Debug logging for stair orientation
+      if (index === 0 && !isScaledForPrint) { // Only log for first stair to avoid spam
+        console.log(`Stair ${index} orientation debug:`);
+        console.log(`  Rim direction: (${rimDx.toFixed(2)}, ${rimDy.toFixed(2)})`);
+        console.log(`  Initial perp: (${perpX.toFixed(2)}, ${perpY.toFixed(2)})`);
+        console.log(`  Test point 1 (${testPoint1X.toFixed(0)}, ${testPoint1Y.toFixed(0)}): ${point1Inside ? 'INSIDE' : 'OUTSIDE'} deck`);
+        console.log(`  Test point 2 (${testPoint2X.toFixed(0)}, ${testPoint2Y.toFixed(0)}): ${point2Inside ? 'INSIDE' : 'OUTSIDE'} deck`);
+      }
+      
       // Point stairs toward whichever test point is NOT inside the deck polygon
+      // The initial perpendicular (perpX, perpY) points to test point 1
+      // If test point 1 is INSIDE the deck, we need to flip to point outside
       if (point1Inside && !point2Inside) {
-        // Point 1 is inside deck, point 2 is outside - flip direction to point toward point 2
+        // Test point 1 is inside, test point 2 is outside
+        // We need to flip the perpendicular to point toward test point 2 (outside)
         perpX *= -1;
         perpY *= -1;
+        if (index === 0 && !isScaledForPrint) {
+          console.log(`  Flipping direction - stairs will point toward test point 2 (outside)`);
+        }
       } else if (!point1Inside && point2Inside) {
-        // Point 1 is outside deck, point 2 is inside - keep direction toward point 1
-        // No change needed
+        // Test point 1 is outside, test point 2 is inside
+        // Keep the current direction (already pointing toward test point 1 which is outside)
+        if (index === 0 && !isScaledForPrint) {
+          console.log(`  Keeping direction - stairs will point toward test point 1 (outside)`);
+        }
+      } else if (!point1Inside && !point2Inside) {
+        // Both points are outside - this might happen at corners
+        // Use distance from center to determine which way faces more "outward"
+        const deckCenterX = (deckDimensions.minX + deckDimensions.maxX) / 2;
+        const deckCenterY = (deckDimensions.minY + deckDimensions.maxY) / 2;
+        
+        // Calculate distances from center to both test points
+        const dist1FromCenter = Math.sqrt(
+          Math.pow(testPoint1X - deckCenterX, 2) + Math.pow(testPoint1Y - deckCenterY, 2)
+        );
+        const dist2FromCenter = Math.sqrt(
+          Math.pow(testPoint2X - deckCenterX, 2) + Math.pow(testPoint2Y - deckCenterY, 2)
+        );
+        
+        // Point toward the test point that's farther from center
+        if (dist2FromCenter > dist1FromCenter) {
+          perpX *= -1;
+          perpY *= -1;
+          if (index === 0 && !isScaledForPrint) {
+            console.log(`  Both outside - flipping to point toward test point 2 (farther from center)`);
+          }
+        } else {
+          if (index === 0 && !isScaledForPrint) {
+            console.log(`  Both outside - keeping direction toward test point 1 (farther from center)`);
+          }
+        }
       } else {
-        // Both inside or both outside - fallback to distance from center method
+        // Both points are inside - this shouldn't normally happen
+        // Fallback to the vector from deck center method
         const deckCenterX = (deckDimensions.minX + deckDimensions.maxX) / 2;
         const deckCenterY = (deckDimensions.minY + deckDimensions.maxY) / 2;
         const vecToRimX = midRimX - deckCenterX;
         const vecToRimY = midRimY - deckCenterY;
+        
+        // If perpendicular points inward (toward center), flip it
         if (perpX * vecToRimX + perpY * vecToRimY < 0) {
           perpX *= -1;
           perpY *= -1;
+          if (index === 0 && !isScaledForPrint) {
+            console.log(`  Both inside (unusual) - flipping based on center vector`);
+          }
+        } else {
+          if (index === 0 && !isScaledForPrint) {
+            console.log(`  Both inside (unusual) - keeping direction based on center vector`);
+          }
         }
+      }
+      
+      if (index === 0 && !isScaledForPrint) {
+        console.log(`  Final perp direction: (${perpX.toFixed(2)}, ${perpY.toFixed(2)})`);
       }
     } else {
       // Fallback method when no deck points available

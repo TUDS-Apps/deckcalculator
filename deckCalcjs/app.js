@@ -81,6 +81,14 @@ const centerFitBtn = document.getElementById("centerFitBtn");
 const blueprintToggleBtn = document.getElementById("blueprintToggleBtn");
 const toggleDecompositionBtn = document.getElementById("toggleDecompositionBtn");
 
+// Get form element references
+const joistSpacing = document.getElementById("joistSpacing");
+const attachmentType = document.getElementById("attachmentType");
+const beamType = document.getElementById("beamType");
+const pictureFrame = document.getElementById("pictureFrame");
+const joistProtection = document.getElementById("joistProtection");
+const fasteners = document.getElementById("fasteners");
+
 // Legend elements
 const blueprintLegend = document.getElementById("blueprintLegend");
 const dimensionsLegend = document.getElementById("dimensionsLegend");
@@ -526,6 +534,9 @@ function resetAppState() {
   
   // Reset contextual panel state
   appState.currentPanelMode = 'drawing';
+  
+  // Reset all form inputs to their default values
+  resetAllFormInputs();
 
   initializeViewport();
 
@@ -1777,6 +1788,63 @@ function handleToggleDecomposition() {
   }
   
   redrawApp();
+}
+
+// --- Form Reset Function ---
+function resetAllFormInputs() {
+  // Reset main form inputs to their default values
+  if (deckHeightFeetInput) deckHeightFeetInput.value = "4"; // Default to 4'
+  if (deckHeightInchesInput) deckHeightInchesInput.value = "0"; // Default to 0"
+  if (footingTypeSelect) footingTypeSelect.value = "gh_levellers"; // Default to first option
+  if (joistSpacing) joistSpacing.value = "16"; // Default to 16" OC
+  if (attachmentType) attachmentType.value = "house_rim"; // Default to House Rim
+  if (beamType) beamType.value = "drop"; // Default to Drop Beam
+  if (pictureFrame) pictureFrame.value = "none"; // Default to None
+  if (joistProtection) joistProtection.value = "none"; // Default to None
+  if (fasteners) fasteners.value = "screws_3in"; // Default to 3" Deck Screws
+  
+  // Reset stair form inputs
+  if (stairWidthSelect) stairWidthSelect.value = "4"; // Default to 4' 0"
+  if (stringerTypeSelect) stringerTypeSelect.value = "pylex_steel"; // Default to Pylex Steel
+  if (landingTypeSelect) landingTypeSelect.value = "existing"; // Default to Existing Surface
+  
+  // Reset modify form inputs (these mirror the main form)
+  const modifyHeightFeet = document.getElementById('modifyHeightFeet');
+  const modifyHeightInches = document.getElementById('modifyHeightInches');
+  const modifyFootingType = document.getElementById('modifyFootingType');
+  const modifyJoistSpacing = document.getElementById('modifyJoistSpacing');
+  const modifyAttachmentType = document.getElementById('modifyAttachmentType');
+  const modifyBeamType = document.getElementById('modifyBeamType');
+  const modifyPictureFrame = document.getElementById('modifyPictureFrame');
+  const modifyJoistProtection = document.getElementById('modifyJoistProtection');
+  const modifyFasteners = document.getElementById('modifyFasteners');
+  
+  if (modifyHeightFeet) modifyHeightFeet.value = "4";
+  if (modifyHeightInches) modifyHeightInches.value = "0";
+  if (modifyFootingType) modifyFootingType.value = "gh_levellers";
+  if (modifyJoistSpacing) modifyJoistSpacing.value = "16";
+  if (modifyAttachmentType) modifyAttachmentType.value = "house_rim";
+  if (modifyBeamType) modifyBeamType.value = "drop";
+  if (modifyPictureFrame) modifyPictureFrame.value = "none";
+  if (modifyJoistProtection) modifyJoistProtection.value = "none";
+  if (modifyFasteners) modifyFasteners.value = "screws_3in";
+  
+  // Reset any other UI state
+  const stairSection = document.getElementById('stairManagementSection');
+  const mainBtn = document.getElementById('mainStairsBtn');
+  if (stairSection) stairSection.classList.add('hidden');
+  if (mainBtn) mainBtn.classList.remove('active');
+  
+  // Hide spec editor if it's open
+  const editor = document.querySelector('.spec-editor');
+  const summarySection = document.getElementById('summarySection');
+  const topActionButtons = document.querySelector('.top-action-buttons');
+  const modifyBtn = document.querySelector('.modify-specs-btn');
+  
+  if (editor) editor.classList.add('hidden');
+  if (summarySection) summarySection.classList.remove('hidden');
+  if (topActionButtons) topActionButtons.classList.remove('hidden');
+  if (modifyBtn) modifyBtn.classList.remove('active');
 }
 
 // --- Initialization ---
