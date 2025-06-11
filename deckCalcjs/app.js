@@ -1790,6 +1790,20 @@ function handleToggleDecomposition() {
 
 // --- Form Reset Function ---
 function resetAllFormInputs() {
+  // Get form elements
+  const deckHeightFeetInput = document.getElementById("deckHeightFeet");
+  const deckHeightInchesInput = document.getElementById("deckHeightInches");
+  const footingTypeSelect = document.getElementById("footingType");
+  const joistSpacing = document.getElementById("joistSpacing");
+  const attachmentType = document.getElementById("attachmentType");
+  const beamType = document.getElementById("beamType");
+  const pictureFrame = document.getElementById("pictureFrame");
+  const joistProtection = document.getElementById("joistProtection");
+  const fasteners = document.getElementById("fasteners");
+  const stairWidthSelect = document.getElementById("stairWidth");
+  const stringerTypeSelect = document.getElementById("stringerType");
+  const landingTypeSelect = document.getElementById("landingType");
+  
   // Reset main form inputs to their default values
   if (deckHeightFeetInput) deckHeightFeetInput.value = "4"; // Default to 4'
   if (deckHeightInchesInput) deckHeightInchesInput.value = "0"; // Default to 0"
