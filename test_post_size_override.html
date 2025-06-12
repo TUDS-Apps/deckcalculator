@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Post Size Override Test</title>
+    <script type="module">
+        import { calculateDeckStructure } from './deckCalcjs/deckCalculations.js';
+        
+        // Test scenarios
+        const testScenarios = [
+            {
+                name: "Auto (tall deck - should get 6x6)",
+                inputs: {
+                    deckHeight: 72, // 6 feet
+                    postSize: "auto",
+                    joistSpacing: 16,
+                    attachmentType: "house_rim",
+                    beamType: "drop",
+                    pictureFrame: "none",
+                    joistProtection: "none",
+                    fasteners: "screws_3in"
+                },
+                expectedPost: "6x6",
+                expectedBeamPly: 3
+            },
+            {
+                name: "Auto (short deck - should get 4x4)",
+                inputs: {
+                    deckHeight: 36, // 3 feet
+                    postSize: "auto",
+                    joistSpacing: 16,
+                    attachmentType: "house_rim",
+                    beamType: "drop",
+                    pictureFrame: "none",
+                    joistProtection: "none",
+                    fasteners: "screws_3in"
+                },
+                expectedPost: "4x4",
+                expectedBeamPly: 2
+            },
+            {
+                name: "Force 4x4 on tall deck",
+                inputs: {
+                    deckHeight: 72, // 6 feet
+                    postSize: "4x4",
+                    joistSpacing: 16,
+                    attachmentType: "house_rim",
+                    beamType: "drop",
+                    pictureFrame: "none",
+                    joistProtection: "none",
+                    fasteners: "screws_3in"
+                },
+                expectedPost: "4x4",
+                expectedBeamPly: 2
+            },
+            {
+                name: "Force 6x6 on short deck",
+                inputs: {
+                    deckHeight: 36, // 3 feet
+                    postSize: "6x6",
+                    joistSpacing: 16,
+                    attachmentType: "house_rim",
+                    beamType: "drop",
+                    pictureFrame: "none",
+                    joistProtection: "none",
+                    fasteners: "screws_3in"
+                },
+                expectedPost: "6x6",
+                expectedBeamPly: 3
+            }
+        ];
+        
+        // Test deck shape (simple rectangle)
+        const deckDimensions = {
+            minX: 0,
+            maxX: 240, // 20 feet
+            minY: 0,
+            maxY: 144, // 12 feet
+            widthFeet: 20,
+            heightFeet: 12
+        };
+        
+        const selectedWallIndices = [0]; // Bottom wall selected
+        const points = [
+            { x: 0, y: 0 },
+            { x: 240, y: 0 },
+            { x: 240, y: 144 },
+            { x: 0, y: 144 }
+        ];
+        
+        // Run tests
+        document.addEventListener('DOMContentLoaded', () => {
+            const output = document.getElementById('output');
+            let html = '<h2>Post Size Override Test Results</h2>';
+            
+            testScenarios.forEach(scenario => {
+                const result = calculateDeckStructure(
+                    deckDimensions,
+                    selectedWallIndices,
+                    points,
+                    scenario.inputs,
+                    [] // No stairs
+                );
+                
+                const actualPost = result.posts?.[0]?.size || 'N/A';
+                const actualBeamPly = result.beams?.[0]?.ply || 'N/A';
+                const passed = actualPost === scenario.expectedPost && 
+                              actualBeamPly === scenario.expectedBeamPly;
+                
+                html += `
+                    <div style="margin: 20px 0; padding: 10px; background: ${passed ? '#e8f5e9' : '#ffebee'}">
+                        <h3>${scenario.name}</h3>
+                        <p><strong>Input:</strong> Height=${scenario.inputs.deckHeight}", PostSize=${scenario.inputs.postSize}</p>
+                        <p><strong>Expected:</strong> ${scenario.expectedPost} posts, ${scenario.expectedBeamPly}-ply beams</p>
+                        <p><strong>Actual:</strong> ${actualPost} posts, ${actualBeamPly}-ply beams</p>
+                        <p><strong>Result:</strong> <span style="color: ${passed ? 'green' : 'red'}">${passed ? 'PASSED' : 'FAILED'}</span></p>
+                    </div>
+                `;
+            });
+            
+            output.innerHTML = html;
+        });
+    </script>
+</head>
+<body>
+    <h1>Post Size Override Test</h1>
+    <div id="output"></div>
+</body>
+</html>

@@ -2078,6 +2078,11 @@ function syncModifySpecValues() {
   if (pictureFrame && modifyPictureFrame) modifyPictureFrame.value = pictureFrame.value;
   if (joistProtection && modifyJoistProtection) modifyJoistProtection.value = joistProtection.value;
   if (fasteners && modifyFasteners) modifyFasteners.value = fasteners.value;
+  
+  // Add post size sync
+  const postSize = document.getElementById('postSize');
+  const modifyPostSize = document.getElementById('modifyPostSize');
+  if (postSize && modifyPostSize) modifyPostSize.value = postSize.value;
 }
 
 function syncMainSpecValues() {
@@ -2147,6 +2152,14 @@ function syncMainSpecValues() {
   if (modifyFasteners && fasteners) {
     console.log(`Syncing fasteners: ${modifyFasteners.value} -> ${fasteners.id}`);
     fasteners.value = modifyFasteners.value;
+  }
+  
+  // Add post size sync
+  const modifyPostSize = document.getElementById('modifyPostSize');
+  const postSize = document.getElementById('postSize');
+  if (modifyPostSize && postSize) {
+    console.log(`Syncing post size: ${modifyPostSize.value} -> ${postSize.id}`);
+    postSize.value = modifyPostSize.value;
   }
   
   console.log("Sync complete");

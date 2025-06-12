@@ -1031,8 +1031,20 @@ export function calculateStructure(
   }
 
   const beamSize = joistSize;
-  const postSize = deckHeightInches >= 60 ? "6x6" : "4x4";
-  const beamPly = postSize === "6x6" ? 3 : 2;
+  
+  // Check for user override first
+  let postSize, beamPly;
+  if (inputs.postSize === "4x4") {
+    postSize = "4x4";
+    beamPly = 2;
+  } else if (inputs.postSize === "6x6") {
+    postSize = "6x6";
+    beamPly = 3;
+  } else {
+    // Use automatic logic (existing behavior)
+    postSize = deckHeightInches >= 60 ? "6x6" : "4x4";
+    beamPly = postSize === "6x6" ? 3 : 2;
+  }
 
   const deckCenterX = (deckDimensions.minX + deckDimensions.maxX) / 2;
   const deckCenterY = (deckDimensions.minY + deckDimensions.maxY) / 2;
