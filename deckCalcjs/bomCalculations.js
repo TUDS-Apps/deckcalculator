@@ -788,8 +788,9 @@ function processHardwareAndAccessories(
     );
     if (fItem) {
       const estNails = Math.max(200, Math.ceil(deckAreaSqFt * 10));
-      fQty = Math.ceil(estNails / (fItem.pkg_qty || 2000));
-      fDesc = `Framing Nails (Paslode 3-1/4")`;
+      const nailsPerBox = 1500;
+      fQty = Math.ceil(estNails / nailsPerBox);
+      fDesc = `Framing Nails (Paslode 3-1/4") - ${fQty} box${fQty > 1 ? 'es' : ''}`;
     }
   }
   if (fItem && fQty > 0) addItemToBOMAggregated(bomItems, fItem, fDesc, fQty, "JOISTS, LEDGER, RIMS & BLOCKING");
