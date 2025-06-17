@@ -38,7 +38,16 @@
       "Bash(python:*)",
       "Bash(sed:*)",
       "Bash(git add:*)",
-      "Bash(awk:*)"
+      "Bash(awk:*)",
+      "Bash(./run-server.sh:*)",
+      "Bash(sudo service:*)",
+      "Bash(claude mcp add:*)",
+      "Bash(zen:*)",
+      "Bash(ls:*)",
+      "Bash(source:*)",
+      "Bash(venv/bin/pip install:*)",
+      "Bash(docker exec:*)",
+      "Bash(find:*)"
     ],
     "deny": []
   }
