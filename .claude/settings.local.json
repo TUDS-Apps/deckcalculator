@@ -47,7 +47,8 @@
       "Bash(source:*)",
       "Bash(venv/bin/pip install:*)",
       "Bash(docker exec:*)",
-      "Bash(find:*)"
+      "Bash(find:*)",
+      "Bash(git checkout:*)"
     ],
     "deny": []
   }
