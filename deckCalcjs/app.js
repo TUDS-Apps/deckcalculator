@@ -80,6 +80,7 @@ const zoomOutBtn = document.getElementById("zoomOutBtn");
 const centerFitBtn = document.getElementById("centerFitBtn");
 const blueprintToggleBtn = document.getElementById("blueprintToggleBtn");
 const toggleDecompositionBtn = document.getElementById("toggleDecompositionBtn");
+const legendBtn = document.getElementById("legendBtn");
 
 // Get form element references
 const joistSpacing = document.getElementById("joistSpacing");
@@ -89,9 +90,13 @@ const pictureFrame = document.getElementById("pictureFrame");
 const joistProtection = document.getElementById("joistProtection");
 const fasteners = document.getElementById("fasteners");
 
-// Legend elements
-const blueprintLegend = document.getElementById("blueprintLegend");
-const dimensionsLegend = document.getElementById("dimensionsLegend");
+// Status message container
+const statusMessages = document.getElementById("main-status-messages");
+
+// Legend elements  
+const legendCard = document.getElementById("legendCard");
+const blueprintLegendHover = document.getElementById("blueprintLegendHover");
+const dimensionsLegendHover = document.getElementById("dimensionsLegendHover");
 
 // Dimension input elements
 const dimensionInputContainer = document.getElementById("dimensionInputContainer");
@@ -470,6 +475,9 @@ function redrawApp() {
   
   // Update stair management UI
   updateStairList();
+  
+  // Update instruction messages
+  showInstructionMessage();
 }
 
 // Update Blueprint Mode UI elements
@@ -486,9 +494,7 @@ function updateBlueprintModeUI() {
     canvasWrapper.classList.add('blueprint-mode');
     document.body.classList.add('blueprint-enabled');
     
-    // Don't show legends in blueprint mode as requested
-    blueprintLegend.classList.add('hidden');
-    dimensionsLegend.classList.add('hidden');
+    // Legend is now handled by hover, no need to manage visibility here
   } else {
     // Update button state
     blueprintToggleBtn.classList.add('btn-secondary');
@@ -498,9 +504,7 @@ function updateBlueprintModeUI() {
     canvasWrapper.classList.remove('blueprint-mode');
     document.body.classList.remove('blueprint-enabled');
     
-    // Keep legends hidden
-    blueprintLegend.classList.add('hidden');
-    dimensionsLegend.classList.add('hidden');
+    // Legend is now handled by hover, no need to manage visibility here
   }
 }
 
@@ -1810,6 +1814,39 @@ function handleToggleDecomposition() {
   redrawApp();
 }
 
+// --- Legend Hover Handlers ---
+function handleLegendHover() {
+  if (legendCard) {
+    legendCard.classList.remove('hidden');
+    
+    // Show blueprint legend info if in blueprint mode
+    if (appState.isBlueprintMode && blueprintLegendHover) {
+      blueprintLegendHover.classList.remove('hidden');
+    }
+    
+    // Show dimensions legend if in blueprint mode
+    if (appState.isBlueprintMode && dimensionsLegendHover) {
+      dimensionsLegendHover.classList.remove('hidden');
+    }
+  }
+}
+
+function handleLegendLeave() {
+  if (legendCard) {
+    legendCard.classList.add('hidden');
+    
+    // Hide blueprint legend info
+    if (blueprintLegendHover) {
+      blueprintLegendHover.classList.add('hidden');
+    }
+    
+    // Hide dimensions legend
+    if (dimensionsLegendHover) {
+      dimensionsLegendHover.classList.add('hidden');
+    }
+  }
+}
+
 // --- Form Reset Function ---
 function resetAllFormInputs() {
   // Get form elements
@@ -1881,6 +1918,86 @@ function resetAllFormInputs() {
   if (modifyBtn) modifyBtn.classList.remove('active');
 }
 
+// --- Status Message Functions ---
+function showStatusMessage(message, type = 'info', duration = 5000) {
+  if (!statusMessages) return;
+  
+  const messageElement = document.createElement('div');
+  messageElement.className = `status-message flex items-center space-x-2 px-3 py-2 rounded-md text-sm transition-all duration-300 ${getMessageClasses(type)}`;
+  
+  const icon = getMessageIcon(type);
+  messageElement.innerHTML = `
+    ${icon}
+    <span>${message}</span>
+    <button class="ml-2 text-gray-400 hover:text-gray-600" onclick="this.parentElement.remove()">
+      <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+      </svg>
+    </button>
+  `;
+  
+  statusMessages.appendChild(messageElement);
+  
+  // Auto-remove after duration
+  if (duration > 0) {
+    setTimeout(() => {
+      if (messageElement.parentElement) {
+        messageElement.remove();
+      }
+    }, duration);
+  }
+}
+
+function getMessageClasses(type) {
+  switch (type) {
+    case 'success':
+      return 'bg-green-50 text-green-800 border border-green-200';
+    case 'warning':
+      return 'bg-yellow-50 text-yellow-800 border border-yellow-200';
+    case 'error':
+      return 'bg-red-50 text-red-800 border border-red-200';
+    default:
+      return 'bg-blue-50 text-blue-800 border border-blue-200';
+  }
+}
+
+function getMessageIcon(type) {
+  switch (type) {
+    case 'success':
+      return '<svg class="w-4 h-4 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>';
+    case 'warning':
+      return '<svg class="w-4 h-4 text-yellow-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.732-.833-2.5 0L4.232 15.5c-.77.833.192 2.5 1.732 2.5z"/></svg>';
+    case 'error':
+      return '<svg class="w-4 h-4 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>';
+    default:
+      return '<svg class="w-4 h-4 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>';
+  }
+}
+
+function clearStatusMessages() {
+  if (statusMessages) {
+    statusMessages.innerHTML = '';
+  }
+}
+
+function showInstructionMessage() {
+  clearStatusMessages();
+  
+  if (!appState.isShapeClosed) {
+    if (appState.points.length === 0) {
+      showStatusMessage('Click on the grid to place your first point. The first point will snap to 1-foot increments.', 'info', 0);
+    } else if (appState.points.length > 0) {
+      showStatusMessage('Continue clicking to add points to your deck shape. Right-click to finish drawing.', 'info', 0);
+    }
+  } else if (appState.wallSelectionMode) {
+    showStatusMessage('Click wall edge(s) that will be attached to your house or structure. All selected walls must be parallel.', 'info', 0);
+  } else if (appState.stairPlacementMode) {
+    showStatusMessage('Click on a deck edge (rim joist) to place stairs. Use settings panel to configure stair options.', 'info', 0);
+  } else if (appState.structuralComponents) {
+    showStatusMessage('Review your deck plan. You can print, modify the drawing, or add stairs.', 'success', 0);
+  }
+}
+
 // --- Initialization ---
 document.addEventListener("DOMContentLoaded", () => {
   dataManager.loadAndParseData();
@@ -1917,6 +2034,15 @@ document.addEventListener("DOMContentLoaded", () => {
   if (blueprintToggleBtn) blueprintToggleBtn.addEventListener("click", handleBlueprintToggle);
   if (toggleDecompositionBtn) toggleDecompositionBtn.addEventListener("click", handleToggleDecomposition);
 
+  // Legend button hover handlers
+  if (legendBtn) {
+    const legendContainer = legendBtn.parentElement;
+    if (legendContainer) {
+      legendContainer.addEventListener("mouseenter", handleLegendHover);
+      legendContainer.addEventListener("mouseleave", handleLegendLeave);
+    }
+  }
+
   // Add dimension input button event listeners
   if (applyDimensionBtn) applyDimensionBtn.addEventListener("click", handleDimensionInputApply);
   if (cancelDimensionBtn) cancelDimensionBtn.addEventListener("click", handleDimensionInputCancel);
@@ -1927,10 +2053,20 @@ document.addEventListener("DOMContentLoaded", () => {
 
   resetAppState();
   updateContextualPanel(); // Initialize contextual panel
+  
+  // Initial instruction message
+  setTimeout(() => {
+    showInstructionMessage();
+  }, 500);
+  
   console.log("Deck Calculator App Initialized with Zoom/Pan features, Dimension Input, Blueprint mode, and Contextual Panels.");
 });
 
 // --- Global Utility Functions for HTML ---
+window.showStatusMessage = showStatusMessage;
+window.clearStatusMessages = clearStatusMessages;
+window.showInstructionMessage = showInstructionMessage;
+
 window.toggleCollapsible = function(button) {
   const content = button.nextElementSibling;
   const isExpanded = content.classList.contains('expanded');
@@ -2211,6 +2347,81 @@ window.switchTab = function(tabName) {
   }
 };
 
+// --- New Menu System Functions ---
+
+window.switchMenu = function(menuName) {
+  // Hide all menu contents
+  const menuContents = document.querySelectorAll('.menu-content');
+  menuContents.forEach(content => {
+    content.classList.remove('active');
+    content.classList.add('hidden');
+  });
+  
+  // Remove active state from all icon menu buttons
+  const menuButtons = document.querySelectorAll('.icon-menu-item');
+  menuButtons.forEach(button => {
+    button.classList.remove('active');
+    const svg = button.querySelector('svg');
+    if (svg) {
+      svg.classList.remove('text-white');
+      svg.classList.add('text-gray-400', 'hover:text-white');
+    }
+  });
+  
+  // Show the selected menu content
+  const targetContent = document.getElementById(`${menuName}-menu`);
+  if (targetContent) {
+    targetContent.classList.add('active');
+    targetContent.classList.remove('hidden');
+  }
+  
+  // Activate the selected menu button
+  const targetButton = document.getElementById(`${menuName}-icon`);
+  if (targetButton) {
+    targetButton.classList.add('active');
+    const svg = targetButton.querySelector('svg');
+    if (svg) {
+      svg.classList.add('text-white');
+      svg.classList.remove('text-gray-400', 'hover:text-white');
+    }
+  }
+  
+  // Handle menu-specific initialization
+  switch(menuName) {
+    case 'deck-details':
+      // Deck details is the basic menu - already initialized
+      break;
+    case 'framing':
+      // Show the contextual panels that were previously in structure tab
+      moveContextualPanelsToFraming();
+      break;
+    case 'decking':
+      // Future: Initialize decking controls
+      break;
+    case 'railing':
+      // Future: Initialize railing controls
+      break;
+    case 'summary':
+      // Future: Initialize summary view
+      break;
+  }
+};
+
+// Helper function to move existing contextual panels to framing menu
+function moveContextualPanelsToFraming() {
+  const contextualPanelsContainer = document.getElementById('contextual-panels-container');
+  const existingPanels = document.querySelectorAll('.panel-section, .spec-editor, .stair-management-section, #summarySection');
+  
+  // Only move panels if the container is empty (first time)
+  if (contextualPanelsContainer && contextualPanelsContainer.children.length === 0) {
+    existingPanels.forEach(panel => {
+      if (panel && panel.parentNode) {
+        contextualPanelsContainer.appendChild(panel);
+      }
+    });
+  }
+}
+
 // --- Stair Management Functions ---
 
 function updateStairList() {
@@ -2355,6 +2566,433 @@ function deleteStair(index) {
     
     uiController.updateCanvasStatus(`Stair set deleted. Remaining: ${appState.stairs.length}.`);
   }
+}
+
+// --- Enhanced Navigation System ---
+
+// Application state for tracking workflow progress
+let workflowState = {
+  currentStep: 1,
+  stepsCompleted: [],
+  steps: [
+    { id: 1, name: 'Drawing', key: 'drawing' },
+    { id: 2, name: 'Wall Selection', key: 'wall-selection' },
+    { id: 3, name: 'Stair Placement', key: 'stair-placement' },
+    { id: 4, name: 'Plan Generation', key: 'plan-generation' },
+    { id: 5, name: 'BOM Review', key: 'bom-review' }
+  ]
+};
+
+// Global flag to check if enhanced navigation is initialized
+let enhancedNavigationInitialized = false;
+
+// Tooltip management
+let activeTooltip = null;
+let tooltipTimeout = null;
+
+// Initialize enhanced navigation when DOM is loaded
+function initializeEnhancedNavigation() {
+  if (enhancedNavigationInitialized) return; // Prevent double initialization
+  
+  try {
+    initializeTooltips();
+    initializeKeyboardShortcuts();
+    initializeBreadcrumbNavigation();
+    updateWorkflowProgress();
+    enhancedNavigationInitialized = true;
+    console.log('Enhanced navigation initialized successfully');
+  } catch (error) {
+    console.error('Error initializing enhanced navigation:', error);
+  }
+}
+
+// Check if DOM is already loaded
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', initializeEnhancedNavigation);
+} else {
+  initializeEnhancedNavigation();
+}
+
+// Tooltip system
+function initializeTooltips() {
+  try {
+    const tooltipElements = document.querySelectorAll('[data-tooltip]');
+    
+    if (!tooltipElements.length) {
+      console.log('No tooltip elements found');
+      return;
+    }
+    
+    tooltipElements.forEach(element => {
+      element.addEventListener('mouseenter', showTooltip);
+      element.addEventListener('mouseleave', hideTooltip);
+      element.addEventListener('focus', showTooltip);
+      element.addEventListener('blur', hideTooltip);
+    });
+    
+    console.log(`Initialized ${tooltipElements.length} tooltip elements`);
+  } catch (error) {
+    console.error('Error initializing tooltips:', error);
+  }
+}
+
+function showTooltip(event) {
+  const element = event.target.closest('[data-tooltip]');
+  if (!element) return;
+  
+  clearTimeout(tooltipTimeout);
+  hideTooltip(); // Hide any existing tooltip
+  
+  tooltipTimeout = setTimeout(() => {
+    const tooltipText = element.getAttribute('data-tooltip');
+    const keyboardShortcut = element.getAttribute('data-keyboard');
+    
+    activeTooltip = document.createElement('div');
+    activeTooltip.className = 'tooltip show';
+    activeTooltip.innerHTML = tooltipText + 
+      (keyboardShortcut ? `<span class="tooltip-keyboard">${keyboardShortcut}</span>` : '');
+    
+    document.body.appendChild(activeTooltip);
+    
+    // Position tooltip
+    positionTooltip(element, activeTooltip);
+  }, 500); // 500ms delay before showing
+}
+
+function hideTooltip() {
+  clearTimeout(tooltipTimeout);
+  if (activeTooltip) {
+    activeTooltip.remove();
+    activeTooltip = null;
+  }
+}
+
+function positionTooltip(element, tooltip) {
+  const rect = element.getBoundingClientRect();
+  const tooltipRect = tooltip.getBoundingClientRect();
+  
+  let left = rect.left + (rect.width / 2) - (tooltipRect.width / 2);
+  let top = rect.top - tooltipRect.height - 10;
+  
+  // Adjust if tooltip would go off screen
+  const windowWidth = window.innerWidth;
+  const windowHeight = window.innerHeight;
+  
+  if (left < 5) left = 5;
+  if (left + tooltipRect.width > windowWidth - 5) {
+    left = windowWidth - tooltipRect.width - 5;
+  }
+  
+  if (top < 5) {
+    top = rect.bottom + 10; // Show below instead
+    tooltip.style.transform = 'rotate(180deg)';
+  }
+  
+  tooltip.style.left = left + 'px';
+  tooltip.style.top = top + 'px';
+}
+
+// Keyboard shortcuts system
+function initializeKeyboardShortcuts() {
+  document.addEventListener('keydown', handleKeyboardShortcuts);
+}
+
+function handleKeyboardShortcuts(event) {
+  // Don't trigger shortcuts if user is typing in an input
+  if (event.target.tagName === 'INPUT' || event.target.tagName === 'TEXTAREA' || event.target.tagName === 'SELECT') {
+    return;
+  }
+  
+  if (event.altKey) {
+    switch(event.key) {
+      case '1':
+        event.preventDefault();
+        switchMenu('deck-details');
+        break;
+      case '2':
+        event.preventDefault();
+        switchMenu('framing');
+        break;
+      case '3':
+        event.preventDefault();
+        switchMenu('decking');
+        break;
+      case '4':
+        event.preventDefault();
+        switchMenu('railing');
+        break;
+      case '5':
+        event.preventDefault();
+        switchMenu('summary');
+        break;
+    }
+  }
+  
+  // Additional shortcuts
+  if (event.ctrlKey || event.metaKey) {
+    switch(event.key) {
+      case 'z':
+        event.preventDefault();
+        // TODO: Implement undo functionality
+        console.log('Undo shortcut triggered');
+        break;
+      case 'y':
+        event.preventDefault();
+        // TODO: Implement redo functionality
+        console.log('Redo shortcut triggered');
+        break;
+    }
+  }
+}
+
+// Breadcrumb navigation system
+function initializeBreadcrumbNavigation() {
+  try {
+    const breadcrumbItems = document.querySelectorAll('.breadcrumb-item');
+    
+    if (!breadcrumbItems.length) {
+      console.log('No breadcrumb items found');
+      return;
+    }
+    
+    breadcrumbItems.forEach((item, index) => {
+      item.addEventListener('click', () => {
+        jumpToWorkflowStep(index + 1);
+      });
+      item.style.cursor = 'pointer';
+    });
+    
+    console.log(`Initialized ${breadcrumbItems.length} breadcrumb items`);
+  } catch (error) {
+    console.error('Error initializing breadcrumb navigation:', error);
+  }
+}
+
+function updateWorkflowProgress() {
+  // Breadcrumbs have been removed, this function is kept for compatibility
+  // Status messages now handle user guidance
+}
+
+function jumpToWorkflowStep(stepNumber) {
+  if (stepNumber < 1 || stepNumber > workflowState.steps.length) return;
+  
+  // Only allow jumping to current step or completed steps
+  if (stepNumber > workflowState.currentStep && !workflowState.stepsCompleted.includes(stepNumber)) {
+    return;
+  }
+  
+  workflowState.currentStep = stepNumber;
+  updateWorkflowProgress();
+  
+  // Trigger appropriate UI changes based on step
+  switch(stepNumber) {
+    case 1: // Drawing
+      resetAppState();
+      break;
+    case 2: // Wall Selection
+      if (appState.isShapeClosed) {
+        appState.wallSelectionMode = true;
+        appState.currentPanelMode = 'wall-selection';
+        showContextualPanel('wall-selection');
+      }
+      break;
+    case 3: // Stair Placement
+      if (appState.stairs && appState.stairs.length > 0) {
+        appState.currentPanelMode = 'stair-config';
+        showContextualPanel('stair-config');
+      }
+      break;
+    case 4: // Plan Generation
+      if (appState.selectedWallIndices.length > 0) {
+        appState.currentPanelMode = 'specification';
+        showContextualPanel('specification');
+      }
+      if (appState.structuralComponents) {
+        appState.currentPanelMode = 'plan-generated';
+        showContextualPanel('plan-generated');
+      }
+      break;
+    case 5: // BOM Review
+      if (appState.bom.length > 0) {
+        appState.currentPanelMode = 'stair-config';
+        showContextualPanel('stair-config');
+      }
+      break;
+  }
+  
+  redrawApp();
+}
+
+function advanceWorkflowStep() {
+  if (workflowState.currentStep < workflowState.steps.length) {
+    workflowState.stepsCompleted.push(workflowState.currentStep);
+    workflowState.currentStep++;
+    updateWorkflowProgress();
+  }
+}
+
+function completeWorkflowStep(stepNumber) {
+  if (!workflowState.stepsCompleted.includes(stepNumber)) {
+    workflowState.stepsCompleted.push(stepNumber);
+    updateWorkflowProgress();
+  }
+}
+
+// Enhanced switchMenu with workflow integration
+const originalSwitchMenu = window.switchMenu;
+if (originalSwitchMenu && typeof originalSwitchMenu === 'function') {
+  window.switchMenu = function(menuName) {
+    try {
+      originalSwitchMenu(menuName);
+      
+      // Update workflow step based on menu selection
+      if (enhancedNavigationInitialized && workflowState) {
+        switch(menuName) {
+          case 'deck-details':
+            if (workflowState.currentStep > 1) {
+              jumpToWorkflowStep(1);
+            }
+            break;
+          case 'framing':
+            // Framing encompasses steps 2-4
+            if (workflowState.currentStep === 1 && appState && appState.isShapeClosed) {
+              jumpToWorkflowStep(2);
+            }
+            break;
+          case 'summary':
+            if (appState && appState.bom && appState.bom.length > 0) {
+              jumpToWorkflowStep(5);
+            }
+            break;
+        }
+      }
+    } catch (error) {
+      console.error('Error in enhanced switchMenu:', error);
+    }
+  };
+}
+
+// Enhance existing showContextualPanel function with workflow integration
+if (typeof showContextualPanel === 'function') {
+  const originalShowContextualPanel = showContextualPanel;
+  showContextualPanel = function(panelType) {
+    try {
+      // Call original function
+      originalShowContextualPanel(panelType);
+      
+      // Update workflow based on panel type
+      if (enhancedNavigationInitialized && workflowState) {
+        switch(panelType) {
+          case 'drawing':
+            workflowState.currentStep = 1;
+            break;
+          case 'wall-selection':
+            workflowState.currentStep = 2;
+            break;
+          case 'stair-config':
+            workflowState.currentStep = 3;
+            break;
+          case 'specification':
+            workflowState.currentStep = 4;
+            break;
+          case 'plan-generated':
+            workflowState.currentStep = 4;
+            break;
+        }
+        
+        updateWorkflowProgress();
+      }
+    } catch (error) {
+      console.error('Error in enhanced showContextualPanel:', error);
+    }
+  };
+}
+
+// Mobile-specific enhancements
+function initializeMobileOptimizations() {
+  try {
+    if (window.innerWidth <= 768) {
+      // Add swipe gesture support for menu navigation
+      let startX = 0;
+      let startY = 0;
+      
+      document.addEventListener('touchstart', (e) => {
+        try {
+          startX = e.touches[0].clientX;
+          startY = e.touches[0].clientY;
+        } catch (error) {
+          console.error('Error in touchstart handler:', error);
+        }
+      });
+      
+      document.addEventListener('touchend', (e) => {
+        try {
+          const endX = e.changedTouches[0].clientX;
+          const endY = e.changedTouches[0].clientY;
+          const diffX = startX - endX;
+          const diffY = startY - endY;
+          
+          // Only trigger if horizontal swipe is more significant than vertical
+          if (Math.abs(diffX) > Math.abs(diffY) && Math.abs(diffX) > 50) {
+            const iconMenu = document.querySelector('.icon-menu');
+            if (iconMenu && iconMenu.contains(e.target)) {
+              return; // Don't interfere with icon menu scrolling
+            }
+            
+            if (diffX > 0) {
+              // Swipe left - next menu
+              navigateMenu(1);
+            } else {
+              // Swipe right - previous menu
+              navigateMenu(-1);
+            }
+          }
+        } catch (error) {
+          console.error('Error in touchend handler:', error);
+        }
+      });
+      
+      console.log('Mobile optimizations initialized');
+    }
+  } catch (error) {
+    console.error('Error initializing mobile optimizations:', error);
+  }
+}
+
+function navigateMenu(direction) {
+  try {
+    const menus = ['deck-details', 'framing', 'decking', 'railing', 'summary'];
+    const currentActive = document.querySelector('.icon-menu-item.active');
+    
+    if (currentActive) {
+      const currentMenu = currentActive.getAttribute('data-menu');
+      const currentIndex = menus.indexOf(currentMenu);
+      let nextIndex = currentIndex + direction;
+      
+      if (nextIndex < 0) nextIndex = menus.length - 1;
+      if (nextIndex >= menus.length) nextIndex = 0;
+      
+      if (typeof switchMenu === 'function') {
+        switchMenu(menus[nextIndex]);
+      }
+    }
+  } catch (error) {
+    console.error('Error navigating menu:', error);
+  }
+}
+
+// Initialize mobile optimizations when appropriate
+function initializeMobileOptimizationsWhenReady() {
+  if (window.innerWidth <= 768) {
+    initializeMobileOptimizations();
+  }
+}
+
+// Check if DOM is already loaded for mobile optimizations
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', initializeMobileOptimizationsWhenReady);
+} else {
+  initializeMobileOptimizationsWhenReady();
 }
 
 

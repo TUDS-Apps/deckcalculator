@@ -3,13 +3,13 @@ body {
   font-family: "Inter", sans-serif; /* Using Inter font as recommended */
 }
 
-/* Deck Calculator Header with gradient background */
+/* TUDS Pro Header with brand colors */
 .deck-calculator-header {
-  background: linear-gradient(135deg, #4A90E2 0%, #50C878 100%);
+  background: linear-gradient(135deg, #29aafd 0%, #133a52 100%);
   padding: 1rem;
   margin: -1rem -1rem 2rem -1rem;
   border-radius: 0.75rem;
-  box-shadow: 0 4px 20px rgba(74, 144, 226, 0.3);
+  box-shadow: 0 4px 20px rgba(41, 170, 253, 0.3);
   position: relative;
   overflow: hidden;
 }
@@ -43,6 +43,713 @@ body {
   .deck-calculator-header h1 {
     font-size: 1.5rem;
     text-align: center;
+  }
+}
+
+/* Vertical Icon Menu Styles */
+.icon-menu {
+  min-width: 80px;
+  position: relative;
+}
+
+.icon-menu-item {
+  @apply p-3 rounded-lg transition-all duration-300 ease-in-out;
+  @apply focus:outline-none focus:ring-2 focus:ring-blue-500;
+  @apply relative cursor-pointer flex flex-col items-center justify-center;
+  background: transparent;
+  border: none;
+  min-height: 70px;
+  width: 100%;
+  transform: translateY(0);
+}
+
+.icon-menu-item:hover {
+  background: linear-gradient(135deg, rgba(41, 170, 253, 0.1) 0%, rgba(43, 133, 186, 0.15) 100%);
+  transform: translateY(-1px);
+}
+
+.icon-menu-item.active {
+  background: linear-gradient(135deg, #91bf5c 0%, #759a4a 100%);
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(145, 191, 92, 0.3);
+}
+
+.icon-menu-item.active::before {
+  content: '';
+  position: absolute;
+  left: -3px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 4px;
+  height: 70%;
+  background: linear-gradient(to bottom, #91bf5c, #759a4a);
+  border-radius: 2px;
+  animation: activeIndicator 0.3s ease-out;
+}
+
+@keyframes activeIndicator {
+  from {
+    height: 0%;
+    opacity: 0;
+  }
+  to {
+    height: 70%;
+    opacity: 1;
+  }
+}
+
+/* Bulletproof 3-Column Layout */
+.app-layout {
+  height: 100%;
+  min-height: 800px;
+  max-height: calc(100vh - 200px); /* Account for header and margins */
+  display: flex !important;
+  flex-direction: row !important;
+  overflow: hidden;
+}
+
+.icon-menu {
+  flex: 0 0 8% !important;
+  min-width: 80px;
+  max-width: 120px;
+  overflow: hidden;
+}
+
+.input-menu {
+  flex: 0 0 20% !important;
+  min-width: 250px; 
+  max-width: 400px;
+  overflow-y: auto;
+  overflow-x: hidden;
+}
+
+.canvas-area {
+  flex: 1 1 auto !important; /* Takes remaining space ~72% */
+  min-width: 0; /* Prevents flex items from overflowing */
+  display: flex !important;
+  flex-direction: column !important;
+  overflow: hidden;
+}
+
+/* Canvas container should fill available space */
+#canvasContainer {
+  flex: 1;
+  min-height: 400px;
+  position: relative;
+}
+
+#deckCanvas {
+  width: 100% !important;
+  height: 100% !important;
+  display: block;
+}
+
+/* Ensure info-card in canvas area takes full height */
+.canvas-area .info-card {
+  flex: 1;
+  min-height: 0;
+}
+
+/* Prevent any element from breaking the layout */
+.app-layout > * {
+  flex-shrink: 0;
+}
+
+/* Responsive behavior */
+@media (max-width: 1024px) {
+  .icon-menu {
+    flex: 0 0 10% !important;
+  }
+  .input-menu {
+    flex: 0 0 25% !important;
+  }
+}
+
+@media (max-width: 768px) {
+  .app-layout {
+    flex-direction: column !important;
+    max-height: none;
+  }
+  .icon-menu, .input-menu, .canvas-area {
+    flex: none !important;
+    width: 100% !important;
+  }
+}
+
+/* Layout complete - debug borders removed for production */
+
+/* Menu Content Transitions */
+.menu-content {
+  opacity: 0;
+  transform: translateX(-10px);
+  transition: opacity 0.3s ease, transform 0.3s ease;
+}
+
+.menu-content.active {
+  opacity: 1;
+  transform: translateX(0);
+}
+
+.menu-content.hidden {
+  display: none;
+}
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+#canvasContainerWrapper {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+/* Responsive fixes */
+@media (max-width: 1200px) {
+  .input-menu {
+    flex: 0 0 25% !important;
+  }
+  .canvas-area {
+    flex: 1 1 auto !important;
+  }
+}
+
+@media (max-width: 768px) {
+  .app-layout {
+    flex-direction: column !important;
+    max-height: none;
+  }
+  
+  .icon-menu {
+    flex: 0 0 auto !important;
+    width: 100% !important;
+    flex-direction: row !important;
+    justify-content: center !important;
+    padding: 0.5rem 0 !important;
+  }
+  
+  .input-menu {
+    flex: 0 0 auto !important;
+    width: 100% !important;
+    max-height: 300px;
+  }
+  
+  .canvas-area {
+    flex: 1 1 auto !important;
+    width: 100% !important;
+  }
+}
+
+.icon-menu-item.active svg {
+  @apply text-white;
+  filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.1));
+}
+
+.icon-menu-item.active .text-xs {
+  @apply text-white;
+}
+
+.icon-menu-item:hover svg {
+  @apply text-white;
+  transform: scale(1.05);
+}
+
+.icon-menu-item:hover .text-xs {
+  @apply text-white;
+}
+
+.icon-menu-item svg {
+  transition: all 0.3s ease;
+}
+
+.icon-menu-item .text-xs {
+  transition: all 0.3s ease;
+}
+
+.icon-menu-item .text-xs {
+  @apply mt-1 text-center leading-tight;
+  max-width: 70px;
+  word-wrap: break-word;
+  font-size: 10px;
+}
+
+/* Consistent Menu Styling */
+.menu-content {
+  background: white;
+}
+
+.menu-content select {
+  /* Removed custom background arrow to fix double arrow issue */
+  appearance: auto;
+  -webkit-appearance: menulist;
+  -moz-appearance: menulist;
+}
+
+/* Status Messages */
+#main-status-container {
+  min-height: 60px;
+  transition: all 0.3s ease;
+}
+
+#main-status-container:empty {
+  min-height: 40px;
+}
+
+.status-message {
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  animation: slideIn 0.3s ease-out;
+}
+
+@keyframes slideIn {
+  from {
+    opacity: 0;
+    transform: translateX(-20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+.status-message button {
+  opacity: 0.7;
+  transition: opacity 0.2s ease;
+}
+
+.status-message button:hover {
+  opacity: 1;
+}
+
+/* Canvas Toolbar Enhancement */
+.canvas-toolbar {
+  backdrop-filter: blur(10px);
+  background: rgba(255, 255, 255, 0.95);
+}
+
+/* Input Focus Enhancement */
+.menu-content input:focus,
+.menu-content select:focus {
+  outline: none;
+  border-color: #29aafd;
+  box-shadow: 0 0 0 3px rgba(41, 170, 253, 0.1);
+}
+
+/* Breadcrumb Navigation Styles */
+.breadcrumb-container {
+  background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
+  border-bottom: 1px solid #e2e8f0;
+  backdrop-filter: blur(10px);
+}
+
+.breadcrumb-item {
+  @apply text-gray-600 transition-all duration-200;
+  position: relative;
+}
+
+.breadcrumb-item.active {
+  @apply text-blue-600 font-semibold;
+}
+
+.breadcrumb-item.completed {
+  @apply text-green-600;
+}
+
+.breadcrumb-item.completed .step-number {
+  @apply bg-green-500 text-white;
+}
+
+.breadcrumb-item.active .step-number {
+  @apply bg-blue-500 text-white;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.2);
+  animation: pulse 2s infinite;
+}
+
+.step-number {
+  @apply inline-flex items-center justify-center w-6 h-6 mr-2 text-xs font-bold;
+  @apply bg-gray-300 text-gray-700 rounded-full transition-all duration-300;
+  min-width: 24px;
+}
+
+.step-label {
+  @apply text-xs font-medium;
+  white-space: nowrap;
+}
+
+@keyframes pulse {
+  0%, 100% {
+    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.2);
+  }
+  50% {
+    box-shadow: 0 0 0 6px rgba(59, 130, 246, 0.1);
+  }
+}
+
+/* Tooltip Styles */
+.tooltip {
+  position: absolute;
+  background: rgba(0, 0, 0, 0.9);
+  color: white;
+  padding: 8px 12px;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 500;
+  white-space: nowrap;
+  z-index: 1000;
+  pointer-events: none;
+  opacity: 0;
+  transform: translateY(-5px);
+  transition: all 0.2s ease;
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.tooltip.show {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.tooltip::before {
+  content: '';
+  position: absolute;
+  top: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  border: 5px solid transparent;
+  border-top-color: rgba(0, 0, 0, 0.9);
+}
+
+.tooltip-keyboard {
+  background: rgba(59, 130, 246, 0.1);
+  color: #3b82f6;
+  padding: 2px 6px;
+  border-radius: 3px;
+  font-family: monospace;
+  font-size: 10px;
+  margin-left: 6px;
+  border: 1px solid rgba(59, 130, 246, 0.2);
+}
+
+/* Help System Styles */
+.help-icon {
+  @apply p-1 rounded-full transition-all duration-200;
+  @apply hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500;
+  @apply cursor-pointer;
+}
+
+.help-icon:hover svg {
+  @apply text-blue-600;
+  transform: scale(1.1);
+}
+
+.help-icon:active {
+  transform: scale(0.95);
+}
+
+/* Context-sensitive help panel */
+.help-panel {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  background: white;
+  border-radius: 12px;
+  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+  padding: 24px;
+  max-width: 400px;
+  z-index: 1000;
+  border: 1px solid #e5e7eb;
+}
+
+.help-panel h3 {
+  @apply text-lg font-semibold text-gray-900 mb-3;
+}
+
+.help-panel p {
+  @apply text-sm text-gray-600 leading-relaxed;
+}
+
+.help-panel .close-help {
+  @apply absolute top-3 right-3 p-1 text-gray-400 hover:text-gray-600;
+  @apply transition-colors cursor-pointer;
+}
+
+.help-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.3);
+  z-index: 999;
+  backdrop-filter: blur(2px);
+}
+
+/* 8px Grid System for Consistent Spacing */
+.spacing-system * {
+  margin: 0;
+  padding: 0;
+}
+
+.spacing-xs { margin: 4px; }
+.spacing-sm { margin: 8px; }
+.spacing-md { margin: 16px; }
+.spacing-lg { margin: 24px; }
+.spacing-xl { margin: 32px; }
+
+.padding-xs { padding: 4px; }
+.padding-sm { padding: 8px; }
+.padding-md { padding: 16px; }
+.padding-lg { padding: 24px; }
+.padding-xl { padding: 32px; }
+
+/* Input Menu Styles */
+.input-menu {
+  min-width: 300px;
+  max-height: calc(100vh - 120px);
+}
+
+.menu-content {
+  @apply hidden;
+}
+
+.menu-content.active {
+  @apply block;
+}
+
+/* Canvas Area Styles */
+.canvas-area {
+  min-width: 0; /* Allows flex item to shrink */
+  max-height: calc(100vh - 120px); /* Ensure it doesn't exceed viewport */
+}
+
+/* App Layout Responsiveness */
+.app-layout {
+  height: calc(100vh - 120px);
+  min-height: 600px;
+  flex-wrap: nowrap; /* Prevent flex items from wrapping */
+}
+
+/* Touch-Friendly Global Styles */
+html {
+  touch-action: manipulation; /* Eliminates 300ms click delay */
+}
+
+/* Enhanced Mobile Responsiveness */
+@media (max-width: 768px) {
+  .app-layout {
+    @apply flex-col;
+    height: auto;
+    min-height: 80vh;
+  }
+  
+  .icon-menu {
+    @apply w-full flex-row justify-center py-3 space-y-0 space-x-2;
+    min-width: auto;
+    max-width: 100vw;
+    overflow-x: auto;
+    background: linear-gradient(135deg, #1f2937 0%, #111827 100%);
+    border-bottom: 1px solid #374151;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+  }
+  
+  .icon-menu-item {
+    @apply p-3;
+    min-width: 48px; /* 44px minimum + padding for touch targets */
+    min-height: 48px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+  }
+  
+  .icon-menu-item.active::before {
+    display: none; /* Hide side indicator on mobile */
+  }
+  
+  .icon-menu-item.active::after {
+    content: '';
+    position: absolute;
+    bottom: -3px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 80%;
+    height: 3px;
+    background: linear-gradient(to right, #3b82f6, #1d4ed8);
+    border-radius: 1.5px;
+    animation: activeIndicatorMobile 0.3s ease-out;
+  }
+  
+  @keyframes activeIndicatorMobile {
+    from {
+      width: 0%;
+      opacity: 0;
+    }
+    to {
+      width: 80%;
+      opacity: 1;
+    }
+  }
+  
+  .input-menu {
+    @apply w-full;
+    min-width: auto;
+    max-height: 45vh;
+    overflow-y: auto;
+    border-bottom: 1px solid #e5e7eb;
+  }
+  
+  /* Mobile Breadcrumb Adjustments */
+  .breadcrumb-container {
+    @apply px-3 py-2;
+  }
+  
+  .breadcrumb-item {
+    @apply text-xs;
+  }
+  
+  .step-number {
+    @apply w-5 h-5 mr-1;
+    font-size: 10px;
+  }
+  
+  .step-label {
+    display: none; /* Hide labels on small screens, show only numbers */
+  }
+  
+  .canvas-area {
+    @apply w-full;
+    min-height: 50vh;
+    max-height: 60vh;
+    overflow-y: auto;
+    position: relative;
+  }
+  
+  /* Touch-friendly canvas controls */
+  .floating-controls {
+    @apply flex-wrap gap-2 p-2;
+  }
+  
+  .floating-controls button {
+    @apply text-sm px-3 py-2;
+    min-width: 44px;
+    min-height: 44px;
+    border-radius: 8px;
+    font-weight: 500;
+  }
+  
+  /* Mobile tooltip adjustments */
+  .tooltip {
+    font-size: 11px;
+    padding: 6px 10px;
+  }
+  
+  .tooltip-keyboard {
+    display: none; /* Hide keyboard shortcuts on mobile */
+  }
+  
+  /* Mobile-specific spacing */
+  .spacing-mobile-xs { margin: 2px; }
+  .spacing-mobile-sm { margin: 4px; }
+  .spacing-mobile-md { margin: 8px; }
+  
+  .padding-mobile-xs { padding: 2px; }
+  .padding-mobile-sm { padding: 4px; }
+  .padding-mobile-md { padding: 8px; }
+}
+
+/* Medium screens (tablets) */
+@media (min-width: 769px) and (max-width: 1024px) {
+  .icon-menu {
+    min-width: 70px;
+  }
+  
+  .input-menu {
+    min-width: 250px;
+  }
+  
+  .step-label {
+    font-size: 11px;
+  }
+}
+
+/* Canvas Toolbar Styles */
+.canvas-toolbar {
+  background: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%);
+  border: 1px solid #e2e8f0;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.06);
+}
+
+.canvas-toolbar button {
+  @apply transition-all duration-200 ease-in-out;
+  @apply hover:bg-white hover:shadow-sm;
+}
+
+.canvas-toolbar button:hover {
+  transform: translateY(-1px);
+}
+
+/* Legend Card Hover Styles */
+#legendCard {
+  animation: legendFadeIn 0.2s ease-out;
+  backdrop-filter: blur(8px);
+  background: rgba(255, 255, 255, 0.95);
+  border: 1px solid rgba(0, 0, 0, 0.1);
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.15);
+  z-index: 9999;
+  pointer-events: none; /* Prevent legend card from interfering with hover events */
+}
+
+@keyframes legendFadeIn {
+  from {
+    opacity: 0;
+    transform: translateX(-50%) translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
+  }
+}
+
+/* Legend button hover effect */
+#legendBtn:hover {
+  @apply bg-blue-50 border-blue-200;
+}
+
+/* Tablet Responsiveness */
+@media (min-width: 769px) and (max-width: 1024px) {
+  .icon-menu {
+    min-width: 70px;
+  }
+  
+  .input-menu {
+    min-width: 250px;
+  }
+  
+  .canvas-toolbar {
+    @apply flex-wrap justify-center;
+  }
+}
+
+/* Mobile responsiveness for canvas toolbar */
+@media (max-width: 768px) {
+  .canvas-toolbar {
+    @apply flex-wrap justify-center space-x-1;
+    padding: 0.5rem;
+  }
+  
+  .canvas-toolbar button {
+    @apply text-xs px-2 py-1;
+    min-width: 36px;
+  }
+  
+  #legendCard {
+    @apply w-72 text-xs;
+    left: 50%;
+    transform: translateX(-50%);
+    top: 100%;
+    bottom: auto;
+    margin-top: 0.5rem;
   }
 }
 

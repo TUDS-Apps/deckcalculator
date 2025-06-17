@@ -22,147 +22,170 @@
         </h1>
       </div>
 
-      <!-- Tab Navigation -->
-      <div class="tab-navigation">
-        <div class="tab-list" role="tablist">
+      <!-- New Layout Container -->
+      <div class="app-layout flex bg-white rounded-lg shadow-lg overflow-hidden min-h-[800px]">
+        <!-- Left Icon Menu (8% width) -->
+        <div class="icon-menu w-[8%] bg-gray-800 flex flex-col items-center py-6 space-y-6">
           <button
-            class="tab-button active"
-            id="structure-tab"
-            role="tab"
-            aria-selected="true"
-            aria-controls="structure-content"
-            onclick="switchTab('structure')"
+            class="icon-menu-item active flex flex-col items-center p-3"
+            id="deck-details-icon"
+            data-menu="deck-details"
+            data-tooltip="Draw Shape (Alt+1)"
+            data-keyboard="Alt+1"
+            onclick="switchMenu('deck-details')"
+            title="Draw Shape (Alt+1)"
+            aria-label="Draw Shape, keyboard shortcut Alt+1"
           >
-            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="tab-icon">
-              <rect x="2" y="3" width="20" height="14" rx="2" ry="2"/>
-              <line x1="8" y1="21" x2="16" y2="21"/>
-              <line x1="12" y1="17" x2="12" y2="21"/>
+            <svg class="w-8 h-8 text-gray-400 mb-2" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
             </svg>
-            <span class="tab-label">Structure</span>
+            <span class="text-xs text-gray-400 font-medium text-center leading-tight">Draw Shape</span>
           </button>
           
           <button
-            class="tab-button"
-            id="decking-tab"
-            role="tab"
-            aria-selected="false"
-            aria-controls="decking-content"
-            onclick="switchTab('decking')"
+            class="icon-menu-item flex flex-col items-center p-3"
+            id="framing-icon"
+            data-menu="framing"
+            data-tooltip="Framing (Alt+2)"
+            data-keyboard="Alt+2"
+            onclick="switchMenu('framing')"
+            title="Framing (Alt+2)"
+            aria-label="Framing, keyboard shortcut Alt+2"
           >
-            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="tab-icon">
-              <rect x="3" y="3" width="18" height="18" rx="2" ry="2"/>
-              <line x1="9" y1="9" x2="15" y2="15"/>
-              <line x1="15" y1="9" x2="9" y2="15"/>
+            <svg class="w-8 h-8 text-gray-400 hover:text-white mb-2" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
             </svg>
-            <span class="tab-label">Decking</span>
-            <span class="coming-soon-badge">Coming Soon</span>
+            <span class="text-xs text-gray-400 hover:text-white font-medium text-center leading-tight">Framing</span>
           </button>
           
           <button
-            class="tab-button"
-            id="railing-tab"
-            role="tab"
-            aria-selected="false"
-            aria-controls="railing-content"
-            onclick="switchTab('railing')"
+            class="icon-menu-item flex flex-col items-center p-3"
+            id="decking-icon"
+            data-menu="decking"
+            data-tooltip="Decking (Alt+3)"
+            data-keyboard="Alt+3"
+            onclick="switchMenu('decking')"
+            title="Decking (Alt+3)"
+            aria-label="Decking, keyboard shortcut Alt+3"
           >
-            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="tab-icon">
-              <line x1="3" y1="6" x2="21" y2="6"/>
-              <line x1="3" y1="12" x2="21" y2="12"/>
-              <line x1="3" y1="18" x2="21" y2="18"/>
+            <svg class="w-8 h-8 text-gray-400 hover:text-white mb-2" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M4 5a1 1 0 011-1h14a1 1 0 011 1v2a1 1 0 01-1 1H5a1 1 0 01-1-1V5zM4 13a1 1 0 011-1h6a1 1 0 011 1v6a1 1 0 01-1 1H5a1 1 0 01-1-1v-6zM16 13a1 1 0 011-1h2a1 1 0 011 1v6a1 1 0 01-1 1h-2a1 1 0 01-1-1v-6z" />
             </svg>
-            <span class="tab-label">Railing</span>
-            <span class="coming-soon-badge">Coming Soon</span>
+            <span class="text-xs text-gray-400 hover:text-white font-medium text-center leading-tight">Decking</span>
           </button>
           
           <button
-            class="tab-button"
-            id="summary-tab"
-            role="tab"
-            aria-selected="false"
-            aria-controls="summary-content"
-            onclick="switchTab('summary')"
+            class="icon-menu-item flex flex-col items-center p-3"
+            id="railing-icon"
+            data-menu="railing"
+            data-tooltip="Railing (Alt+4)"
+            data-keyboard="Alt+4"
+            onclick="switchMenu('railing')"
+            title="Railing (Alt+4)"
+            aria-label="Railing, keyboard shortcut Alt+4"
           >
-            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="tab-icon">
-              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
-              <polyline points="14,2 14,8 20,8"/>
-              <line x1="16" y1="13" x2="8" y2="13"/>
-              <line x1="16" y1="17" x2="8" y2="17"/>
-              <polyline points="10,9 9,9 8,9"/>
+            <svg class="w-8 h-8 text-gray-400 hover:text-white mb-2" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M4 6h16M4 12h16M4 18h16" />
             </svg>
-            <span class="tab-label">Enhanced Summary</span>
-            <span class="coming-soon-badge">Coming Soon</span>
+            <span class="text-xs text-gray-400 hover:text-white font-medium text-center leading-tight">Railing</span>
+          </button>
+          
+          <button
+            class="icon-menu-item flex flex-col items-center p-3"
+            id="summary-icon"
+            data-menu="summary"
+            data-tooltip="Summary (Alt+5)"
+            data-keyboard="Alt+5"
+            onclick="switchMenu('summary')"
+            title="Summary (Alt+5)"
+            aria-label="Summary, keyboard shortcut Alt+5"
+          >
+            <svg class="w-8 h-8 text-gray-400 hover:text-white mb-2" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+            </svg>
+            <span class="text-xs text-gray-400 hover:text-white font-medium text-center leading-tight">Summary</span>
           </button>
         </div>
-      </div>
-
-      <!-- Tab Content Container -->
-      <div class="tab-content-container">
-        <!-- Structure Tab Content -->
-        <div
-          id="structure-content"
-          class="tab-content active"
-          role="tabpanel"
-          aria-labelledby="structure-tab"
-        >
-          <div id="main-layout-container" class="flex flex-col lg:flex-row gap-8">
-            <div id="input-panel" class="lg:w-1/4">
-          <div class="info-card contextual-panel">
+        
+        <!-- Input Menu Panel (20% width) -->
+        <div class="input-menu w-[20%] bg-white border-r border-gray-200 overflow-y-auto">
+          
+          <!-- Deck Details Menu Content -->
+          <div id="deck-details-menu" class="menu-content active p-6">
+            <div class="mb-6">
+              <div class="flex items-center justify-between mb-4">
+                <h2 class="text-lg font-semibold text-gray-800">Draw Shape</h2>
+              </div>
+            </div>
             
-            <!-- Drawing Mode Section -->
-            <div id="drawing-mode-panel" class="panel-section active">
-              <h2 class="panel-title">Draw Your Deck</h2>
-              <div class="panel-content">
-                <div class="drawing-instructions">
-                  <p class="instruction-text">Click on the grid to place your first point. The first point will snap to 1-foot increments.</p>
+            <div class="space-y-6">
+              <!-- Deck Height -->
+              <div class="space-y-2">
+                <label class="block text-sm font-medium text-gray-700">Deck Height</label>
+                <div class="flex gap-2">
+                  <div class="flex-1">
+                    <select id="deckHeightFeet" name="deckHeightFeet" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors">
+                      <option value="1">1'</option>
+                      <option value="2">2'</option>
+                      <option value="3">3'</option>
+                      <option value="4" selected>4'</option>
+                      <option value="5">5'</option>
+                      <option value="6">6'</option>
+                      <option value="7">7'</option>
+                      <option value="8">8'</option>
+                      <option value="9">9'</option>
+                      <option value="10">10'</option>
+                      <option value="11">11'</option>
+                      <option value="12">12'</option>
+                    </select>
+                  </div>
+                  <div class="flex-1">
+                    <select id="deckHeightInchesInput" name="deckHeightInchesInput" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors">
+                      <option value="0" selected>0"</option>
+                      <option value="1">1"</option>
+                      <option value="2">2"</option>
+                      <option value="3">3"</option>
+                      <option value="4">4"</option>
+                      <option value="5">5"</option>
+                      <option value="6">6"</option>
+                      <option value="7">7"</option>
+                      <option value="8">8"</option>
+                      <option value="9">9"</option>
+                      <option value="10">10"</option>
+                      <option value="11">11"</option>
+                    </select>
+                  </div>
                 </div>
-                <div class="deck-specifications">
-                  <form id="deckSpecsForm" class="space-y-4">
-                    <div>
-                      <label class="form-label">Deck Height</label>
-                      <div class="flex gap-2 mt-1">
-                        <div class="flex-1">
-                          <select
-                            id="deckHeightFeet"
-                            name="deckHeightFeet"
-                            class="form-select"
-                          >
-                            <option value="1">1'</option>
-                            <option value="2">2'</option>
-                            <option value="3">3'</option>
-                            <option value="4" selected>4'</option>
-                            <option value="5">5'</option>
-                            <option value="6">6'</option>
-                            <option value="7">7'</option>
-                            <option value="8">8'</option>
-                            <option value="9">9'</option>
-                            <option value="10">10'</option>
-                            <option value="11">11'</option>
-                            <option value="12">12'</option>
-                          </select>
-                        </div>
-                        <div class="flex-1">
-                          <select
-                            id="deckHeightInchesInput"
-                            name="deckHeightInchesInput"
-                            class="form-select"
-                          >
-                            <option value="0" selected>0"</option>
-                            <option value="1">1"</option>
-                            <option value="2">2"</option>
-                            <option value="3">3"</option>
-                            <option value="4">4"</option>
-                            <option value="5">5"</option>
-                            <option value="6">6"</option>
-                            <option value="7">7"</option>
-                            <option value="8">8"</option>
-                            <option value="9">9"</option>
-                            <option value="10">10"</option>
-                            <option value="11">11"</option>
-                          </select>
-                        </div>
-                      </div>
-                    </div>
+              </div>
+              
+              <!-- Add Stairs Button -->
+              <div>
+                <button
+                  type="button"
+                  id="mainStairsBtn"
+                  class="w-full px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-colors"
+                  onclick="handleMainStairsButton()"
+                >
+                  +/- Stairs
+                </button>
+              </div>
+            </div>
+          </div>
+          
+          <!-- Framing Menu Content -->
+          <div id="framing-menu" class="menu-content hidden p-6">
+            <div class="mb-6">
+              <div class="flex items-center justify-between mb-4">
+                <h2 class="text-lg font-semibold text-gray-800">Framing</h2>
+              </div>
+            </div>
+            
+            <!-- Contextual Panels Container -->
+            <div id="contextual-panels-container">
+                <!-- Drawing Mode Section -->
+              <div id="drawing-mode-panel" class="panel-section active">
+                <h3 class="text-md font-medium text-gray-700 mb-4">Deck Specifications</h3>
+                <form id="deckSpecsForm" class="space-y-6">
                     <div>
                       <label for="footingType" class="form-label">Footing Type</label>
                       <select id="footingType" name="footingType" class="form-select">
@@ -504,443 +527,269 @@
                 </div>
               </div>
             </div>
-
+            </div>
           </div>
+          
+          <!-- Decking Menu Content -->
+          <div id="decking-menu" class="menu-content hidden">
+            <div class="p-4">
+              <div class="flex items-center justify-between mb-4">
+                <h2 class="text-lg font-semibold text-gray-800">Decking</h2>
+              </div>
+              <div class="bg-yellow-50 p-4 rounded-md text-center">
+                <div class="text-yellow-600 mb-2">
+                  <svg class="w-8 h-8 mx-auto" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                </div>
+                <p class="text-sm text-yellow-800 font-medium">Coming Soon</p>
+                <p class="text-xs text-yellow-700 mt-1">Decking controls will be available in a future update.</p>
+              </div>
+            </div>
+          </div>
+          
+          <!-- Railing Menu Content -->
+          <div id="railing-menu" class="menu-content hidden">
+            <div class="p-4">
+              <div class="flex items-center justify-between mb-4">
+                <h2 class="text-lg font-semibold text-gray-800">Railing</h2>
+              </div>
+              <div class="bg-yellow-50 p-4 rounded-md text-center">
+                <div class="text-yellow-600 mb-2">
+                  <svg class="w-8 h-8 mx-auto" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                </div>
+                <p class="text-sm text-yellow-800 font-medium">Coming Soon</p>
+                <p class="text-xs text-yellow-700 mt-1">Railing controls will be available in a future update.</p>
+              </div>
+            </div>
+          </div>
+          
+          <!-- Summary Menu Content -->
+          <div id="summary-menu" class="menu-content hidden">
+            <div class="p-4">
+              <div class="flex items-center justify-between mb-4">
+                <h2 class="text-lg font-semibold text-gray-800">Summary</h2>
+              </div>
+              <div class="bg-yellow-50 p-4 rounded-md text-center">
+                <div class="text-yellow-600 mb-2">
+                  <svg class="w-8 h-8 mx-auto" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                </div>
+                <p class="text-sm text-yellow-800 font-medium">Coming Soon</p>
+                <p class="text-xs text-yellow-700 mt-1">Enhanced summary will be available in a future update.</p>
+              </div>
+            </div>
+          </div>
+        </div>
         
-        <!-- Legend Card -->
-        <div class="info-card legend-card">
-          <div
-            id="legend"
-            class="p-2 border border-gray-200 rounded bg-gray-50 text-sm"
-          >
-            <div class="flex justify-between items-center mb-1">
-              <h3 class="font-semibold">Legend:</h3>
-              <div id="blueprintLegend" class="text-xs text-gray-700 hidden">
-                <span class="px-1 py-0.5 bg-blue-100 rounded">Blueprint view: Components shown to scale</span>
+        <!-- Canvas Area (72% width) -->
+        <div class="canvas-area flex-1 flex flex-col bg-gray-50 p-4">
+          <!-- Canvas content from main-content-panel -->
+          <!-- Legend Card -->
+          <div class="info-card legend-card mb-4">
+            <div id="legend" class="p-2 border border-gray-200 rounded bg-gray-50 text-sm">
+              <div class="flex justify-between items-center mb-1">
+                <h3 class="font-semibold">Legend:</h3>
+                <div id="blueprintLegend" class="text-xs text-gray-700 hidden">
+                  <span class="px-1 py-0.5 bg-blue-100 rounded">Blueprint view: Components shown to scale</span>
+                </div>
+              </div>
+              <div class="flex flex-col gap-y-1 legend-items-vertical">
+                <span class="legend-item"><span class="legend-icon bg-[#4A90E2]"></span> Deck Outline</span>
+                <span class="legend-item"><span class="legend-icon bg-orange-500"></span> Ledger</span>
+                <span class="legend-item"><span class="legend-icon bg-gray-700"></span> Joist/Rim</span>
+                <span class="legend-item"><span class="legend-icon bg-red-600 font-bold"></span> Beam</span>
+                <span class="legend-item"><span class="legend-icon legend-icon-post"></span> Post/Footing</span>
+                <span class="legend-item"><span class="legend-icon legend-icon-blocking bg-[#8B5CF6]"></span> Blocking</span>
+              </div>
+              <div id="dimensionsLegend" class="text-xs text-gray-600 mt-1 hidden">
+                <ul class="ml-4 list-disc">
+                  <li>Joists/Rim Joists: 1½" thick (actual 2x lumber thickness)</li>
+                  <li>Beams: Multiple 1½" boards side by side</li>
+                  <li>Posts: Actual 3½" (4x4) or 5½" (6x6) dimensions</li>
+                </ul>
               </div>
             </div>
-            <div class="flex flex-col gap-y-1 legend-items-vertical">
-              <span class="legend-item"
-                ><span class="legend-icon bg-[#4A90E2]"></span> Deck
-                Outline</span
-              >
-              <span class="legend-item"
-                ><span class="legend-icon bg-orange-500"></span> Ledger</span
-              >
-              <span class="legend-item"
-                ><span class="legend-icon bg-gray-700"></span> Joist/Rim</span
-              >
-              <span class="legend-item"
-                ><span class="legend-icon bg-red-600 font-bold"></span>
-                Beam</span
-              >
-              <span class="legend-item"
-                ><span class="legend-icon legend-icon-post"></span> Post/Footing</span
-              >
-              <span class="legend-item"
-                ><span
-                  class="legend-icon legend-icon-blocking bg-[#8B5CF6]"
-                ></span>
-                Blocking</span
-              >
-            </div>
-            <div id="dimensionsLegend" class="text-xs text-gray-600 mt-1 hidden">
-              <ul class="ml-4 list-disc">
-                <li>Joists/Rim Joists: 1½" thick (actual 2x lumber thickness)</li>
-                <li>Beams: Multiple 1½" boards side by side</li>
-                <li>Posts: Actual 3½" (4x4) or 5½" (6x6) dimensions</li>
-              </ul>
+          </div>
+          
+          <div class="info-card flex-1">
+            <div id="canvasContainerWrapper" class="relative">
+              <div id="dimensionInputContainer" class="flex items-center mb-2 hidden">
+                <label class="text-sm text-gray-600 mr-2">Enter length:</label>
+                <div class="flex flex-1 gap-2">
+                  <input id="dimensionFeetInput" type="number" min="0" class="form-input text-sm py-1 px-2 w-16" placeholder="ft">
+                  <input id="dimensionInchesInput" type="number" min="0" max="11" class="form-input text-sm py-1 px-2 w-16" placeholder="in">
+                </div>
+                <button id="applyDimensionBtn" class="btn btn-secondary text-xs px-3 py-1 leading-tight ml-2">Apply</button>
+                <button id="cancelDimensionBtn" class="btn btn-secondary text-xs px-3 py-1 leading-tight ml-2">Cancel</button>
+              </div>
+              <div id="canvasContainer" class="relative">
+                <canvas id="deckCanvas"></canvas>
+                
+                <!-- Floating control buttons -->
+                <div class="absolute top-2 right-2 flex items-center space-x-2 z-10 floating-controls">
+                  <button
+                    type="button"
+                    id="zoomInBtn"
+                    class="btn btn-secondary text-xs px-3 py-2 leading-tight shadow-lg"
+                    title="Zoom In"
+                  >
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      viewBox="0 0 20 20"
+                      fill="currentColor"
+                      class="w-5 h-5"
+                    >
+                      <path
+                        d="M10.75 4.75a.75.75 0 0 0-1.5 0v4.5h-4.5a.75.75 0 0 0 0 1.5h4.5v4.5a.75.75 0 0 0 1.5 0v-4.5h4.5a.75.75 0 0 0 0-1.5h-4.5v-4.5Z"
+                      />
+                    </svg>
+                  </button>
+                  <button
+                    type="button"
+                    id="zoomOutBtn"
+                    class="btn btn-secondary text-xs px-3 py-2 leading-tight shadow-lg"
+                    title="Zoom Out"
+                  >
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      viewBox="0 0 20 20"
+                      fill="currentColor"
+                      class="w-5 h-5"
+                    >
+                      <path
+                        fill-rule="evenodd"
+                        d="M4 10a.75.75 0 0 1 .75-.75h10.5a.75.75 0 0 1 0 1.5H4.75A.75.75 0 0 1 4 10Z"
+                        clip-rule="evenodd"
+                      />
+                    </svg>
+                  </button>
+                  <button
+                    type="button"
+                    id="centerFitBtn"
+                    class="btn btn-secondary text-xs px-3 py-2 leading-tight shadow-lg"
+                    title="Center and Fit Drawing"
+                  >
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      stroke-width="2"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                      class="w-5 h-5"
+                    >
+                      <path d="M2 3h6v6H2z"/>
+                      <path d="M16 3h6v6h-6z"/>
+                      <path d="M16 15h6v6h-6z"/>
+                      <path d="M2 15h6v6H2z"/>
+                    </svg>
+                  </button>
+                  <button
+                    id="blueprintToggleBtn"
+                    class="btn btn-secondary text-xs px-3 py-2 leading-tight shadow-lg"
+                    title="Toggle Blueprint View"
+                  >
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-5 h-5">
+                      <path d="M10 12.5a2.5 2.5 0 100-5 2.5 2.5 0 000 5z" />
+                      <path fill-rule="evenodd" d="M.664 10.59a1.651 1.651 0 010-1.186A10.004 10.004 0 0110 3c4.257 0 7.893 2.66 9.336 6.41.147.381.146.804 0 1.186A10.004 10.004 0 0110 17c-4.257 0-7.893-2.66-9.336-6.41zM14 10a4 4 0 11-8 0 4 4 0 018 0z" clip-rule="evenodd" />
+                    </svg>
+                  </button>
+                  <button
+                    id="toggleDecompositionBtn"
+                    class="btn btn-secondary text-xs px-3 py-2 leading-tight shadow-lg"
+                    title="Toggle Decomposition View"
+                  >
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-5 h-5">
+                      <path fill-rule="evenodd" d="M3 4.25A2.25 2.25 0 015.25 2h9.5A2.25 2.25 0 0117 4.25v2.5A2.25 2.25 0 0114.75 9h-9.5A2.25 2.25 0 013 6.75v-2.5zm2.25-.75a.75.75 0 00-.75.75v2.5c0 .414.336.75.75.75h9.5a.75.75 0 00.75-.75v-2.5a.75.75 0 00-.75-.75h-9.5z" clip-rule="evenodd" />
+                      <path fill-rule="evenodd" d="M3 13.25A2.25 2.25 0 015.25 11h9.5A2.25 2.25 0 0117 13.25v2.5A2.25 2.25 0 0114.75 18h-9.5A2.25 2.25 0 013 15.75v-2.5zm2.25-.75a.75.75 0 00-.75.75v2.5c0 .414.336.75.75.75h9.5a.75.75 0 00.75-.75v-2.5a.75.75 0 00-.75-.75h-9.5z" clip-rule="evenodd" />
+                    </svg>
+                  </button>
+                  <button
+                    id="clearCanvasBtn"
+                    class="btn btn-secondary text-xs px-3 py-2 leading-tight shadow-lg"
+                    title="Clear Canvas"
+                  >
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-5 h-5">
+                      <path fill-rule="evenodd" d="M8.75 1A2.75 2.75 0 006 3.75v.443c-.795.077-1.584.176-2.365.298a.75.75 0 10.23 1.482l.149-.022.841 10.518A2.75 2.75 0 007.596 19h4.807a2.75 2.75 0 002.742-2.53l.841-10.52.149.023a.75.75 0 00.23-1.482A41.03 41.03 0 0014 4.193V3.75A2.75 2.75 0 0011.25 1h-2.5zM10 4c.84 0 1.673.025 2.5.075V3.75c0-.69-.56-1.25-1.25-1.25h-2.5c-.69 0-1.25.56-1.25 1.25v.325C8.327 4.025 9.16 4 10 4zM8.58 7.72a.75.75 0 00-1.5.06l.3 7.5a.75.75 0 101.5-.06l-.3-7.5zm4.34.06a.75.75 0 10-1.5-.06l-.3 7.5a.75.75 0 101.5.06l.3-7.5z" clip-rule="evenodd" />
+                    </svg>
+                  </button>
+                </div>
+              </div>
             </div>
           </div>
-        </div>
-        </div>
 
-            <div id="main-content-panel" class="lg:w-3/4">
-              <div class="info-card">
-                <div
-                  id="canvasContainerWrapper"
-                  class="relative"
+          <div id="bomSection" class="info-card hidden">
+            <div class="flex justify-between items-center mb-4">
+              <h2 class="text-xl font-semibold text-[#333333]">
+                Materials List
+              </h2>
+            </div>
+            
+            <div class="flex justify-between items-center mb-4">
+              <div></div>
+              <div class="flex gap-2">
+                <button
+                  type="button"
+                  id="resetAllBomBtn"
+                  class="btn btn-secondary px-3 py-1 text-sm"
+                  onclick="resetAllQuantities()"
+                  title="Reset all quantities to calculated values"
                 >
-                  <div id="dimensionInputContainer" class="flex items-center mb-2 hidden">
-                    <label class="text-sm text-gray-600 mr-2">Enter length:</label>
-                    <div class="flex flex-1 gap-2">
-                      <input id="dimensionFeetInput" type="number" min="0" class="form-input text-sm py-1 px-2 w-16" placeholder="ft">
-                      <input id="dimensionInchesInput" type="number" min="0" max="11" class="form-input text-sm py-1 px-2 w-16" placeholder="in">
-                    </div>
-                    <button id="applyDimensionBtn" class="btn btn-secondary text-xs px-3 py-1 leading-tight ml-2">Apply</button>
-                    <button id="cancelDimensionBtn" class="btn btn-secondary text-xs px-3 py-1 leading-tight ml-2">Cancel</button>
-                  </div>
-                  <div id="canvasContainer" class="relative">
-                    <canvas id="deckCanvas"></canvas>
-                    
-                    <!-- Floating control buttons -->
-                    <div class="absolute top-2 right-2 flex items-center space-x-2 z-10 floating-controls">
-                      <button
-                        type="button"
-                        id="zoomInBtn"
-                        class="btn btn-secondary text-xs px-3 py-2 leading-tight shadow-lg"
-                        title="Zoom In"
-                      >
-                        <svg
-                          xmlns="http://www.w3.org/2000/svg"
-                          viewBox="0 0 20 20"
-                          fill="currentColor"
-                          class="w-5 h-5"
-                        >
-                          <path
-                            d="M10.75 4.75a.75.75 0 0 0-1.5 0v4.5h-4.5a.75.75 0 0 0 0 1.5h4.5v4.5a.75.75 0 0 0 1.5 0v-4.5h4.5a.75.75 0 0 0 0-1.5h-4.5v-4.5Z"
-                          />
-                        </svg>
-                      </button>
-                      <button
-                        type="button"
-                        id="zoomOutBtn"
-                        class="btn btn-secondary text-xs px-3 py-2 leading-tight shadow-lg"
-                        title="Zoom Out"
-                      >
-                        <svg
-                          xmlns="http://www.w3.org/2000/svg"
-                          viewBox="0 0 20 20"
-                          fill="currentColor"
-                          class="w-5 h-5"
-                        >
-                          <path
-                            fill-rule="evenodd"
-                            d="M4 10a.75.75 0 0 1 .75-.75h10.5a.75.75 0 0 1 0 1.5H4.75A.75.75 0 0 1 4 10Z"
-                            clip-rule="evenodd"
-                          />
-                        </svg>
-                      </button>
-                      <button
-                        type="button"
-                        id="centerFitBtn"
-                        class="btn btn-secondary text-xs px-3 py-2 leading-tight shadow-lg"
-                        title="Center and Fit Drawing"
-                      >
-                        <svg
-                          xmlns="http://www.w3.org/2000/svg"
-                          viewBox="0 0 24 24"
-                          fill="none"
-                          stroke="currentColor"
-                          stroke-width="2"
-                          stroke-linecap="round"
-                          stroke-linejoin="round"
-                          class="w-5 h-5"
-                        >
-                          <path d="M2 3h6v6H2z"/>
-                          <path d="M16 3h6v6h-6z"/>
-                          <path d="M16 15h6v6h-6z"/>
-                          <path d="M2 15h6v6H2z"/>
-                        </svg>
-                      </button>
-                      <button
-                        id="blueprintToggleBtn"
-                        class="btn btn-secondary text-xs px-3 py-2 leading-tight shadow-lg"
-                        title="Toggle Blueprint View"
-                      >
-                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-5 h-5">
-                          <path d="M10 12.5a2.5 2.5 0 100-5 2.5 2.5 0 000 5z" />
-                          <path fill-rule="evenodd" d="M.664 10.59a1.651 1.651 0 010-1.186A10.004 10.004 0 0110 3c4.257 0 7.893 2.66 9.336 6.41.147.381.146.804 0 1.186A10.004 10.004 0 0110 17c-4.257 0-7.893-2.66-9.336-6.41zM14 10a4 4 0 11-8 0 4 4 0 018 0z" clip-rule="evenodd" />
-                        </svg>
-                      </button>
-                      <button
-                        id="toggleDecompositionBtn"
-                        class="btn btn-secondary text-xs px-3 py-2 leading-tight shadow-lg"
-                        title="Toggle Decomposition View"
-                      >
-                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-5 h-5">
-                          <path fill-rule="evenodd" d="M3 4.25A2.25 2.25 0 015.25 2h9.5A2.25 2.25 0 0117 4.25v2.5A2.25 2.25 0 0114.75 9h-9.5A2.25 2.25 0 013 6.75v-2.5zm2.25-.75a.75.75 0 00-.75.75v2.5c0 .414.336.75.75.75h9.5a.75.75 0 00.75-.75v-2.5a.75.75 0 00-.75-.75h-9.5z" clip-rule="evenodd" />
-                          <path fill-rule="evenodd" d="M3 13.25A2.25 2.25 0 015.25 11h9.5A2.25 2.25 0 0117 13.25v2.5A2.25 2.25 0 0114.75 18h-9.5A2.25 2.25 0 013 15.75v-2.5zm2.25-.75a.75.75 0 00-.75.75v2.5c0 .414.336.75.75.75h9.5a.75.75 0 00.75-.75v-2.5a.75.75 0 00-.75-.75h-9.5z" clip-rule="evenodd" />
-                        </svg>
-                      </button>
-                      <button
-                        id="clearCanvasBtn"
-                        class="btn btn-secondary text-xs px-3 py-2 leading-tight shadow-lg"
-                        title="Clear Canvas"
-                      >
-                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-5 h-5">
-                          <path fill-rule="evenodd" d="M8.75 1A2.75 2.75 0 006 3.75v.443c-.795.077-1.584.176-2.365.298a.75.75 0 10.23 1.482l.149-.022.841 10.518A2.75 2.75 0 007.596 19h4.807a2.75 2.75 0 002.742-2.53l.841-10.52.149.023a.75.75 0 00.23-1.482A41.03 41.03 0 0014 4.193V3.75A2.75 2.75 0 0011.25 1h-2.5zM10 4c.84 0 1.673.025 2.5.075V3.75c0-.69-.56-1.25-1.25-1.25h-2.5c-.69 0-1.25.56-1.25 1.25v.325C8.327 4.025 9.16 4 10 4zM8.58 7.72a.75.75 0 00-1.5.06l.3 7.5a.75.75 0 101.5-.06l-.3-7.5zm4.34.06a.75.75 0 10-1.5-.06l-.3 7.5a.75.75 0 101.5.06l.3-7.5z" clip-rule="evenodd" />
-                        </svg>
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-                <div id="bomSection" class="info-card hidden">
-                  <div class="flex justify-between items-center mb-4">
-                    <h2 class="text-xl font-semibold text-[#333333]">
-                      Materials List
-                    </h2>
-                  </div>
-                  
-                  
-                  <div class="flex justify-between items-center mb-4">
-                    <div></div>
-                    <div class="flex gap-2">
-                      <button
-                        type="button"
-                        id="resetAllBomBtn"
-                        class="btn btn-secondary px-3 py-1 text-sm"
-                        onclick="resetAllQuantities()"
-                        title="Reset all quantities to calculated values"
-                      >
-                        <svg
-                          xmlns="http://www.w3.org/2000/svg"
-                          viewBox="0 0 20 20"
-                          fill="currentColor"
-                          class="w-4 h-4 inline-block mr-1 align-text-bottom"
-                        >
-                          <path fill-rule="evenodd" d="M15.312 11.424a5.5 5.5 0 01-9.201 2.466l-.312-.311h2.433a.75.75 0 000-1.5H3.989a.75.75 0 00-.75.75v4.242a.75.75 0 001.5 0v-2.43l.31.31a7 7 0 0011.712-3.138.75.75 0 00-1.449-.39zm1.23-3.723a.75.75 0 00.219-.53V2.929a.75.75 0 00-1.5 0V5.36l-.31-.31A7 7 0 003.239 8.188a.75.75 0 101.448.389A5.5 5.5 0 0113.89 6.11l.311.31h-2.432a.75.75 0 000 1.5h4.243a.75.75 0 00.53-.219z" clip-rule="evenodd" />
-                        </svg>
-                        Reset All
-                      </button>
-                      <button
-                        type="button"
-                        id="printBomBtn"
-                        class="btn btn-secondary px-3 py-1 text-sm"
-                      >
-                        <svg
-                          xmlns="http://www.w3.org/2000/svg"
-                          viewBox="0 0 20 20"
-                          fill="currentColor"
-                          class="w-4 h-4 inline-block mr-1 align-text-bottom"
-                        >
-                          <path
-                            fill-rule="evenodd"
-                            d="M5 2.75C5 1.784 5.784 1 6.75 1h6.5c.966 0 1.75.784 1.75 1.75v3.552c.377.046.752.11 1.126.192.484.107.912.284 1.234.534a.75.75 0 0 1 0 1.244c-.322.25-.75.427-1.234.534a11.46 11.46 0 0 1-1.126.192v3.552c0 .966-.784 1.75-1.75 1.75h-6.5A1.75 1.75 0 0 1 5 14.25v-3.552a11.46 11.46 0 0 1-1.126-.192c-.484-.107-.912-.284-1.234-.534a.75.75 0 0 1 0-1.244c.322-.25.75-.427 1.234-.534A11.46 11.46 0 0 1 5 8.25V2.75Zm2.25 9.5a.75.75 0 0 0 .75.75h4a.75.75 0 0 0 .75-.75V8.75a.75.75 0 0 0-.75-.75h-4a.75.75 0 0 0-.75.75v3.5ZM5.28 3.22a.22.22 0 0 0-.221.28l.004.004a.753.753 0 0 0 .217.276V7.1a.75.75 0 0 0 .75.75h8.5a.75.75 0 0 0 .75-.75V3.78a.753.753 0 0 0 .217-.276l.004-.004a.22.22 0 0 0-.221-.28H5.28ZM3.5 7.875c0 .414.336.75.75.75h11.5a.75.75 0 0 0 .75-.75V4.125a.75.75 0 0 0-.75-.75H4.25a.75.75 0 0 0-.75.75v3.75Z"
-                            clip-rule="evenodd"
-                          />
-                        </svg>
-                        Print
-                      </button>
-                    </div>
-                  </div>
-                  <div class="overflow-x-auto">
-                    <table class="w-full bom-table">
-                      <thead>
-                        <tr>
-                          <th class="qty-col">Qty</th>
-                          <th>Item</th>
-                          <th>Description</th>
-                          <th class="price-col">Unit Price</th>
-                          <th class="price-col">Total Price</th>
-                        </tr>
-                      </thead>
-                      <tbody id="bomTableBody"></tbody>
-                    </table>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <!-- Decking Tab Content -->
-        <div
-          id="decking-content"
-          class="tab-content"
-          role="tabpanel"
-          aria-labelledby="decking-tab"
-        >
-          <div id="decking-layout-container" class="flex flex-col lg:flex-row gap-8">
-            <div id="decking-input-panel" class="lg:w-1/4">
-              <div class="info-card">
-                <div class="coming-soon-content">
-                  <div class="coming-soon-icon">
-                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                      <rect x="3" y="3" width="18" height="18" rx="2" ry="2"/>
-                      <line x1="9" y1="9" x2="15" y2="15"/>
-                      <line x1="15" y1="9" x2="9" y2="15"/>
-                    </svg>
-                  </div>
-                  <h3 class="coming-soon-title">Decking Controls</h3>
-                  <p class="coming-soon-description">
-                    Interactive controls for deck board planning, pattern selection, and material calculations.
-                  </p>
-                </div>
-              </div>
-            </div>
-
-            <div id="decking-content-panel" class="lg:w-3/4">
-              <div class="info-card">
-                <div class="coming-soon-content">
-                <div class="coming-soon-icon">
-                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                    <rect x="3" y="3" width="18" height="18" rx="2" ry="2"/>
-                    <line x1="9" y1="9" x2="15" y2="15"/>
-                    <line x1="15" y1="9" x2="9" y2="15"/>
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    viewBox="0 0 20 20"
+                    fill="currentColor"
+                    class="w-4 h-4 inline-block mr-1 align-text-bottom"
+                  >
+                    <path fill-rule="evenodd" d="M15.312 11.424a5.5 5.5 0 01-9.201 2.466l-.312-.311h2.433a.75.75 0 000-1.5H3.989a.75.75 0 00-.75.75v4.242a.75.75 0 001.5 0v-2.43l.31.31a7 7 0 0011.712-3.138.75.75 0 00-1.449-.39zm1.23-3.723a.75.75 0 00.219-.53V2.929a.75.75 0 00-1.5 0V5.36l-.31-.31A7 7 0 003.239 8.188a.75.75 0 101.448.389A5.5 5.5 0 0113.89 6.11l.311.31h-2.432a.75.75 0 000 1.5h4.243a.75.75 0 00.53-.219z" clip-rule="evenodd" />
                   </svg>
-                </div>
-                <h3 class="coming-soon-title">Decking Calculator</h3>
-                <p class="coming-soon-description">
-                  Plan your deck boards, patterns, and finishes. Calculate material quantities for various decking materials including composite, cedar, and pressure treated lumber.
-                </p>
-                
-                <div class="preview-section">
-                  <h4 class="preview-title">What's Coming</h4>
-                  <ul class="preview-list">
-                    <li>Visual deck board layout planner</li>
-                    <li>Multiple pattern options (straight, diagonal, herringbone)</li>
-                    <li>Material comparison tool (composite vs wood)</li>
-                    <li>Waste calculation with cutting optimization</li>
-                    <li>Cost estimation for different board types</li>
-                    <li>Fastener and accessory calculations</li>
-                  </ul>
-                </div>
-                
-                <div class="coming-soon-features">
-                  <span class="feature-tag">Board Layouts</span>
-                  <span class="feature-tag">Pattern Planning</span>
-                  <span class="feature-tag">Material Calculator</span>
-                  <span class="feature-tag">Waste Estimation</span>
-                  <span class="feature-tag">Cost Comparison</span>
-                  <span class="feature-tag">Cut Optimization</span>
-                </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <!-- Railing Tab Content -->
-        <div
-          id="railing-content"
-          class="tab-content"
-          role="tabpanel"
-          aria-labelledby="railing-tab"
-        >
-          <div id="railing-layout-container" class="flex flex-col lg:flex-row gap-8">
-            <div id="railing-input-panel" class="lg:w-1/4">
-              <div class="info-card">
-                <div class="coming-soon-content">
-                  <div class="coming-soon-icon">
-                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                      <line x1="3" y1="6" x2="21" y2="6"/>
-                      <line x1="3" y1="12" x2="21" y2="12"/>
-                      <line x1="3" y1="18" x2="21" y2="18"/>
-                    </svg>
-                  </div>
-                  <h3 class="coming-soon-title">Railing Controls</h3>
-                  <p class="coming-soon-description">
-                    Code-compliant railing design tools and material selection controls.
-                  </p>
-                </div>
-              </div>
-            </div>
-
-            <div id="railing-content-panel" class="lg:w-3/4">
-              <div class="info-card">
-                <div class="coming-soon-content">
-                <div class="coming-soon-icon">
-                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                    <line x1="3" y1="6" x2="21" y2="6"/>
-                    <line x1="3" y1="12" x2="21" y2="12"/>
-                    <line x1="3" y1="18" x2="21" y2="18"/>
+                  Reset All
+                </button>
+                <button
+                  type="button"
+                  id="printBomBtn"
+                  class="btn btn-secondary px-3 py-1 text-sm"
+                >
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    viewBox="0 0 20 20"
+                    fill="currentColor"
+                    class="w-4 h-4 inline-block mr-1 align-text-bottom"
+                  >
+                    <path
+                      fill-rule="evenodd"
+                      d="M5 2.75C5 1.784 5.784 1 6.75 1h6.5c.966 0 1.75.784 1.75 1.75v3.552c.377.046.752.11 1.126.192.484.107.912.284 1.234.534a.75.75 0 0 1 0 1.244c-.322.25-.75.427-1.234.534a11.46 11.46 0 0 1-1.126.192v3.552c0 .966-.784 1.75-1.75 1.75h-6.5A1.75 1.75 0 0 1 5 14.25v-3.552a11.46 11.46 0 0 1-1.126-.192c-.484-.107-.912-.284-1.234-.534a.75.75 0 0 1 0-1.244c.322-.25.75-.427 1.234-.534A11.46 11.46 0 0 1 5 8.25V2.75Zm2.25 9.5a.75.75 0 0 0 .75.75h4a.75.75 0 0 0 .75-.75V8.75a.75.75 0 0 0-.75-.75h-4a.75.75 0 0 0-.75.75v3.5ZM5.28 3.22a.22.22 0 0 0-.221.28l.004.004a.753.753 0 0 0 .217.276V7.1a.75.75 0 0 0 .75.75h8.5a.75.75 0 0 0 .75-.75V3.78a.753.753 0 0 0 .217-.276l.004-.004a.22.22 0 0 0-.221-.28H5.28ZM3.5 7.875c0 .414.336.75.75.75h11.5a.75.75 0 0 0 .75-.75V4.125a.75.75 0 0 0-.75-.75H4.25a.75.75 0 0 0-.75.75v3.75Z"
+                      clip-rule="evenodd"
+                    />
                   </svg>
-                </div>
-                <h3 class="coming-soon-title">Railing System</h3>
-                <p class="coming-soon-description">
-                  Design and calculate railing systems including posts, top rails, bottom rails, balusters, and hardware for code-compliant deck railings.
-                </p>
-                
-                <div class="preview-section">
-                  <h4 class="preview-title">What's Coming</h4>
-                  <ul class="preview-list">
-                    <li>Automatic code compliance checking (IRC/IBC)</li>
-                    <li>Interactive railing designer with visual preview</li>
-                    <li>Smart baluster spacing calculator</li>
-                    <li>Gate placement and hardware planning</li>
-                    <li>Multiple railing style options</li>
-                    <li>Integrated lighting and accessory planning</li>
-                  </ul>
-                </div>
-                
-                <div class="coming-soon-features">
-                  <span class="feature-tag">Code Compliance</span>
-                  <span class="feature-tag">Baluster Spacing</span>
-                  <span class="feature-tag">Post Placement</span>
-                  <span class="feature-tag">Hardware List</span>
-                  <span class="feature-tag">Gate Planning</span>
-                  <span class="feature-tag">Style Options</span>
-                </div>
-                </div>
+                  Print
+                </button>
               </div>
+            </div>
+            <div class="overflow-x-auto">
+              <table class="w-full bom-table">
+                <thead>
+                  <tr>
+                    <th class="qty-col">Qty</th>
+                    <th>Item</th>
+                    <th>Description</th>
+                    <th class="price-col">Unit Price</th>
+                    <th class="price-col">Total Price</th>
+                  </tr>
+                </thead>
+                <tbody id="bomTableBody"></tbody>
+              </table>
             </div>
           </div>
         </div>
-
-        <!-- Enhanced Summary Tab Content -->
-        <div
-          id="summary-content"
-          class="tab-content"
-          role="tabpanel"
-          aria-labelledby="summary-tab"
-        >
-          <div id="summary-layout-container" class="flex flex-col lg:flex-row gap-8">
-            <div id="summary-input-panel" class="lg:w-1/4">
-              <div class="info-card">
-                <div class="coming-soon-content">
-                  <div class="coming-soon-icon">
-                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                      <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
-                      <polyline points="14,2 14,8 20,8"/>
-                      <line x1="16" y1="13" x2="8" y2="13"/>
-                      <line x1="16" y1="17" x2="8" y2="17"/>
-                      <polyline points="10,9 9,9 8,9"/>
-                    </svg>
-                  </div>
-                  <h3 class="coming-soon-title">Summary Controls</h3>
-                  <p class="coming-soon-description">
-                    Report customization, export options, and project management tools.
-                  </p>
-                </div>
-              </div>
-            </div>
-
-            <div id="summary-content-panel" class="lg:w-3/4">
-              <div class="info-card">
-                <div class="coming-soon-content">
-                <div class="coming-soon-icon">
-                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
-                    <polyline points="14,2 14,8 20,8"/>
-                    <line x1="16" y1="13" x2="8" y2="13"/>
-                    <line x1="16" y1="17" x2="8" y2="17"/>
-                    <polyline points="10,9 9,9 8,9"/>
-                  </svg>
-                </div>
-                <h3 class="coming-soon-title">Enhanced Project Summary</h3>
-                <p class="coming-soon-description">
-                  Comprehensive project overview combining structure, decking, and railing with cost estimates, timeline planning, and professional PDF reports.
-                </p>
-                
-                <div class="preview-section">
-                  <h4 class="preview-title">What's Coming</h4>
-                  <ul class="preview-list">
-                    <li>Combined materials list from all project phases</li>
-                    <li>Detailed cost breakdown with supplier pricing</li>
-                    <li>Project timeline with construction phases</li>
-                    <li>Professional PDF report generation</li>
-                    <li>3D visualization and renderings</li>
-                    <li>Permit application assistance</li>
-                  </ul>
-                </div>
-                
-                <div class="coming-soon-features">
-                  <span class="feature-tag">Complete BOM</span>
-                  <span class="feature-tag">Cost Estimates</span>
-                  <span class="feature-tag">PDF Export</span>
-                  <span class="feature-tag">Timeline Planning</span>
-                  <span class="feature-tag">3D Visualization</span>
-                  <span class="feature-tag">Permit Docs</span>
-                </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
+        <!-- Close canvas-area -->
       </div>
+      <!-- Close app-layout -->
     </div>
   </body>
 </html>

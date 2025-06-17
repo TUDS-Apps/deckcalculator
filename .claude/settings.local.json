@@ -49,7 +49,17 @@
       "Bash(docker exec:*)",
       "Bash(find:*)",
       "Bash(git checkout:*)",
-      "Bash(git --version)"
+      "Bash(git --version)",
+      "Bash(git push:*)",
+      "mcp__context7__resolve-library-id",
+      "mcp__context7__get-library-docs",
+      "Bash(pkill:*)",
+      "Bash(kill:*)",
+      "Bash(env)",
+      "Bash(git restore:*)",
+      "WebFetch(domain:localhost)",
+      "Bash(curl:*)",
+      "Bash(true)"
     ],
     "deny": []
   }
