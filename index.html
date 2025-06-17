@@ -22,10 +22,10 @@
         </h1>
       </div>
 
-      <!-- New Layout Container -->
-      <div class="app-layout flex bg-white rounded-lg shadow-lg overflow-hidden min-h-[800px]">
-        <!-- Left Icon Menu (8% width) -->
-        <div class="icon-menu w-[8%] bg-gray-800 flex flex-col items-center py-6 space-y-6">
+      <!-- Clean 3-Column Layout -->
+      <div class="flex flex-nowrap bg-white rounded-lg shadow-lg overflow-hidden min-h-[800px] max-h-[calc(100vh-200px)]">
+        <!-- Icon Menu - 5% width -->
+        <div class="flex-none w-[5%] min-w-[60px] max-w-[100px] bg-gray-800 flex flex-col items-center py-4 space-y-4 overflow-hidden">
           <button
             class="icon-menu-item active flex flex-col items-center p-3"
             id="deck-details-icon"
@@ -107,8 +107,8 @@
           </button>
         </div>
         
-        <!-- Input Menu Panel (20% width) -->
-        <div class="input-menu w-[20%] bg-white border-r border-gray-200 overflow-y-auto">
+        <!-- Input Menu - 20% width -->
+        <div class="flex-none w-[20%] min-w-[250px] max-w-[400px] bg-white border-r border-gray-200 overflow-y-auto overflow-x-hidden">
           
           <!-- Deck Details Menu Content -->
           <div id="deck-details-menu" class="menu-content active p-6">
@@ -279,7 +279,6 @@
                   </form>
                 </div>
               </div>
-            </div>
 
             <!-- Wall Selection Mode Section -->
             <div id="wall-selection-panel" class="panel-section hidden">
@@ -527,7 +526,6 @@
                 </div>
               </div>
             </div>
-            </div>
           </div>
           
           <!-- Decking Menu Content -->
@@ -584,9 +582,10 @@
             </div>
           </div>
         </div>
+        <!-- Close input-menu -->
         
-        <!-- Canvas Area (72% width) -->
-        <div class="canvas-area flex-1 flex flex-col bg-gray-50 p-4">
+        <!-- Canvas Area - Remaining space (~72%) -->
+        <div class="flex-1 min-w-0 flex flex-col bg-gray-50 p-4 overflow-hidden">
           <!-- Canvas content from main-content-panel -->
           <!-- Legend Card -->
           <div class="info-card legend-card mb-4">
@@ -787,9 +786,9 @@
             </div>
           </div>
         </div>
-        <!-- Close canvas-area -->
+        <!-- End Canvas Area -->
       </div>
-      <!-- Close app-layout -->
+      <!-- End 3-Column Layout -->
     </div>
   </body>
 </html>
