@@ -131,3 +131,45 @@ The application uses two coordinate spaces:
 - Verify grid snapping logic
 - Use console logs in redrawCanvas() for render debugging
 - Test with different viewport scales and offsets
+
+## CRITICAL LAYOUT DEBUGGING LESSON (2025-01-17)
+
+### The 3-Column Layout Issue That Kept Recurring
+
+**Problem**: Canvas area kept appearing BELOW the layout instead of beside the icon menu and input menu, despite "fixing" the CSS multiple times.
+
+**Root Cause**: Extra closing `</div>` tags in the HTML structure, NOT a CSS problem!
+
+**How to Debug This in the Future**:
+
+1. **STOP trying to fix CSS first!** The issue is usually HTML structure.
+
+2. **Use this Python script to check div balance**:
+```python
+python3 -c "
+html = open('/home/shane/dev/deckcalculator/index.html', 'r').read()
+opens = html.count('<div')
+closes = html.count('</div>')
+print(f'Opening divs: {opens}')
+print(f'Closing divs: {closes}')
+print(f'Difference: {opens - closes}')
+print('BALANCED!' if opens == closes else 'Still unbalanced!')
+"
+```
+
+3. **Create minimal test files** to isolate the issue:
+   - test-layout.html (pure HTML/Tailwind)
+   - test-layout-2.html (add CSS file)
+   - test-layout-3.html (exact same classes)
+   
+4. **Common places where extra closing divs appear**:
+   - After contextual panel sections
+   - At the end of menu content sections
+   - Before "closing" comments (comments don't close divs!)
+
+**The Fix That Actually Worked**:
+- Found and removed 3 extra closing `</div>` tags at lines 282, 531, and 791
+- Ensured HTML structure was properly balanced
+- The 3-column flex layout immediately worked
+
+**Remember**: When layout issues persist after multiple CSS fixes, CHECK THE HTML STRUCTURE FIRST!

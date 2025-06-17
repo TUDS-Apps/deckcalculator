@@ -94,9 +94,9 @@ const fasteners = document.getElementById("fasteners");
 const statusMessages = document.getElementById("main-status-messages");
 
 // Legend elements  
-const legendCard = document.getElementById("legendCard");
-const blueprintLegendHover = document.getElementById("blueprintLegendHover");
-const dimensionsLegendHover = document.getElementById("dimensionsLegendHover");
+const floatingLegend = document.getElementById("floatingLegend");
+const blueprintLegendFloat = document.getElementById("blueprintLegendFloat");
+const dimensionsLegendFloat = document.getElementById("dimensionsLegendFloat");
 
 // Dimension input elements
 const dimensionInputContainer = document.getElementById("dimensionInputContainer");
@@ -1816,33 +1816,33 @@ function handleToggleDecomposition() {
 
 // --- Legend Hover Handlers ---
 function handleLegendHover() {
-  if (legendCard) {
-    legendCard.classList.remove('hidden');
+  if (floatingLegend) {
+    floatingLegend.classList.remove('hidden');
     
     // Show blueprint legend info if in blueprint mode
-    if (appState.isBlueprintMode && blueprintLegendHover) {
-      blueprintLegendHover.classList.remove('hidden');
+    if (appState.isBlueprintMode && blueprintLegendFloat) {
+      blueprintLegendFloat.classList.remove('hidden');
     }
     
     // Show dimensions legend if in blueprint mode
-    if (appState.isBlueprintMode && dimensionsLegendHover) {
-      dimensionsLegendHover.classList.remove('hidden');
+    if (appState.isBlueprintMode && dimensionsLegendFloat) {
+      dimensionsLegendFloat.classList.remove('hidden');
     }
   }
 }
 
 function handleLegendLeave() {
-  if (legendCard) {
-    legendCard.classList.add('hidden');
+  if (floatingLegend) {
+    floatingLegend.classList.add('hidden');
     
     // Hide blueprint legend info
-    if (blueprintLegendHover) {
-      blueprintLegendHover.classList.add('hidden');
+    if (blueprintLegendFloat) {
+      blueprintLegendFloat.classList.add('hidden');
     }
     
     // Hide dimensions legend
-    if (dimensionsLegendHover) {
-      dimensionsLegendHover.classList.add('hidden');
+    if (dimensionsLegendFloat) {
+      dimensionsLegendFloat.classList.add('hidden');
     }
   }
 }
