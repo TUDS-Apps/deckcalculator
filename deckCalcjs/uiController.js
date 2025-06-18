@@ -540,15 +540,67 @@ export function populateIndividualStairConfig(stairs) {
   stairConfigList.innerHTML = "";
   
   stairs.forEach((stair, index) => {
-    const stairConfigDiv = document.createElement("div");
-    stairConfigDiv.className = "p-4 border border-gray-200 rounded-lg bg-white";
-    stairConfigDiv.innerHTML = `
-      <div class="flex justify-between items-center mb-3">
-        <h5 class="font-medium text-gray-800">Stair Set ${index + 1}</h5>
-        <span class="text-sm text-gray-600">${stair.widthFt}' wide</span>
+    const stairCard = createStairCard(stair, index);
+    stairConfigList.appendChild(stairCard);
+  });
+}
+
+function createStairCard(stair, index) {
+  const cardDiv = document.createElement("div");
+  cardDiv.className = "border border-gray-200 rounded-lg bg-white overflow-hidden";
+  cardDiv.id = `stair-card-${index}`;
+  
+  // Get readable text for current settings
+  const stringerText = getStringerTypeText(stair.stringerType);
+  const landingText = getLandingTypeText(stair.landingType);
+  
+  cardDiv.innerHTML = `
+    <!-- Card Header (always visible) -->
+    <div class="p-4">
+      <div class="flex justify-between items-center">
+        <div>
+          <h5 class="font-medium text-gray-800">Stair Set ${index + 1}</h5>
+          <p class="text-sm text-gray-600">${stair.widthFt}' wide</p>
+        </div>
+        <div class="flex items-center space-x-2">
+          <button 
+            onclick="toggleStairCardEdit(${index})" 
+            class="p-2 text-gray-400 hover:text-blue-600 transition-colors"
+            title="Edit stair settings"
+          >
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/>
+            </svg>
+          </button>
+          <button 
+            onclick="deleteStairConfig(${index})" 
+            class="p-2 text-gray-400 hover:text-red-600 transition-colors"
+            title="Delete stair"
+          >
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
+            </svg>
+          </button>
+        </div>
       </div>
       
-      <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+      <!-- Current Settings Summary -->
+      <div class="mt-2 text-sm text-gray-600">
+        <span class="inline-flex items-center">
+          <span class="w-2 h-2 bg-blue-500 rounded-full mr-2"></span>
+          ${stringerText}
+        </span>
+        <span class="mx-2">•</span>
+        <span class="inline-flex items-center">
+          <span class="w-2 h-2 bg-green-500 rounded-full mr-2"></span>
+          ${landingText}
+        </span>
+      </div>
+    </div>
+    
+    <!-- Expandable Edit Section (hidden by default) -->
+    <div id="stair-edit-${index}" class="hidden bg-gray-50 border-t border-gray-200 p-4">
+      <div class="space-y-3">
         <div>
           <label for="stair_${index}_stringer" class="form-label text-sm">Stringer Type</label>
           <select id="stair_${index}_stringer" class="form-select text-sm" onchange="updateIndividualStairConfig(${index}, 'stringerType', this.value)">
@@ -566,17 +618,110 @@ export function populateIndividualStairConfig(stairs) {
             <option value="concrete" ${stair.landingType === 'concrete' ? 'selected' : ''}>Poured Concrete Pad</option>
           </select>
         </div>
+        
+        <div class="flex justify-end space-x-2 mt-4">
+          <button 
+            onclick="toggleStairCardEdit(${index})" 
+            class="px-3 py-1 text-sm text-gray-600 hover:text-gray-800 transition-colors"
+          >
+            Done
+          </button>
+        </div>
       </div>
-    `;
-    
-    stairConfigList.appendChild(stairConfigDiv);
-  });
+    </div>
+  `;
+  
+  return cardDiv;
 }
 
-// Global function for individual stair config updates
+// Helper functions to get readable text for stair settings (made global for card updates)
+window.getStringerTypeText = function(stringerType) {
+  const types = {
+    'pylex_steel': 'Pylex Steel',
+    'lvl_wood': 'LVL Wood', 
+    'custom_2x12': 'Custom 2x12'
+  };
+  return types[stringerType] || stringerType;
+};
+
+window.getLandingTypeText = function(landingType) {
+  const types = {
+    'existing': 'Existing Surface',
+    'slabs': '16"x16" Slabs',
+    'concrete': 'Concrete Pad'
+  };
+  return types[landingType] || landingType;
+};
+
+// Local references for use within this module
+const getStringerTypeText = window.getStringerTypeText;
+const getLandingTypeText = window.getLandingTypeText;
+
+// Global functions for stair card management
+window.toggleStairCardEdit = function(stairIndex) {
+  const editSection = document.getElementById(`stair-edit-${stairIndex}`);
+  if (editSection) {
+    const isHidden = editSection.classList.contains('hidden');
+    if (isHidden) {
+      editSection.classList.remove('hidden');
+    } else {
+      editSection.classList.add('hidden');
+    }
+  }
+};
+
+window.deleteStairConfig = function(stairIndex) {
+  if (confirm('Are you sure you want to delete this stair set?')) {
+    if (window.appState && window.appState.stairs && window.appState.stairs[stairIndex]) {
+      // Remove the stair from the array
+      window.appState.stairs.splice(stairIndex, 1);
+      
+      // Update BOM and UI
+      if (window.recalculateAndUpdateBOM) {
+        window.recalculateAndUpdateBOM();
+      }
+      
+      // Refresh the stair configuration display
+      updateStairConfigDisplay(window.appState.stairs);
+      
+      if (window.redrawApp) {
+        window.redrawApp();
+      }
+      
+      // Show confirmation message
+      if (window.uiController && window.uiController.updateCanvasStatus) {
+        window.uiController.updateCanvasStatus(`Stair set deleted. Remaining: ${window.appState.stairs.length}.`);
+      }
+    }
+  }
+};
+
 window.updateIndividualStairConfig = function(stairIndex, property, value) {
   if (window.appState && window.appState.stairs && window.appState.stairs[stairIndex]) {
     window.appState.stairs[stairIndex][property] = value;
+    
+    // Update the card display to reflect the new settings
+    const stairCard = document.getElementById(`stair-card-${stairIndex}`);
+    if (stairCard) {
+      const settingsSummary = stairCard.querySelector('.mt-2.text-sm');
+      if (settingsSummary) {
+        const stair = window.appState.stairs[stairIndex];
+        const stringerText = window.getStringerTypeText(stair.stringerType);
+        const landingText = window.getLandingTypeText(stair.landingType);
+        
+        settingsSummary.innerHTML = `
+          <span class="inline-flex items-center">
+            <span class="w-2 h-2 bg-blue-500 rounded-full mr-2"></span>
+            ${stringerText}
+          </span>
+          <span class="mx-2">•</span>
+          <span class="inline-flex items-center">
+            <span class="w-2 h-2 bg-green-500 rounded-full mr-2"></span>
+            ${landingText}
+          </span>
+        `;
+      }
+    }
     
     // Recalculate stair details with new configuration
     if (window.stairCalculations && window.stairCalculations.calculateStairDetails) {

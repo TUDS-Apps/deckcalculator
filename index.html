@@ -23,8 +23,8 @@
       </div>
 
       <!-- Clean 3-Column Layout -->
-      <div class="flex flex-nowrap bg-white rounded-lg shadow-lg overflow-hidden min-h-[800px] max-h-[calc(100vh-200px)]">
-        <!-- Icon Menu - 5% width -->
+      <div class="flex flex-nowrap bg-white rounded-lg shadow-lg min-h-[800px]">
+        <!-- Icon Menu - 7% width -->
         <div class="flex-none w-[7%] min-w-[60px] max-w-[100px] bg-gray-800 flex flex-col items-center py-4 overflow-hidden">
           <button
             class="icon-menu-item active flex flex-col items-center p-3"
@@ -107,8 +107,8 @@
           </button>
         </div>
         
-        <!-- Input Menu - 20% width -->
-        <div class="flex-none w-[20%] min-w-[250px] max-w-[400px] bg-white border-r border-gray-200 overflow-y-auto overflow-x-hidden">
+        <!-- Input Menu - 23% width -->
+        <div class="flex-none w-[23%] min-w-[250px] max-w-[400px] border-r border-gray-200 overflow-y-auto overflow-x-hidden" style="background-color: #f8fafd;">
           
           <!-- Deck Details Menu Content -->
           <div id="deck-details-menu" class="menu-content active p-6">
@@ -163,7 +163,7 @@
                 <button
                   type="button"
                   id="mainStairsBtn"
-                  class="w-full px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-colors"
+                  class="btn btn-brand btn-full-width"
                   onclick="handleMainStairsButton()"
                 >
                   Add Stairs
@@ -310,44 +310,41 @@
                   </form>
 
             <!-- Stair Configuration Section -->
-            <div id="framing-stair-config" class="mt-8 p-4 bg-blue-50 border border-blue-200 rounded-lg">
-              <h3 class="text-lg font-semibold text-gray-800 mb-4">Stair Configuration</h3>
+            <div id="framing-stair-config" class="mt-8 p-4 bg-gray-50 border border-gray-200 rounded-lg">
+              <h3 class="text-lg font-semibold text-gray-800 mb-3">Stair Configuration</h3>
               
-              <div id="stair-config-info" class="mb-4">
-                <p class="text-sm text-gray-600 mb-2">Configure structural details for your stairs. These settings affect material calculations and construction methods.</p>
-                <div id="stair-count-display" class="text-sm font-medium text-blue-700">
-                  No stairs placed yet. Add stairs in the Draw Shape menu first.
+              <div id="stair-count-display" class="text-sm text-gray-600 mb-4">
+                No stairs placed yet. Add stairs in the Draw Shape menu first.
+              </div>
+              
+              <!-- Default Stair Settings -->
+              <div class="space-y-3 mb-6">
+                <h4 class="text-md font-medium text-gray-700 mb-2">Default Stair Settings</h4>
+                <p class="text-xs text-gray-600 mb-3">These settings apply to newly placed stairs</p>
+                <div>
+                  <label for="defaultStringerType" class="form-label">Default Stringer Type</label>
+                  <select id="defaultStringerType" name="defaultStringerType" class="form-select">
+                    <option value="pylex_steel" selected>Pylex Steel (Pre-fab)</option>
+                    <option value="lvl_wood">LVL Wood (Pre-fab)</option>
+                    <option value="custom_2x12">Custom Cut 2x12</option>
+                  </select>
+                </div>
+                <div>
+                  <label for="defaultLandingType" class="form-label">Default Landing Type</label>
+                  <select id="defaultLandingType" name="defaultLandingType" class="form-select">
+                    <option value="existing" selected>Existing Surface</option>
+                    <option value="slabs">16"x16" Slabs</option>
+                    <option value="concrete">Poured Concrete Pad</option>
+                  </select>
                 </div>
               </div>
               
-              <!-- Global/Default Configuration -->
-              <div class="mb-6">
-                <h4 class="text-md font-medium text-gray-700 mb-3">Default Configuration (for new stairs)</h4>
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <label for="defaultStringerType" class="form-label">Default Stringer Type</label>
-                    <select id="defaultStringerType" name="defaultStringerType" class="form-select">
-                      <option value="pylex_steel" selected>Pylex Steel (Pre-fab)</option>
-                      <option value="lvl_wood">LVL Wood (Pre-fab)</option>
-                      <option value="custom_2x12">Custom Cut 2x12</option>
-                    </select>
-                  </div>
-                  <div>
-                    <label for="defaultLandingType" class="form-label">Default Landing Type</label>
-                    <select id="defaultLandingType" name="defaultLandingType" class="form-select">
-                      <option value="existing" selected>Existing Surface</option>
-                      <option value="slabs">16"x16" Slabs</option>
-                      <option value="concrete">Poured Concrete Pad</option>
-                    </select>
-                  </div>
-                </div>
-              </div>
-              
-              <!-- Individual Stair Configuration -->
+              <!-- Individual Stair Management -->
               <div id="individual-stair-config" class="hidden">
-                <h4 class="text-md font-medium text-gray-700 mb-3">Individual Stair Configuration</h4>
-                <div id="stair-config-list" class="space-y-4">
-                  <!-- Individual stair configurations will be populated here -->
+                <hr class="border-gray-300 mb-4">
+                <h4 class="text-md font-medium text-gray-700 mb-3">Placed Stairs</h4>
+                <div id="stair-config-list" class="space-y-3">
+                  <!-- Stair cards will be populated here -->
                 </div>
               </div>
             </div>
@@ -372,6 +369,16 @@
             <div id="wall-selection-panel" class="panel-section hidden">
               <h2 class="panel-title">Select Wall Segments for Ledger</h2>
               <div class="panel-content">
+                <div class="instruction-box">
+                  <p class="text-sm text-gray-700 mb-3">
+                    <strong>Click the wall edge(s) that will be attached to your house or structure.</strong> 
+                    You can select multiple parallel wall segments.
+                  </p>
+                  <p class="text-xs text-blue-600">
+                    💡 All selected walls must be parallel. Click a selected wall to deselect it.
+                  </p>
+                </div>
+                
                 <div class="primary-action">
                   <button id="generatePlanBtn" class="btn btn-primary btn-full-width btn-large">
                     Generate Framing
@@ -387,10 +394,7 @@
               <div class="panel-content">
                 <!-- Top action buttons -->
                 <div class="top-action-buttons flex gap-3 mb-4">
-                  <button type="button" id="mainStairsBtn" class="btn flex-1 text-white font-semibold" onclick="handleMainStairsButton()"
-                    style="background-color: #29aafd;"
-                    onmouseover="this.style.backgroundColor='#1e8dd6'" 
-                    onmouseout="this.style.backgroundColor='#29aafd'">
+                  <button type="button" id="mainStairsBtn" class="btn btn-brand flex-1" onclick="handleMainStairsButton()">
                     Add Stairs
                   </button>
                   <button type="button" class="btn btn-secondary flex-1 modify-specs-btn" onclick="toggleSpecEditor()">
@@ -743,8 +747,8 @@
         </div>
         <!-- Close input-menu -->
         
-        <!-- Canvas Area - Remaining space (~72%) -->
-        <div class="flex-1 min-w-0 flex flex-col bg-white p-4 overflow-hidden">
+        <!-- Canvas Area - Remaining space (70%) -->
+        <div class="flex-1 min-w-0 flex flex-col bg-white p-4 overflow-y-auto">
           <!-- Canvas content from main-content-panel -->
           
           <!-- Toolbar -->

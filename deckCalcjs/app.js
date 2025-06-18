@@ -602,7 +602,7 @@ function updateGuidanceForCurrentState() {
   } else if (!appState.isShapeClosed) {
     updateGuidanceMessage('Continue adding points or click near start to close shape', 'default');
   } else if (appState.wallSelectionMode && appState.selectedWallIndices.length === 0) {
-    updateGuidanceMessage('Click on the wall segment that will attach to your house', 'highlight');
+    updateGuidanceMessage('Click wall edges that will attach to your house', 'highlight');
   } else if (appState.selectedWallIndices.length > 0 && !appState.structuralComponents) {
     updateGuidanceMessage('Click "Generate Framing" to create your deck plan', 'success');
   } else if (appState.structuralComponents && !appState.structuralComponents.error) {
@@ -769,6 +769,7 @@ function handleDimensionInputApply() {
       appState.wallSelectionMode = true;
       uiController.updateCanvasStatus("Shape closed. Select the wall attached to structure.");
       updateContextualPanel(); // Ensure contextual panel shows wall selection prompt
+      updateGuidanceMessage('Click wall edges that will attach to your house', 'highlight'); // Direct guidance update
       updateGuidanceForCurrentState(); // Update guidance message
     } else {
       uiController.updateCanvasStatus("Next point or click near start to close.");
@@ -925,19 +926,20 @@ function handleAddStairs() {
   const mainBtn = document.getElementById('mainStairsBtn');
   if (mainBtn) {
     mainBtn.textContent = 'Finish Stairs';
-    // Remove all color classes and apply brand color
-    mainBtn.className = mainBtn.className.replace(/bg-\S+/g, '').replace(/hover:bg-\S+/g, '');
-    mainBtn.style.backgroundColor = '#133a52';
-    mainBtn.style.color = 'white';
-    
-    // Add hover effect
-    mainBtn.onmouseover = function() { this.style.backgroundColor = '#0d2a3d'; };
-    mainBtn.onmouseout = function() { this.style.backgroundColor = '#133a52'; };
+    // Switch to dark brand color for "Finish" state
+    mainBtn.className = mainBtn.className.replace(/btn-brand/g, '').replace(/btn-primary/g, '') + ' btn-primary';
+    mainBtn.style.backgroundColor = '';
+    mainBtn.style.color = '';
+    mainBtn.onmouseover = null;
+    mainBtn.onmouseout = null;
   }
   
   uiController.updateCanvasStatus(
     "STAIR PLACEMENT MODE: Set width above, then click any deck edge to place stairs. Press ESC or click 'Finish Stairs' to exit."
   );
+  
+  // Update guidance message for stair placement
+  updateGuidanceForCurrentState();
   
   // Set up form change listeners to update preview
   setupStairPreviewUpdaters();
@@ -979,11 +981,11 @@ function handleFinishStairs() {
     
     // Restore button appearance to brand colors
     mainBtn.textContent = 'Add Stairs';
-    mainBtn.style.backgroundColor = '#29aafd';
-    mainBtn.style.color = 'white';
-    mainBtn.onmouseover = function() { this.style.backgroundColor = '#1e8dd6'; };
-    mainBtn.onmouseout = function() { this.style.backgroundColor = '#29aafd'; };
-    mainBtn.classList.remove('bg-blue-600', 'hover:bg-blue-700');
+    mainBtn.className = mainBtn.className.replace(/btn-primary/g, '').replace(/btn-brand/g, '') + ' btn-brand';
+    mainBtn.style.backgroundColor = '';
+    mainBtn.style.color = '';
+    mainBtn.onmouseover = null;
+    mainBtn.onmouseout = null;
   }
   
   // Recalculate BOM to include all stairs
@@ -1626,6 +1628,7 @@ function handleCanvasMouseUp(event) {
   }
   if (appState.isDraggingStairs) {
     appState.isDraggingStairs = false;
+    appState.selectedStairIndex = -1; // Deselect stair after dragging
     if (deckCanvas) deckCanvas.style.cursor = "default";
     recalculateAndUpdateBOM();
     redrawApp();
@@ -3064,13 +3067,17 @@ if (originalSwitchMenu && typeof originalSwitchMenu === 'function') {
     try {
       originalSwitchMenu(menuName);
       
+      // Update guidance message for current context
+      updateGuidanceForCurrentState();
+      
       // Update workflow step based on menu selection
       if (enhancedNavigationInitialized && workflowState) {
         switch(menuName) {
           case 'deck-details':
-            // Only reset to step 1 if there's no existing drawing
-            // This prevents clearing the user's drawing when switching back to deck-details menu
-            if (workflowState.currentStep > 1 && (!appState.points || appState.points.length === 0)) {
+            // Never reset to step 1 when switching back to deck-details menu
+            // The drawing should persist unless the user explicitly clicks Clear
+            // Only reset if we're somehow in a later step but have no drawing at all
+            if (workflowState.currentStep > 1 && (!appState.points || appState.points.length === 0) && !appState.isShapeClosed) {
               jumpToWorkflowStep(1);
             }
             break;
