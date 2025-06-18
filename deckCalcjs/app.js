@@ -564,51 +564,155 @@ function resetAppState() {
 }
 
 // --- Guidance Messaging Functions ---
-function updateGuidanceMessage(message, type = 'default') {
-  const guidanceElement = document.getElementById('guidance-message');
-  if (!guidanceElement) return;
+// Floating Message System
+const messageQueue = [];
+let isShowingMessage = false;
 
-  // Remove all type classes
-  guidanceElement.classList.remove('highlight', 'success', 'warning', 'error', 'updating');
+function showFloatingMessage(message, type = 'info', duration = null) {
+  // Set default durations based on type
+  if (duration === null) {
+    const durations = {
+      info: 3000,
+      success: 3000,
+      warning: 5000,
+      error: 8000
+    };
+    duration = durations[type] || 3000;
+  }
+
+  // Add to queue
+  messageQueue.push({ message, type, duration });
   
+  // Process queue if not already showing a message
+  if (!isShowingMessage) {
+    processMessageQueue();
+  }
+}
+
+function processMessageQueue() {
+  if (messageQueue.length === 0) {
+    isShowingMessage = false;
+    return;
+  }
+
+  isShowingMessage = true;
+  const { message, type, duration } = messageQueue.shift();
+  
+  const container = document.getElementById('toolbarMessageArea');
+  if (!container) return;
+
+  // Clear any existing messages
+  container.innerHTML = '';
+  container.classList.remove('hidden');
+
+  // Create message element
+  const messageEl = document.createElement('div');
+  messageEl.className = `toolbar-message ${type}`;
+  
+  // Icons for different message types
+  const icons = {
+    info: '<svg fill="currentColor" viewBox="0 0 20 20" class="w-4 h-4"><path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd"></path></svg>',
+    success: '<svg fill="currentColor" viewBox="0 0 20 20" class="w-4 h-4"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"></path></svg>',
+    warning: '<svg fill="currentColor" viewBox="0 0 20 20" class="w-4 h-4"><path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clip-rule="evenodd"></path></svg>',
+    error: '<svg fill="currentColor" viewBox="0 0 20 20" class="w-4 h-4"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd"></path></svg>'
+  };
+
+  messageEl.innerHTML = `
+    <div class="flex items-center gap-2">
+      ${icons[type] || icons.info}
+      <span class="flex-1">${message}</span>
+      <button onclick="dismissToolbarMessage(this)" class="text-gray-400 hover:text-gray-600 ml-2">
+        <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+          <path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd"></path>
+        </svg>
+      </button>
+    </div>
+  `;
+
+  // Add to container
+  container.appendChild(messageEl);
+
+  // Auto dismiss after duration
+  const timeoutId = setTimeout(() => {
+    dismissToolbarMessage();
+  }, duration);
+
+  // Store timeout ID for potential early dismissal
+  messageEl.dataset.timeoutId = timeoutId;
+}
+
+function dismissMessage(messageEl) {
+  if (!messageEl) return;
+  
+  // Clear timeout if exists
+  const timeoutId = messageEl.dataset.timeoutId;
+  if (timeoutId) {
+    clearTimeout(parseInt(timeoutId));
+  }
+
+  // Add fade out animation
+  messageEl.classList.add('fade-out');
+  
+  // Remove after animation
+  setTimeout(() => {
+    messageEl.remove();
+    // Process next message in queue
+    processMessageQueue();
+  }, 300);
+}
+
+function dismissToolbarMessage(button = null) {
+  const container = document.getElementById('toolbarMessageArea');
+  if (!container) return;
+  
+  // Clear any timeouts
+  const messageEl = container.querySelector('.toolbar-message');
+  if (messageEl && messageEl.dataset.timeoutId) {
+    clearTimeout(parseInt(messageEl.dataset.timeoutId));
+  }
+  
+  // Hide container and clear content
+  container.classList.add('hidden');
+  container.innerHTML = '';
+  
+  // Process next message in queue
+  processMessageQueue();
+}
+
+// Make globally available
+window.dismissToolbarMessage = dismissToolbarMessage;
+
+// Replace the old guidance message functions
+function updateGuidanceMessage(message, type = 'info') {
   if (message) {
-    guidanceElement.textContent = message;
-    
-    // Add the appropriate type class
-    if (type !== 'default') {
-      guidanceElement.classList.add(type);
-    }
-    
-    // Add updating animation
-    guidanceElement.classList.add('updating');
-    
-    // Remove updating class after animation
-    setTimeout(() => {
-      guidanceElement.classList.remove('updating');
-    }, 300);
-  } else {
-    guidanceElement.textContent = '';
+    // Map old type names to new ones
+    const typeMap = {
+      'default': 'info',
+      'highlight': 'info'
+    };
+    const mappedType = typeMap[type] || type;
+    showFloatingMessage(message, mappedType);
   }
 }
 
 function clearGuidanceMessage() {
-  updateGuidanceMessage('');
+  const container = document.getElementById('toolbarMessageArea');
+  if (container) {
+    container.classList.add('hidden');
+    container.innerHTML = '';
+  }
 }
 
-// Initialize guidance messaging based on app state
+// Initialize guidance messaging based on app state - Simplified to 4 key messages
 function updateGuidanceForCurrentState() {
   if (!appState.points || appState.points.length === 0) {
-    updateGuidanceMessage('Click on the canvas to start drawing your deck outline', 'highlight');
+    updateGuidanceMessage('Click anywhere on the canvas to start drawing', 'info');
   } else if (!appState.isShapeClosed) {
-    updateGuidanceMessage('Continue adding points or click near start to close shape', 'default');
+    updateGuidanceMessage('Click on the initial point to close your deck shape', 'info');
   } else if (appState.wallSelectionMode && appState.selectedWallIndices.length === 0) {
-    updateGuidanceMessage('Click wall edges that will attach to your house', 'highlight');
-  } else if (appState.selectedWallIndices.length > 0 && !appState.structuralComponents) {
-    updateGuidanceMessage('Click "Generate Framing" to create your deck plan', 'success');
-  } else if (appState.structuralComponents && !appState.structuralComponents.error) {
-    updateGuidanceMessage('Deck plan ready! Add stairs or review materials list', 'success');
-  } else if (appState.stairPlacementMode) {
-    updateGuidanceMessage('Click on any deck edge to place stairs', 'warning');
+    updateGuidanceMessage('Click on wall edges that attach to your house', 'warning');
+  } else if (appState.selectedWallIndices.length > 0) {
+    updateGuidanceMessage('Add stairs if needed, or select next section to continue', 'success');
   } else {
     clearGuidanceMessage();
   }
@@ -767,9 +871,7 @@ function handleDimensionInputApply() {
       
       calculateAndUpdateDeckDimensions();
       appState.wallSelectionMode = true;
-      uiController.updateCanvasStatus("Shape closed. Select the wall attached to structure.");
       updateContextualPanel(); // Ensure contextual panel shows wall selection prompt
-      updateGuidanceMessage('Click wall edges that will attach to your house', 'highlight'); // Direct guidance update
       updateGuidanceForCurrentState(); // Update guidance message
     } else {
       uiController.updateCanvasStatus("Next point or click near start to close.");
@@ -805,6 +907,11 @@ function recalculateAndUpdateBOM() {
     } else {
       appState.bom = bomResult;
       uiController.populateBOMTable(appState.bom);
+      
+      // Update contextual BOM for current menu
+      if (window.currentMenu) {
+        updateContextualBOM(window.currentMenu);
+      }
     }
     uiController.populateSummaryCard(
       appState.structuralComponents,
@@ -850,11 +957,6 @@ function handleGeneratePlan() {
     return;
   }
   try {
-    console.log("Debug: Starting structural calculations");
-    console.log("Debug: appState.points:", appState.points);
-    console.log("Debug: appState.selectedWallIndices:", appState.selectedWallIndices);
-    console.log("Debug: inputs:", inputs);
-    console.log("Debug: appState.deckDimensions:", appState.deckDimensions);
     
     // Check if we should use multi-section calculations
     if (isComplexShape()) {
@@ -904,9 +1006,6 @@ function handleGeneratePlan() {
     }
   } catch (error) {
     console.error("Error during Generate Plan process:", error);
-    console.error("Error stack:", error.stack);
-    console.error("Error name:", error.name);
-    console.error("Error message:", error.message);
     uiController.updateCanvasStatus(
       `Error: ${error.message || "An unexpected error occurred. Check console."}`
     );
@@ -2225,10 +2324,13 @@ document.addEventListener("DOMContentLoaded", () => {
   resetAppState();
   updateContextualPanel(); // Initialize contextual panel
   
-  // Initial instruction message
+  // Initial guidance message
   setTimeout(() => {
-    showInstructionMessage();
+    updateGuidanceForCurrentState();
   }, 500);
+  
+  // Set initial menu
+  window.currentMenu = 'deck-details';
   
   console.log("Deck Calculator App Initialized with Zoom/Pan features, Dimension Input, Blueprint mode, and Contextual Panels.");
 });
@@ -2237,6 +2339,7 @@ document.addEventListener("DOMContentLoaded", () => {
 window.showStatusMessage = showStatusMessage;
 window.clearStatusMessages = clearStatusMessages;
 window.showInstructionMessage = showInstructionMessage;
+window.showFloatingMessage = showFloatingMessage;
 
 window.toggleCollapsible = function(button) {
   const content = button.nextElementSibling;
@@ -2563,6 +2666,12 @@ window.switchMenu = function(menuName) {
     }
   }
   
+  // Hide all BOM sections
+  const bomSections = document.querySelectorAll('.bom-section');
+  bomSections.forEach(section => {
+    section.classList.add('hidden');
+  });
+  
   // Handle menu-specific initialization
   switch(menuName) {
     case 'deck-details':
@@ -2571,17 +2680,26 @@ window.switchMenu = function(menuName) {
     case 'framing':
       // Show the contextual panels that were previously in structure tab
       moveContextualPanelsToFraming();
+      // Show framing BOM if data exists
+      updateContextualBOM('framing');
       break;
     case 'decking':
       // Future: Initialize decking controls
+      updateContextualBOM('decking');
       break;
     case 'railing':
       // Future: Initialize railing controls
+      updateContextualBOM('railing');
       break;
     case 'summary':
-      // Future: Initialize summary view
+      // Initialize summary view
+      updateProjectSummary();
+      updateContextualBOM('summary');
       break;
   }
+  
+  // Store current menu for BOM updates
+  window.currentMenu = menuName;
 };
 
 // Helper function to move existing contextual panels to framing menu
@@ -2597,6 +2715,185 @@ function moveContextualPanelsToFraming() {
       }
     });
   }
+}
+
+// Function to update contextual BOM based on current menu
+function updateContextualBOM(menuName) {
+  // Don't show BOM in deck-details menu
+  if (menuName === 'deck-details') return;
+  
+  // Check if we have BOM data
+  if (!appState.bom || appState.bom.length === 0) return;
+  
+  // Get the appropriate BOM section
+  const bomSectionId = `${menuName}BomSection`;
+  const bomSection = document.getElementById(bomSectionId);
+  if (!bomSection) return;
+  
+  // Get the table body
+  const tableBodyId = `${menuName}BomTableBody`;
+  const tableBody = document.getElementById(tableBodyId);
+  if (!tableBody) return;
+  
+  // Filter BOM data based on menu
+  let filteredBOM = [];
+  
+  switch(menuName) {
+    case 'framing':
+      // Filter for framing materials (joists, beams, posts, stairs, etc.)
+      filteredBOM = appState.bom.filter(item => {
+        const desc = (item.description || '').toLowerCase();
+        // Check for framing-related items
+        return desc.includes('joist') || desc.includes('rim') || desc.includes('ledger') ||
+               desc.includes('beam') || desc.includes('post') || desc.includes('footing') ||
+               desc.includes('stair') || desc.includes('stringer') || desc.includes('landing') ||
+               desc.includes('blocking') || desc.includes('nail') || desc.includes('screw') ||
+               desc.includes('hanger') || desc.includes('bracket') || desc.includes('hardware') ||
+               desc.includes('simpson') || desc.includes('lscz') || desc.includes('grk');
+      });
+      break;
+      
+    case 'decking':
+      // Filter for decking materials (deck boards, fasteners, etc.)
+      filteredBOM = appState.bom.filter(item => {
+        const desc = (item.description || '').toLowerCase();
+        return desc.includes('deck') || desc.includes('board') || 
+               desc.includes('flashing') || desc.includes('tape');
+      });
+      break;
+      
+    case 'railing':
+      // Filter for railing materials
+      filteredBOM = appState.bom.filter(item => {
+        const desc = (item.description || '').toLowerCase();
+        return desc.includes('rail') || desc.includes('baluster') || 
+               desc.includes('post cap') || desc.includes('spindle');
+      });
+      break;
+      
+    case 'summary':
+      // Show all materials
+      filteredBOM = appState.bom;
+      break;
+  }
+  
+  // If we have filtered items, show the BOM section
+  if (filteredBOM.length > 0) {
+    bomSection.classList.remove('hidden');
+    
+    // Use the existing populateBOMTable function with the specific table body
+    if (window.uiController && window.uiController.populateBOMTable) {
+      // Call with specific table body and section
+      window.uiController.populateBOMTable(filteredBOM, null, tableBody, bomSection);
+    }
+  }
+}
+
+// Make it globally available
+window.updateContextualBOM = updateContextualBOM;
+
+// Function to update project summary in Summary menu
+function updateProjectSummary() {
+  const specsList = document.getElementById('summarySpecsList');
+  const materialsList = document.getElementById('summaryMaterialsList');
+  const quickStats = document.getElementById('summaryQuickStats');
+  
+  if (!specsList || !materialsList || !quickStats) return;
+  
+  // Clear existing content
+  specsList.innerHTML = '';
+  materialsList.innerHTML = '';
+  
+  // Update specifications
+  if (appState.isShapeClosed && appState.deckDimensions) {
+    const inputs = uiController.getFormInputs();
+    
+    // Add deck specifications
+    addSummaryItem(specsList, 'Dimensions', 
+      `${appState.deckDimensions.widthFeet.toFixed(1)}' W x ${appState.deckDimensions.heightFeet.toFixed(1)}' D`);
+    addSummaryItem(specsList, 'Total Area', 
+      `${(appState.deckDimensions.widthFeet * appState.deckDimensions.heightFeet).toFixed(1)} sq ft`);
+    addSummaryItem(specsList, 'Deck Height', inputs.deckHeightFormatted || utils.formatFeetInches(inputs.deckHeight / 12));
+    
+    if (appState.structuralComponents && !appState.structuralComponents.error) {
+      addSummaryItem(specsList, 'Attachment', 
+        inputs.attachmentType === 'house_rim' ? 'Ledger to House Rim' :
+        inputs.attachmentType === 'concrete' ? 'To Concrete Foundation' :
+        inputs.attachmentType === 'floating' ? 'Floating Deck' : 'N/A');
+      addSummaryItem(specsList, 'Joist Spacing', `${inputs.joistSpacing}" OC`);
+    }
+    
+    // Update quick stats
+    quickStats.innerHTML = `
+      <div class="bg-white p-2 rounded border border-gray-200">
+        <div class="text-xs text-gray-500">Total Area</div>
+        <div class="font-semibold text-gray-800">${(appState.deckDimensions.widthFeet * appState.deckDimensions.heightFeet).toFixed(0)} sq ft</div>
+      </div>
+      <div class="bg-white p-2 rounded border border-gray-200">
+        <div class="text-xs text-gray-500">Deck Height</div>
+        <div class="font-semibold text-gray-800">${inputs.deckHeightFormatted || utils.formatFeetInches(inputs.deckHeight / 12)}</div>
+      </div>
+      <div class="bg-white p-2 rounded border border-gray-200">
+        <div class="text-xs text-gray-500">Stairs</div>
+        <div class="font-semibold text-gray-800">${appState.stairs ? appState.stairs.length : 0}</div>
+      </div>
+      <div class="bg-white p-2 rounded border border-gray-200">
+        <div class="text-xs text-gray-500">Wall Sides</div>
+        <div class="font-semibold text-gray-800">${appState.selectedWallIndices.length}</div>
+      </div>
+    `;
+  } else {
+    addSummaryItem(specsList, 'Status', 'Draw your deck to see specifications');
+    quickStats.innerHTML = `
+      <div class="bg-white p-2 rounded border border-gray-200">
+        <div class="text-xs text-gray-500">Total Area</div>
+        <div class="font-semibold text-gray-800">- sq ft</div>
+      </div>
+      <div class="bg-white p-2 rounded border border-gray-200">
+        <div class="text-xs text-gray-500">Deck Height</div>
+        <div class="font-semibold text-gray-800">-</div>
+      </div>
+    `;
+  }
+  
+  // Update material summary
+  if (appState.bom && appState.bom.length > 0) {
+    // Count items by category
+    let framingCount = 0, deckingCount = 0, railingCount = 0;
+    let totalItems = 0;
+    
+    appState.bom.forEach(item => {
+      const desc = (item.description || '').toLowerCase();
+      totalItems += item.qty || 0;
+      
+      if (desc.includes('deck') || desc.includes('board') || desc.includes('flashing')) {
+        deckingCount += item.qty || 0;
+      } else if (desc.includes('rail') || desc.includes('baluster')) {
+        railingCount += item.qty || 0;
+      } else {
+        framingCount += item.qty || 0;
+      }
+    });
+    
+    addSummaryItem(materialsList, 'Total Items', totalItems);
+    addSummaryItem(materialsList, 'Framing Items', framingCount);
+    if (deckingCount > 0) addSummaryItem(materialsList, 'Decking Items', deckingCount);
+    if (railingCount > 0) addSummaryItem(materialsList, 'Railing Items', railingCount);
+    addSummaryItem(materialsList, 'Unique SKUs', appState.bom.length);
+  } else {
+    addSummaryItem(materialsList, 'Total Items', '-');
+  }
+}
+
+// Helper function to add items to summary lists
+function addSummaryItem(container, label, value) {
+  const div = document.createElement('div');
+  div.className = 'flex justify-between py-1';
+  div.innerHTML = `
+    <dt class="text-gray-600">${label}:</dt>
+    <dd class="text-gray-800 font-medium">${value}</dd>
+  `;
+  container.appendChild(div);
 }
 
 // --- Stair Management Functions ---

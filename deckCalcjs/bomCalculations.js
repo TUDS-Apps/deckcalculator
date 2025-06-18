@@ -1182,6 +1182,8 @@ function processStairs(
   };
 }
 
+export { getCategoryForUsage };
+
 export function calculateBOM(structure, inputs, stairs, deckDimensions) {
   const bomItems = {};
   const parsedStockData = getParsedStockData();

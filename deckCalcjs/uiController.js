@@ -167,18 +167,19 @@ window.copyItemName = copyItemName;
 
 // --- UI Update Functions ---
 export function updateCanvasStatus(message) {
-  // Console logging for debugging purposes - canvas status panel removed
+  // Console logging for debugging purposes
   console.log("UI Status Update:", message);
   
-  // Also send to the main status system if available
-  if (window.showStatusMessage) {
+  // Send to the floating message system
+  if (window.showFloatingMessage) {
     // Determine message type based on content
     let type = 'info';
     if (message.includes('Error:') || message.includes('error')) type = 'error';
     else if (message.includes('✅') || message.includes('Success') || message.includes('successfully')) type = 'success';
+    else if (message.includes('⚠️') || message.includes('Warning') || message.includes('warning')) type = 'warning';
     else if (message.includes('🎯') || message.includes('MODE:')) type = 'info';
     
-    window.showStatusMessage(message, type, 3000); // Show for 3 seconds
+    window.showFloatingMessage(message, type);
   }
 }
 
@@ -219,19 +220,25 @@ export function getFormInputs() {
   return inputs;
 }
 
-export function populateBOMTable(bomData, errorMessage = null) {
-  bomTableBody.innerHTML = "";
+export function populateBOMTable(bomData, errorMessage = null, targetTableBody = null, targetBomSection = null) {
+  // Use provided elements or fall back to defaults
+  const tableBody = targetTableBody || window.bomTableBody || bomTableBody;
+  const section = targetBomSection || window.bomSection || bomSection;
+  
+  if (!tableBody) return;
+  
+  tableBody.innerHTML = "";
   let totalCost = 0;
 
   if (errorMessage) {
-    bomTableBody.innerHTML = `<tr><td colspan="5" class="text-center text-gray-500 py-4">${errorMessage}</td></tr>`;
-    bomSection.classList.remove("hidden");
+    tableBody.innerHTML = `<tr><td colspan="5" class="text-center text-gray-500 py-4">${errorMessage}</td></tr>`;
+    if (section) section.classList.remove("hidden");
     return;
   }
 
   if (!bomData || bomData.length === 0) {
     const msg = "No materials calculated. Generate a plan or add components.";
-    bomTableBody.innerHTML = `<tr><td colspan="5" class="text-center text-gray-500 py-4">${msg}</td></tr>`;
+    tableBody.innerHTML = `<tr><td colspan="5" class="text-center text-gray-500 py-4">${msg}</td></tr>`;
     currentBOMData = null;
     return;
   }
@@ -247,7 +254,7 @@ export function populateBOMTable(bomData, errorMessage = null) {
 
   // Display all items without categorization
   currentBOMData.forEach((item) => {
-      const row = bomTableBody.insertRow();
+      const row = tableBody.insertRow();
       const cellQty = row.insertCell();
       const cellItem = row.insertCell();
       const cellDesc = row.insertCell();
@@ -300,7 +307,7 @@ export function populateBOMTable(bomData, errorMessage = null) {
   });
 
   // We'll still create the total row but it'll be hidden by CSS
-  const totalRow = bomTableBody.insertRow();
+  const totalRow = tableBody.insertRow();
   totalRow.classList.add("font-semibold", "bg-gray-100");
   const labelCell = totalRow.insertCell();
   labelCell.colSpan = 4;
@@ -312,7 +319,7 @@ export function populateBOMTable(bomData, errorMessage = null) {
     currency: "CAD",
   });
   totalValCell.classList.add("price-col");
-  bomSection.classList.remove("hidden");
+  if (section) section.classList.remove("hidden");
 }
 
 export function populateSummaryCard(
