@@ -641,6 +641,103 @@ function createStairCard(stair, index) {
   return cardDiv;
 }
 
+// Create simplified stair card for Draw Shape menu (width editing focused)
+function createDrawShapeStairCard(stair, index) {
+  const cardDiv = document.createElement("div");
+  cardDiv.className = "border border-gray-200 rounded-lg bg-white overflow-hidden";
+  cardDiv.id = `drawShape-stair-card-${index}`;
+  
+  cardDiv.innerHTML = `
+    <!-- Card Header -->
+    <div class="p-4">
+      <div class="flex justify-between items-center">
+        <div class="flex-1">
+          <h5 class="font-medium text-gray-800">Stair Set ${index + 1}</h5>
+          
+          <!-- Width Display (normal state) -->
+          <div id="drawShape-width-display-${index}" class="text-sm text-gray-600">
+            ${stair.widthFt}' wide
+          </div>
+          
+          <!-- Width Editor (edit state - hidden by default) -->
+          <div id="drawShape-width-editor-${index}" class="hidden mt-2">
+            <label for="drawShape_stair_${index}_width" class="block text-xs font-medium text-gray-700 mb-1">Width</label>
+            <select id="drawShape_stair_${index}_width" class="form-select text-sm w-20" onchange="updateDrawShapeStairWidth(${index}, this.value)">
+              <option value="4" ${stair.widthFt === 4 ? 'selected' : ''}>4'</option>
+              <option value="5" ${stair.widthFt === 5 ? 'selected' : ''}>5'</option>
+              <option value="6" ${stair.widthFt === 6 ? 'selected' : ''}>6'</option>
+              <option value="7" ${stair.widthFt === 7 ? 'selected' : ''}>7'</option>
+              <option value="8" ${stair.widthFt === 8 ? 'selected' : ''}>8'</option>
+              <option value="9" ${stair.widthFt === 9 ? 'selected' : ''}>9'</option>
+              <option value="10" ${stair.widthFt === 10 ? 'selected' : ''}>10'</option>
+              <option value="11" ${stair.widthFt === 11 ? 'selected' : ''}>11'</option>
+              <option value="12" ${stair.widthFt === 12 ? 'selected' : ''}>12'</option>
+              <option value="13" ${stair.widthFt === 13 ? 'selected' : ''}>13'</option>
+              <option value="14" ${stair.widthFt === 14 ? 'selected' : ''}>14'</option>
+              <option value="15" ${stair.widthFt === 15 ? 'selected' : ''}>15'</option>
+              <option value="16" ${stair.widthFt === 16 ? 'selected' : ''}>16'</option>
+              <option value="17" ${stair.widthFt === 17 ? 'selected' : ''}>17'</option>
+              <option value="18" ${stair.widthFt === 18 ? 'selected' : ''}>18'</option>
+              <option value="19" ${stair.widthFt === 19 ? 'selected' : ''}>19'</option>
+              <option value="20" ${stair.widthFt === 20 ? 'selected' : ''}>20'</option>
+            </select>
+          </div>
+        </div>
+        
+        <div class="flex items-center space-x-2">
+          <button 
+            onclick="toggleDrawShapeStairEdit(${index})" 
+            class="p-2 text-gray-400 hover:text-blue-600 transition-colors"
+            title="Edit stair width"
+          >
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/>
+            </svg>
+          </button>
+          <button 
+            onclick="deleteDrawShapeStair(${index})" 
+            class="p-2 text-gray-400 hover:text-red-600 transition-colors"
+            title="Delete stair"
+          >
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
+            </svg>
+          </button>
+        </div>
+      </div>
+    </div>
+  `;
+  
+  return cardDiv;
+}
+
+// Update Draw Shape stair management display
+export function updateDrawShapeStairDisplay(stairs) {
+  const managementSection = document.getElementById('drawShape-stair-management');
+  const stairCount = document.getElementById('drawShape-stair-count');
+  const stairList = document.getElementById('drawShape-stair-list');
+  
+  if (!managementSection || !stairCount || !stairList) return;
+  
+  const count = stairs ? stairs.length : 0;
+  
+  if (count === 0) {
+    managementSection.classList.add('hidden');
+  } else {
+    managementSection.classList.remove('hidden');
+    stairCount.textContent = `${count} set${count > 1 ? 's' : ''}`;
+    
+    // Clear existing cards
+    stairList.innerHTML = '';
+    
+    // Add cards for each stair
+    stairs.forEach((stair, index) => {
+      const stairCard = createDrawShapeStairCard(stair, index);
+      stairList.appendChild(stairCard);
+    });
+  }
+}
+
 // Helper functions to get readable text for stair settings (made global for card updates)
 window.getStringerTypeText = function(stringerType) {
   const types = {
@@ -731,6 +828,83 @@ window.updateIndividualStairConfig = function(stairIndex, property, value) {
     }
     
     // Recalculate stair details with new configuration
+    if (window.stairCalculations && window.stairCalculations.calculateStairDetails) {
+      const inputs = getFormInputs();
+      const deckHeight = inputs.deckHeight || 0;
+      window.stairCalculations.calculateStairDetails(window.appState.stairs[stairIndex], deckHeight);
+    }
+    
+    // Update BOM and UI
+    if (window.recalculateAndUpdateBOM) {
+      window.recalculateAndUpdateBOM();
+    }
+    if (window.redrawApp) {
+      window.redrawApp();
+    }
+  }
+};
+
+// Global functions for Draw Shape stair management
+window.toggleDrawShapeStairEdit = function(stairIndex) {
+  const displayElement = document.getElementById(`drawShape-width-display-${stairIndex}`);
+  const editorElement = document.getElementById(`drawShape-width-editor-${stairIndex}`);
+  
+  if (displayElement && editorElement) {
+    const isEditing = editorElement.classList.contains('hidden');
+    
+    if (isEditing) {
+      // Show editor, hide display
+      displayElement.classList.add('hidden');
+      editorElement.classList.remove('hidden');
+    } else {
+      // Show display, hide editor
+      displayElement.classList.remove('hidden');
+      editorElement.classList.add('hidden');
+    }
+  }
+};
+
+window.deleteDrawShapeStair = function(stairIndex) {
+  if (confirm('Are you sure you want to delete this stair set?')) {
+    if (window.appState && window.appState.stairs && window.appState.stairs[stairIndex]) {
+      // Remove the stair from the array
+      window.appState.stairs.splice(stairIndex, 1);
+      
+      // Update Draw Shape stair display
+      if (window.uiController && window.uiController.updateDrawShapeStairDisplay) {
+        window.uiController.updateDrawShapeStairDisplay(window.appState.stairs);
+      }
+      
+      // Update Framing menu stair display
+      if (window.uiController && window.uiController.updateStairConfigDisplay) {
+        window.uiController.updateStairConfigDisplay(window.appState.stairs);
+      }
+      
+      // Redraw canvas
+      if (window.redrawApp) {
+        window.redrawApp();
+      }
+      
+      // Show confirmation message
+      if (window.uiController && window.uiController.updateCanvasStatus) {
+        window.uiController.updateCanvasStatus(`Stair set deleted. Remaining: ${window.appState.stairs.length}.`);
+      }
+    }
+  }
+};
+
+window.updateDrawShapeStairWidth = function(stairIndex, newWidth) {
+  if (window.appState && window.appState.stairs && window.appState.stairs[stairIndex]) {
+    const width = parseInt(newWidth);
+    window.appState.stairs[stairIndex].widthFt = width;
+    
+    // Update the display element to reflect the new width
+    const displayElement = document.getElementById(`drawShape-width-display-${stairIndex}`);
+    if (displayElement) {
+      displayElement.textContent = `${width}' wide`;
+    }
+    
+    // Recalculate stair details with new width
     if (window.stairCalculations && window.stairCalculations.calculateStairDetails) {
       const inputs = getFormInputs();
       const deckHeight = inputs.deckHeight || 0;

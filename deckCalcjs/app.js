@@ -568,25 +568,15 @@ function resetAppState() {
 const messageQueue = [];
 let isShowingMessage = false;
 
-function showFloatingMessage(message, type = 'info', duration = null) {
-  // Set default durations based on type
-  if (duration === null) {
-    const durations = {
-      info: 3000,
-      success: 3000,
-      warning: 5000,
-      error: 8000
-    };
-    duration = durations[type] || 3000;
-  }
-
-  // Add to queue
-  messageQueue.push({ message, type, duration });
+function showFloatingMessage(message, type = 'info') {
+  // For guidance messages, immediately replace current message instead of queuing
+  // Clear any existing queue and show immediately
+  messageQueue.length = 0; // Clear queue
+  messageQueue.push({ message, type });
   
-  // Process queue if not already showing a message
-  if (!isShowingMessage) {
-    processMessageQueue();
-  }
+  // Always process immediately (reset the showing flag)
+  isShowingMessage = false;
+  processMessageQueue();
 }
 
 function processMessageQueue() {
@@ -595,11 +585,14 @@ function processMessageQueue() {
     return;
   }
 
-  isShowingMessage = true;
-  const { message, type, duration } = messageQueue.shift();
+  const { message, type } = messageQueue.shift();
   
   const container = document.getElementById('toolbarMessageArea');
-  if (!container) return;
+  if (!container) {
+    console.error('toolbarMessageArea container not found!');
+    isShowingMessage = false;
+    return;
+  }
 
   // Clear any existing messages
   container.innerHTML = '';
@@ -619,7 +612,6 @@ function processMessageQueue() {
 
   messageEl.innerHTML = `
     <div class="flex items-center gap-2">
-      ${icons[type] || icons.info}
       <span class="flex-1">${message}</span>
       <button onclick="dismissToolbarMessage(this)" class="text-gray-400 hover:text-gray-600 ml-2">
         <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
@@ -631,24 +623,10 @@ function processMessageQueue() {
 
   // Add to container
   container.appendChild(messageEl);
-
-  // Auto dismiss after duration
-  const timeoutId = setTimeout(() => {
-    dismissToolbarMessage();
-  }, duration);
-
-  // Store timeout ID for potential early dismissal
-  messageEl.dataset.timeoutId = timeoutId;
 }
 
 function dismissMessage(messageEl) {
   if (!messageEl) return;
-  
-  // Clear timeout if exists
-  const timeoutId = messageEl.dataset.timeoutId;
-  if (timeoutId) {
-    clearTimeout(parseInt(timeoutId));
-  }
 
   // Add fade out animation
   messageEl.classList.add('fade-out');
@@ -665,18 +643,16 @@ function dismissToolbarMessage(button = null) {
   const container = document.getElementById('toolbarMessageArea');
   if (!container) return;
   
-  // Clear any timeouts
+  // Find the message element to apply fade animation
   const messageEl = container.querySelector('.toolbar-message');
-  if (messageEl && messageEl.dataset.timeoutId) {
-    clearTimeout(parseInt(messageEl.dataset.timeoutId));
+  if (messageEl) {
+    dismissMessage(messageEl);
+  } else {
+    // Fallback if no message element found
+    container.classList.add('hidden');
+    container.innerHTML = '';
+    processMessageQueue();
   }
-  
-  // Hide container and clear content
-  container.classList.add('hidden');
-  container.innerHTML = '';
-  
-  // Process next message in queue
-  processMessageQueue();
 }
 
 // Make globally available
@@ -705,16 +681,39 @@ function clearGuidanceMessage() {
 
 // Initialize guidance messaging based on app state - Simplified to 4 key messages
 function updateGuidanceForCurrentState() {
-  if (!appState.points || appState.points.length === 0) {
-    updateGuidanceMessage('Click anywhere on the canvas to start drawing', 'info');
-  } else if (!appState.isShapeClosed) {
-    updateGuidanceMessage('Click on the initial point to close your deck shape', 'info');
-  } else if (appState.wallSelectionMode && appState.selectedWallIndices.length === 0) {
-    updateGuidanceMessage('Click on wall edges that attach to your house', 'warning');
-  } else if (appState.selectedWallIndices.length > 0) {
-    updateGuidanceMessage('Add stairs if needed, or select next section to continue', 'success');
-  } else {
-    clearGuidanceMessage();
+  try {
+    // Get current menu to provide context-specific guidance
+    const currentMenu = getCurrentMenuName();
+    
+    if (!appState.points || appState.points.length === 0) {
+      updateGuidanceMessage('Click anywhere on the canvas to start drawing', 'info');
+    } else if (!appState.isShapeClosed) {
+      updateGuidanceMessage('Click on the initial point to close your deck shape', 'info');
+    } else if (currentMenu === 'framing') {
+      updateGuidanceMessage('Select settings and click Generate Framing', 'info');
+    } else if (appState.wallSelectionMode && appState.selectedWallIndices.length === 0) {
+      updateGuidanceMessage('Click on wall edges that attach to your house', 'warning');
+    } else if (appState.selectedWallIndices.length > 0) {
+      updateGuidanceMessage('Add stairs if needed, or select next section to continue', 'success');
+    } else {
+      clearGuidanceMessage();
+    }
+  } catch (error) {
+    console.error('Error in updateGuidanceForCurrentState:', error);
+  }
+}
+
+// Helper function to get current menu name
+function getCurrentMenuName() {
+  try {
+    const activeIcon = document.querySelector('.icon-menu-item.active');
+    if (activeIcon) {
+      return activeIcon.getAttribute('data-menu');
+    }
+    return null;
+  } catch (error) {
+    console.error('Error getting current menu name:', error);
+    return null;
   }
 }
 
@@ -1081,7 +1080,7 @@ function handleFinishStairs() {
   updateGuidanceForCurrentState();
   
   // Restore main button appearance and keep stair management visible
-  const stairSection = document.getElementById('stairManagementSection');
+  const stairSection = document.getElementById('drawShape-stair-management');
   const mainBtn = document.getElementById('mainStairsBtn');
   if (stairSection && mainBtn) {
     stairSection.classList.remove('hidden');
@@ -1265,6 +1264,7 @@ function handleCanvasClick(viewMouseX, viewMouseY) {
             ? `${appState.selectedWallIndices.length} wall(s) selected for ledger attachment.`
             : "Click wall edges to select for ledger attachment."
         );
+        updateGuidanceForCurrentState();
       }
       
       // Update decomposition if we have at least one wall selected
@@ -1441,6 +1441,7 @@ function handleCanvasClick(viewMouseX, viewMouseY) {
         appState.wallSelectionMode = true;
         
         updateContextualPanel();
+        updateGuidanceForCurrentState();
       } else {
         // Simply add the point - we'll let keyboard input activate dimension entry if needed
         appState.points.push(snappedModelPos);
@@ -1559,7 +1560,7 @@ function handleStairPlacementClick(modelMouseX, modelMouseY) {
       // Don't exit placement mode yet - let user click "Add More" or "Finish"
       
       // Keep the stair management section visible
-      const stairSection = document.getElementById('stairManagementSection');
+      const stairSection = document.getElementById('drawShape-stair-management');
       const mainBtn = document.getElementById('mainStairsBtn');
       if (stairSection && mainBtn) {
         stairSection.classList.remove('hidden');
@@ -2169,7 +2170,7 @@ function resetAllFormInputs() {
   if (modifyFasteners) modifyFasteners.value = "screws_3in";
   
   // Reset any other UI state
-  const stairSection = document.getElementById('stairManagementSection');
+  const stairSection = document.getElementById('drawShape-stair-management');
   const mainBtn = document.getElementById('mainStairsBtn');
   if (stairSection) stairSection.classList.add('hidden');
   if (mainBtn) mainBtn.classList.remove('active');
@@ -2405,7 +2406,7 @@ window.regeneratePlan = function() {
 };
 
 window.handleMainStairsButton = function() {
-  const stairSection = document.getElementById('stairManagementSection');
+  const stairSection = document.getElementById('drawShape-stair-management');
   const mainBtn = document.getElementById('mainStairsBtn');
   
   if (appState.stairPlacementMode) {
@@ -2438,7 +2439,7 @@ window.handleMainStairsButton = function() {
 };
 
 window.toggleStairsManagement = function() {
-  const stairSection = document.getElementById('stairManagementSection');
+  const stairSection = document.getElementById('drawShape-stair-management');
   const mainBtn = document.getElementById('mainStairsBtn');
   
   if (stairSection && mainBtn) {
@@ -2899,8 +2900,8 @@ function addSummaryItem(container, label, value) {
 // --- Stair Management Functions ---
 
 function updateStairList() {
-  const stairList = document.getElementById('stairList');
-  const stairCount = document.getElementById('stairCount');
+  const stairList = document.getElementById('drawShape-stair-list');
+  const stairCount = document.getElementById('drawShape-stair-count');
   
   if (!stairList || !stairCount) return;
   

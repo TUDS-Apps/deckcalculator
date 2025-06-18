@@ -206,6 +206,18 @@
                 💡 <strong>Tip:</strong> Set width above, then click any deck edge to place stairs. After placing, you can drag stairs along the edge to reposition them. Click "Finish Stairs" when done.
               </p>
             </div>
+            
+            <!-- Stair Management Section (shown when stairs exist) -->
+            <div id="drawShape-stair-management" class="hidden mt-6">
+              <div class="flex justify-between items-center mb-3">
+                <h3 class="text-lg font-semibold text-gray-800">Placed Stairs</h3>
+                <span id="drawShape-stair-count" class="text-sm text-gray-600">0 sets</span>
+              </div>
+              
+              <div id="drawShape-stair-list" class="space-y-3">
+                <!-- Stair cards will be dynamically populated here -->
+              </div>
+            </div>
           </div>
           
           <!-- Framing Menu Content -->
@@ -367,18 +379,7 @@
 
             <!-- Wall Selection Mode Section -->
             <div id="wall-selection-panel" class="panel-section hidden">
-              <h2 class="panel-title">Select Wall Segments for Ledger</h2>
               <div class="panel-content">
-                <div class="instruction-box">
-                  <p class="text-sm text-gray-700 mb-3">
-                    <strong>Click the wall edge(s) that will be attached to your house or structure.</strong> 
-                    You can select multiple parallel wall segments.
-                  </p>
-                  <p class="text-xs text-blue-600">
-                    💡 All selected walls must be parallel. Click a selected wall to deselect it.
-                  </p>
-                </div>
-                
                 <div class="primary-action">
                   <button id="generatePlanBtn" class="btn btn-primary btn-full-width btn-large">
                     Generate Framing
@@ -402,18 +403,6 @@
                   </button>
                 </div>
                 
-                <!-- Stair Management Section (hidden by default, moved to top) -->
-                <div id="stairManagementSection" class="stair-management-section hidden">
-                  <div class="flex justify-between items-center mb-3">
-                    <h3 class="text-lg font-semibold text-[#333333]">Stairs</h3>
-                    <span id="stairCount" class="text-sm text-gray-600">0 sets</span>
-                  </div>
-                  
-                  <div id="stairList" class="stair-list space-y-2 mb-4">
-                    <!-- Stairs will be dynamically populated here -->
-                  </div>
-                  
-                </div>
                 
                 <!-- Project summary prominently displayed -->
                 <div id="summarySection">
@@ -781,121 +770,14 @@
         <div class="flex-1 min-w-0 flex flex-col bg-white p-4 overflow-y-auto">
           <!-- Canvas content from main-content-panel -->
           
-          <!-- Toolbar -->
+          <!-- Message Center - Full Width Above Canvas -->
           <div class="mb-2">
-            <div class="flex justify-end items-center canvas-toolbar relative py-2">
-              <!-- Floating Message Area (overlays on top of buttons) -->
-              <div id="toolbarMessageArea" class="hidden absolute top-0 left-0 right-0 z-50">
-                <!-- Messages will be inserted here -->
-              </div>
-              
-              <!-- Tool buttons -->
-              <div class="flex items-center space-x-2">
-              <button
-                type="button"
-                id="zoomInBtn"
-                class="btn btn-secondary text-xs px-3 py-2 leading-tight"
-                title="Zoom In"
-              >
-                <svg
-                  xmlns="http://www.w3.org/2000/svg"
-                  viewBox="0 0 20 20"
-                  fill="currentColor"
-                  class="w-5 h-5"
-                >
-                  <path
-                    d="M10.75 4.75a.75.75 0 0 0-1.5 0v4.5h-4.5a.75.75 0 0 0 0 1.5h4.5v4.5a.75.75 0 0 0 1.5 0v-4.5h4.5a.75.75 0 0 0 0-1.5h-4.5v-4.5Z"
-                  />
-                </svg>
-              </button>
-              <button
-                type="button"
-                id="zoomOutBtn"
-                class="btn btn-secondary text-xs px-3 py-2 leading-tight"
-                title="Zoom Out"
-              >
-                <svg
-                  xmlns="http://www.w3.org/2000/svg"
-                  viewBox="0 0 20 20"
-                  fill="currentColor"
-                  class="w-5 h-5"
-                >
-                  <path
-                    fill-rule="evenodd"
-                    d="M4 10a.75.75 0 0 1 .75-.75h10.5a.75.75 0 0 1 0 1.5H4.75A.75.75 0 0 1 4 10Z"
-                    clip-rule="evenodd"
-                  />
-                </svg>
-              </button>
-              <button
-                type="button"
-                id="centerFitBtn"
-                class="btn btn-secondary text-xs px-3 py-2 leading-tight"
-                title="Center and Fit Drawing"
-              >
-                <svg
-                  xmlns="http://www.w3.org/2000/svg"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  stroke-width="2"
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
-                  class="w-5 h-5"
-                >
-                  <path d="M2 3h6v6H2z"/>
-                  <path d="M16 3h6v6h-6z"/>
-                  <path d="M16 15h6v6h-6z"/>
-                  <path d="M2 15h6v6H2z"/>
-                </svg>
-              </button>
-              <button
-                id="blueprintToggleBtn"
-                class="btn btn-secondary text-xs px-3 py-2 leading-tight"
-                title="Toggle Blueprint View"
-              >
-                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-5 h-5">
-                  <path d="M10 12.5a2.5 2.5 0 100-5 2.5 2.5 0 000 5z" />
-                  <path fill-rule="evenodd" d="M.664 10.59a1.651 1.651 0 010-1.186A10.004 10.004 0 0110 3c4.257 0 7.893 2.66 9.336 6.41.147.381.146.804 0 1.186A10.004 10.004 0 0110 17c-4.257 0-7.893-2.66-9.336-6.41zM14 10a4 4 0 11-8 0 4 4 0 018 0z" clip-rule="evenodd" />
-                </svg>
-              </button>
-              <button
-                id="toggleDecompositionBtn"
-                class="btn btn-secondary text-xs px-3 py-2 leading-tight"
-                title="Toggle Decomposition View"
-              >
-                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-5 h-5">
-                  <path fill-rule="evenodd" d="M3 4.25A2.25 2.25 0 015.25 2h9.5A2.25 2.25 0 0117 4.25v2.5A2.25 2.25 0 0114.75 9h-9.5A2.25 2.25 0 013 6.75v-2.5zm2.25-.75a.75.75 0 00-.75.75v2.5c0 .414.336.75.75.75h9.5a.75.75 0 00.75-.75v-2.5a.75.75 0 00-.75-.75h-9.5z" clip-rule="evenodd" />
-                  <path fill-rule="evenodd" d="M3 13.25A2.25 2.25 0 015.25 11h9.5A2.25 2.25 0 0117 13.25v2.5A2.25 2.25 0 0114.75 18h-9.5A2.25 2.25 0 013 15.75v-2.5zm2.25-.75a.75.75 0 00-.75.75v2.5c0 .414.336.75.75.75h9.5a.75.75 0 00.75-.75v-2.5a.75.75 0 00-.75-.75h-9.5z" clip-rule="evenodd" />
-                </svg>
-              </button>
-              
-              <!-- Legend Button with Hover -->
-              <div class="relative">
-                <button
-                  id="legendBtn"
-                  class="btn btn-secondary text-xs px-3 py-2 leading-tight"
-                  title="Show Legend"
-                >
-                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-5 h-5">
-                    <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd" />
-                  </svg>
-                </button>
-              </div>
-              
-              <button
-                id="clearCanvasBtn"
-                class="btn btn-secondary text-xs px-3 py-2 leading-tight"
-                title="Clear Canvas"
-              >
-                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-5 h-5">
-                  <path fill-rule="evenodd" d="M8.75 1A2.75 2.75 0 006 3.75v.443c-.795.077-1.584.176-2.365.298a.75.75 0 10.23 1.482l.149-.022.841 10.518A2.75 2.75 0 007.596 19h4.807a2.75 2.75 0 002.742-2.53l.841-10.52.149.023a.75.75 0 00.23-1.482A41.03 41.03 0 0014 4.193V3.75A2.75 2.75 0 0011.25 1h-2.5zM10 4c.84 0 1.673.025 2.5.075V3.75c0-.69-.56-1.25-1.25-1.25h-2.5c-.69 0-1.25.56-1.25 1.25v.325C8.327 4.025 9.16 4 10 4zM8.58 7.72a.75.75 0 00-1.5.06l.3 7.5a.75.75 0 101.5-.06l-.3-7.5zm4.34.06a.75.75 0 10-1.5-.06l-.3 7.5a.75.75 0 101.5.06l.3-7.5z" clip-rule="evenodd" />
-                </svg>
-              </button>
-              </div>
+            <div id="toolbarMessageArea" class="hidden w-full py-1">
+              <!-- Messages will be inserted here -->
             </div>
           </div>
           
+          <!-- Canvas Area - Full Width Below Messages -->
           <div class="info-card flex-1">
             <div id="canvasContainerWrapper" class="relative">
               <div id="dimensionInputContainer" class="flex items-center mb-2 hidden">
@@ -910,11 +792,159 @@
               <div id="canvasContainer" class="relative">
                 <canvas id="deckCanvas"></canvas>
                 
+                <!-- Floating Toolbar Buttons -->
+                <div class="absolute top-0 right-0 flex items-center space-x-1.5 z-10 floating-toolbar p-1">
+                  <button
+                    type="button"
+                    id="zoomInBtn"
+                    class="btn btn-secondary text-xs px-2.5 py-1.5 leading-tight bg-white shadow-md hover:shadow-lg"
+                    title="Zoom In"
+                  >
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      viewBox="0 0 20 20"
+                      fill="currentColor"
+                      class="w-4 h-4"
+                    >
+                      <path
+                        d="M10.75 4.75a.75.75 0 0 0-1.5 0v4.5h-4.5a.75.75 0 0 0 0 1.5h4.5v4.5a.75.75 0 0 0 1.5 0v-4.5h4.5a.75.75 0 0 0 0-1.5h-4.5v-4.5Z"
+                      />
+                    </svg>
+                  </button>
+                  <button
+                    type="button"
+                    id="zoomOutBtn"
+                    class="btn btn-secondary text-xs px-2.5 py-1.5 leading-tight bg-white shadow-md hover:shadow-lg"
+                    title="Zoom Out"
+                  >
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      viewBox="0 0 20 20"
+                      fill="currentColor"
+                      class="w-4 h-4"
+                    >
+                      <path
+                        d="M6.75 9.25a.75.75 0 0 0 0 1.5h6.5a.75.75 0 0 0 0-1.5h-6.5Z"
+                      />
+                    </svg>
+                  </button>
+                  <button
+                    type="button"
+                    id="centerFitBtn"
+                    class="btn btn-secondary text-xs px-2.5 py-1.5 leading-tight bg-white shadow-md hover:shadow-lg"
+                    title="Center & Fit Drawing"
+                  >
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      stroke-width="2"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                      class="w-4 h-4"
+                    >
+                      <circle cx="12" cy="12" r="10"/>
+                      <line x1="22" y1="12" x2="18" y2="12"/>
+                      <line x1="6" y1="12" x2="2" y2="12"/>
+                      <line x1="12" y1="6" x2="12" y2="2"/>
+                      <line x1="12" y1="22" x2="12" y2="18"/>
+                    </svg>
+                  </button>
+                  <button
+                    type="button"
+                    id="blueprintToggleBtn"
+                    class="btn btn-secondary text-xs px-2.5 py-1.5 leading-tight bg-white shadow-md hover:shadow-lg"
+                    title="Toggle Blueprint Mode"
+                  >
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      stroke-width="2"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                      class="w-4 h-4"
+                    >
+                      <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                      <polyline points="14,2 14,8 20,8"/>
+                      <line x1="16" y1="13" x2="8" y2="13"/>
+                      <line x1="16" y1="17" x2="8" y2="17"/>
+                      <polyline points="10,9 9,9 8,9"/>
+                    </svg>
+                  </button>
+                  <button
+                    type="button"
+                    id="toggleDecompositionBtn"
+                    class="btn btn-secondary text-xs px-2.5 py-1.5 leading-tight bg-white shadow-md hover:shadow-lg"
+                    title="Toggle Sections View"
+                  >
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      stroke-width="2"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                      class="w-4 h-4"
+                    >
+                      <rect x="3" y="3" width="7" height="7"/>
+                      <rect x="14" y="3" width="7" height="7"/>
+                      <rect x="14" y="14" width="7" height="7"/>
+                      <rect x="3" y="14" width="7" height="7"/>
+                    </svg>
+                  </button>
+                  <div class="relative">
+                    <button
+                      type="button"
+                      id="legendBtn"
+                      class="btn btn-secondary text-xs px-2.5 py-1.5 leading-tight bg-white shadow-md hover:shadow-lg"
+                      title="Show Legend"
+                    >
+                      <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        viewBox="0 0 20 20"
+                        fill="currentColor"
+                        class="w-4 h-4"
+                      >
+                        <path
+                          fill-rule="evenodd"
+                          d="M18 10a8 8 0 1 1-16 0 8 8 0 0 1 16 0ZM8.94 6.94a.75.75 0 1 1-1.061-1.061 3 3 0 1 1 2.871 5.026v.345a.75.75 0 0 1-1.5 0v-.5c0-.72.57-1.172 1.081-1.287A1.5 1.5 0 1 0 8.94 6.94ZM10 15a1 1 0 1 0 0-2 1 1 0 0 0 0 2Z"
+                          clip-rule="evenodd"
+                        />
+                      </svg>
+                    </button>
+                  </div>
+                  
+                  <!-- Clear -->
+                  <button
+                    type="button"
+                    id="clearCanvasBtn"
+                    class="btn btn-secondary text-xs px-2.5 py-1.5 leading-tight bg-white shadow-md hover:shadow-lg"
+                    title="Clear Drawing"
+                  >
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      viewBox="0 0 20 20"
+                      fill="currentColor"
+                      class="w-4 h-4"
+                    >
+                      <path
+                        fill-rule="evenodd"
+                        d="M8.75 1A2.75 2.75 0 0 0 6 3.75v.443c-.795.077-1.584.176-2.365.298a.75.75 0 1 0 .23 1.482l.149-.022.841 10.518A2.75 2.75 0 0 0 7.596 19h4.807a2.75 2.75 0 0 0 2.742-2.53l.841-10.52.149.023a.75.75 0 0 0 .23-1.482A41.03 41.03 0 0 0 14 4.193V3.75A2.75 2.75 0 0 0 11.25 1h-2.5ZM10 4c.84 0 1.673.025 2.5.075V3.75c0-.69-.56-1.25-1.25-1.25h-2.5c-.69 0-1.25.56-1.25 1.25v.325C8.327 4.025 9.16 4 10 4ZM8.58 7.72a.75.75 0 0 0-1.5.06l.3 7.5a.75.75 0 1 0 1.5-.06l-.3-7.5Zm4.34.06a.75.75 0 1 0-1.5-.06l-.3 7.5a.75.75 0 1 0 1.5.06l.3-7.5Z"
+                        clip-rule="evenodd"
+                      />
+                    </svg>
+                  </button>
+                </div>
+                
               </div>
               
             </div>
-          </div>
-
+          
+          <!-- BOM Sections - Below Canvas -->
           <!-- Framing BOM Section -->
           <div id="framingBomSection" class="info-card hidden bom-section" data-menu="framing">
             <div class="flex justify-between items-center mb-4">
@@ -1155,7 +1185,9 @@
             </div>
           </div>
         </div>
-        <!-- End Canvas Area -->
+        <!-- Close Canvas Area flex-col container -->
+      </div>
+      <!-- End Canvas Area -->
       </div>
       <!-- End 3-Column Layout -->
     </div>
