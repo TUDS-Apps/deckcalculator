@@ -520,6 +520,71 @@
               </div>
             </div>
           </div>
+
+          <!-- Individual Stair Configuration Section -->
+          <div id="individual-stair-config-panel" class="panel-section hidden">
+            <h2 class="panel-title">Configure Individual Stair</h2>
+            <div class="panel-content">
+              <div class="instruction-box">
+                <p id="stair-config-title">Configure Stairs #1</p>
+                <p class="text-sm text-gray-600">Update the settings below and click "Save Changes" to apply.</p>
+              </div>
+
+              <div class="stair-specs">
+                <form id="individualStairForm" class="space-y-4">
+                  <div>
+                    <label for="editStairWidth" class="form-label">Width</label>
+                    <select id="editStairWidth" name="editStairWidth" class="form-select">
+                      <option value="4">4' 0"</option>
+                      <option value="5">5' 0"</option>
+                      <option value="6">6' 0"</option>
+                      <option value="7">7' 0"</option>
+                      <option value="8">8' 0"</option>
+                      <option value="9">9' 0"</option>
+                      <option value="10">10' 0"</option>
+                      <option value="11">11' 0"</option>
+                      <option value="12">12' 0"</option>
+                      <option value="13">13' 0"</option>
+                      <option value="14">14' 0"</option>
+                      <option value="15">15' 0"</option>
+                      <option value="16">16' 0"</option>
+                      <option value="17">17' 0"</option>
+                      <option value="18">18' 0"</option>
+                      <option value="19">19' 0"</option>
+                      <option value="20">20' 0"</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label for="editStringerType" class="form-label">Stringer Type</label>
+                    <select id="editStringerType" name="editStringerType" class="form-select">
+                      <option value="pylex_steel">Pylex Steel (Pre-fab)</option>
+                      <option value="lvl_wood">LVL Wood (Pre-fab)</option>
+                      <option value="custom_2x12">Custom Cut 2x12</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label for="editLandingType" class="form-label">Landing Type</label>
+                    <select id="editLandingType" name="editLandingType" class="form-select">
+                      <option value="existing">Existing Surface (Ground/Patio)</option>
+                      <option value="slabs_16x16">16"x16" Slabs</option>
+                      <option value="concrete_pad">Poured Concrete Pad</option>
+                    </select>
+                  </div>
+                </form>
+              </div>
+              
+              <div class="stair-actions">
+                <div class="flex gap-2 mb-3">
+                  <button type="button" id="saveStairChangesBtn" class="btn btn-primary flex-1">
+                    Save Changes
+                  </button>
+                  <button type="button" id="cancelStairChangesBtn" class="btn btn-secondary flex-1">
+                    Cancel
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
           
           <!-- Decking Menu Content -->
           <div id="decking-menu" class="menu-content hidden">

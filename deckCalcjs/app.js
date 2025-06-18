@@ -35,6 +35,7 @@ const appState = {
   deckDimensions: null,
   structuralComponents: null,
   stairs: [],
+  editingStairIndex: -1, // Index of stair currently being edited
   bom: [],
   isPrinting: false,
 
@@ -62,7 +63,7 @@ const appState = {
   isBlueprintMode: false, // Toggle between simple lines and to-scale components
   
   // Contextual panel state
-  currentPanelMode: 'drawing' // 'drawing', 'wall-selection', 'specification', 'plan-generated', 'stair-config'
+  currentPanelMode: 'drawing' // 'drawing', 'wall-selection', 'specification', 'plan-generated', 'stair-config', 'individual-stair-config'
 };
 
 // Make appState available globally for section tab debugging
@@ -137,6 +138,9 @@ function initializeViewport() {
 
 // --- Contextual Panel Management Functions ---
 function getCurrentPanelMode() {
+  if (appState.editingStairIndex >= 0) {
+    return 'individual-stair-config';
+  }
   if (appState.stairPlacementMode) {
     return 'stair-config';
   }
@@ -166,7 +170,8 @@ function showContextualPanel(mode) {
     'drawing-mode-panel',
     'wall-selection-panel', 
     'plan-generated-panel',
-    'stair-config-panel'
+    'stair-config-panel',
+    'individual-stair-config-panel'
   ];
   
   panels.forEach(panelId => {
@@ -181,7 +186,8 @@ function showContextualPanel(mode) {
   const targetPanelId = mode === 'drawing' ? 'drawing-mode-panel' : 
                         mode === 'wall-selection' ? 'wall-selection-panel' :
                         mode === 'plan-generated' ? 'plan-generated-panel' :
-                        mode === 'stair-config' ? 'stair-config-panel' : '';
+                        mode === 'stair-config' ? 'stair-config-panel' :
+                        mode === 'individual-stair-config' ? 'individual-stair-config-panel' : '';
   const targetPanel = document.getElementById(targetPanelId);
   
   if (targetPanel) {
@@ -845,13 +851,9 @@ function handleGeneratePlan() {
 }
 
 function handleAddStairs() {
-  if (
-    !appState.isShapeClosed ||
-    !appState.structuralComponents ||
-    appState.structuralComponents.error
-  ) {
+  if (!appState.isShapeClosed) {
     uiController.updateCanvasStatus(
-      "Error: Please generate a valid deck plan first."
+      "Error: Please draw and close a deck shape first."
     );
     return;
   }
@@ -860,7 +862,7 @@ function handleAddStairs() {
   uiController.toggleStairsInputSection(true);
   updateContextualPanel();
   uiController.updateCanvasStatus(
-    "Configure stair details, then click a deck edge (rim joist) to place stairs."
+    "Configure stair details, then click a deck edge to place stairs."
   );
   redrawApp();
 }
@@ -1254,21 +1256,54 @@ function handleCanvasClick(viewMouseX, viewMouseY) {
   redrawApp();
 }
 
+// Helper function to convert deck outline points to edge format for stair placement
+function convertDeckOutlineToEdges(points) {
+  if (!points || points.length < 3) return [];
+  
+  const edges = [];
+  for (let i = 0; i < points.length; i++) {
+    const p1 = points[i];
+    const p2 = points[(i + 1) % points.length];
+    edges.push({
+      p1: { x: p1.x, y: p1.y },
+      p2: { x: p2.x, y: p2.y },
+      fullEdgeP1: { x: p1.x, y: p1.y },
+      fullEdgeP2: { x: p2.x, y: p2.y }
+    });
+  }
+  return edges;
+}
+
 function handleStairPlacementClick(modelMouseX, modelMouseY) {
-  if (
-    !appState.structuralComponents ||
-    !appState.structuralComponents.rimJoists
-  )
-    return;
-  const clickedRimIndex = canvasLogic.findClickedRimJoistIndex(
-    modelMouseX,
-    modelMouseY,
-    appState.structuralComponents.rimJoists,
-    appState.structuralComponents.ledger,
-    appState.viewportScale
-  );
-  if (clickedRimIndex !== -1) {
-    const clickedRim = appState.structuralComponents.rimJoists[clickedRimIndex];
+  // Try rim joists first if framing is available, otherwise use deck outline
+  let clickedIndex = -1;
+  let targetEdges = null;
+  
+  if (appState.structuralComponents && appState.structuralComponents.rimJoists) {
+    // Use rim joists if framing plan exists
+    clickedIndex = canvasLogic.findClickedRimJoistIndex(
+      modelMouseX,
+      modelMouseY,
+      appState.structuralComponents.rimJoists,
+      appState.structuralComponents.ledger,
+      appState.viewportScale
+    );
+    targetEdges = appState.structuralComponents.rimJoists;
+  } else {
+    // Use deck outline edges if no framing plan
+    clickedIndex = canvasLogic.findClickedWallIndex(
+      modelMouseX,
+      modelMouseY,
+      appState.points,
+      appState.viewportScale
+    );
+    // Convert deck outline to edge format for stair placement
+    if (clickedIndex !== -1) {
+      targetEdges = convertDeckOutlineToEdges(appState.points);
+    }
+  }
+  if (clickedIndex !== -1 && targetEdges) {
+    const clickedEdge = targetEdges[clickedIndex];
     const inputs = uiController.getFormInputs();
     const deckHeight = inputs.deckHeight;
     if (typeof deckHeight !== "number" || deckHeight <= 0) {
@@ -1278,16 +1313,16 @@ function handleStairPlacementClick(modelMouseX, modelMouseY) {
       return;
     }
     const newStair = {
-      rimJoistIndex: clickedRimIndex,
-      rimP1: { ...clickedRim.p1 },
-      rimP2: { ...clickedRim.p2 },
-      fullEdgeP1: { ...(clickedRim.fullEdgeP1 || clickedRim.p1) },
-      fullEdgeP2: { ...(clickedRim.fullEdgeP2 || clickedRim.p2) },
+      edgeIndex: clickedIndex,
+      rimP1: { ...clickedEdge.p1 },
+      rimP2: { ...clickedEdge.p2 },
+      fullEdgeP1: { ...(clickedEdge.fullEdgeP1 || clickedEdge.p1) },
+      fullEdgeP2: { ...(clickedEdge.fullEdgeP2 || clickedEdge.p2) },
       widthFt: inputs.stairWidth,
       stringerType: inputs.stringerType,
       landingType: inputs.landingType,
-      positionX: (clickedRim.p1.x + clickedRim.p2.x) / 2,
-      positionY: (clickedRim.p1.y + clickedRim.p2.y) / 2,
+      positionX: (clickedEdge.p1.x + clickedEdge.p2.x) / 2,
+      positionY: (clickedEdge.p1.y + clickedEdge.p2.y) / 2,
     };
     stairCalculations.calculateStairDetails(newStair, deckHeight);
     if (newStair.calculationError) {
@@ -2028,6 +2063,12 @@ document.addEventListener("DOMContentLoaded", () => {
   // Add event listener for finish stairs button
   const finishStairsBtn = document.getElementById("finishStairsBtn");
   if (finishStairsBtn) finishStairsBtn.addEventListener("click", handleFinishStairs);
+  
+  // Add event listeners for individual stair configuration buttons
+  const saveStairChangesBtn = document.getElementById("saveStairChangesBtn");
+  const cancelStairChangesBtn = document.getElementById("cancelStairChangesBtn");
+  if (saveStairChangesBtn) saveStairChangesBtn.addEventListener("click", saveStairChanges);
+  if (cancelStairChangesBtn) cancelStairChangesBtn.addEventListener("click", hideIndividualStairConfigPanel);
   if (clearCanvasBtn)
     clearCanvasBtn.addEventListener("click", handleClearCanvas);
   if (printBomBtn) printBomBtn.addEventListener("click", handlePrintPage);
@@ -2526,28 +2567,78 @@ function selectStair(index) {
 function editStair(index) {
   if (index < 0 || index >= appState.stairs.length) return;
   
-  // For now, we'll implement a simple prompt-based editor
-  // In a more advanced implementation, you could create a modal or inline editor
   const stair = appState.stairs[index];
+  appState.editingStairIndex = index; // Store the index being edited
   
-  const newWidth = prompt(`Edit stair width (current: ${stair.widthFt}'):`, stair.widthFt);
-  if (newWidth && !isNaN(newWidth) && newWidth > 0) {
-    stair.widthFt = parseFloat(newWidth);
-    
-    // Recalculate stair details
-    const inputs = uiController.getFormInputs();
-    const deckHeight = inputs.deckHeight;
-    if (typeof deckHeight === "number" && deckHeight > 0) {
-      stairCalculations.calculateStairDetails(stair, deckHeight);
-    }
-    
-    // Update UI and recalculate BOM
-    updateStairList();
-    recalculateAndUpdateBOM();
-    redrawApp();
-    
-    uiController.updateCanvasStatus(`Stair ${index + 1} updated to ${newWidth}' wide.`);
+  // Show the individual stair configuration panel
+  showIndividualStairConfigPanel(stair, index);
+}
+
+function showIndividualStairConfigPanel(stair, index) {
+  const panel = document.getElementById('individual-stair-config-panel');
+  const configTitle = document.getElementById('stair-config-title');
+  const widthSelect = document.getElementById('editStairWidth');
+  const stringerSelect = document.getElementById('editStringerType');
+  const landingSelect = document.getElementById('editLandingType');
+  
+  if (!panel || !configTitle || !widthSelect || !stringerSelect || !landingSelect) return;
+  
+  // Update panel title
+  configTitle.textContent = `Configure Stairs #${index + 1}`;
+  
+  // Set current values, providing defaults for any missing properties
+  widthSelect.value = stair.widthFt || 4;
+  stringerSelect.value = stair.stringerType || 'pylex_steel';
+  landingSelect.value = stair.landingType || 'existing';
+  
+  // The panel visibility is handled by updateContextualPanel through the panel mode system
+  updateContextualPanel();
+}
+
+function hideIndividualStairConfigPanel() {
+  const panel = document.getElementById('individual-stair-config-panel');
+  if (panel) {
+    panel.classList.add('hidden');
   }
+  appState.editingStairIndex = -1;
+  updateContextualPanel();
+}
+
+function saveStairChanges() {
+  if (appState.editingStairIndex < 0 || appState.editingStairIndex >= appState.stairs.length) return;
+  
+  const stair = appState.stairs[appState.editingStairIndex];
+  const widthSelect = document.getElementById('editStairWidth');
+  const stringerSelect = document.getElementById('editStringerType');
+  const landingSelect = document.getElementById('editLandingType');
+  
+  if (!widthSelect || !stringerSelect || !landingSelect) return;
+  
+  // Update stair properties
+  const newWidth = parseFloat(widthSelect.value);
+  const newStringerType = stringerSelect.value;
+  const newLandingType = landingSelect.value;
+  
+  stair.widthFt = newWidth;
+  stair.stringerType = newStringerType;
+  stair.landingType = newLandingType;
+  
+  // Recalculate stair details
+  const inputs = uiController.getFormInputs();
+  const deckHeight = inputs.deckHeight;
+  if (typeof deckHeight === "number" && deckHeight > 0) {
+    stairCalculations.calculateStairDetails(stair, deckHeight);
+  }
+  
+  // Update UI and recalculate BOM
+  updateStairList();
+  recalculateAndUpdateBOM();
+  redrawApp();
+  
+  // Hide the configuration panel
+  hideIndividualStairConfigPanel();
+  
+  uiController.updateCanvasStatus(`Stair ${appState.editingStairIndex + 1} updated successfully.`);
 }
 
 function deleteStair(index) {
