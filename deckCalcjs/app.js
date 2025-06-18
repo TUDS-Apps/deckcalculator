@@ -558,6 +558,60 @@ function resetAppState() {
   uiController.toggleStairsInputSection(false);
   
   redrawApp();
+  
+  // Update guidance messaging for the current state
+  updateGuidanceForCurrentState();
+}
+
+// --- Guidance Messaging Functions ---
+function updateGuidanceMessage(message, type = 'default') {
+  const guidanceElement = document.getElementById('guidance-message');
+  if (!guidanceElement) return;
+
+  // Remove all type classes
+  guidanceElement.classList.remove('highlight', 'success', 'warning', 'error', 'updating');
+  
+  if (message) {
+    guidanceElement.textContent = message;
+    
+    // Add the appropriate type class
+    if (type !== 'default') {
+      guidanceElement.classList.add(type);
+    }
+    
+    // Add updating animation
+    guidanceElement.classList.add('updating');
+    
+    // Remove updating class after animation
+    setTimeout(() => {
+      guidanceElement.classList.remove('updating');
+    }, 300);
+  } else {
+    guidanceElement.textContent = '';
+  }
+}
+
+function clearGuidanceMessage() {
+  updateGuidanceMessage('');
+}
+
+// Initialize guidance messaging based on app state
+function updateGuidanceForCurrentState() {
+  if (!appState.points || appState.points.length === 0) {
+    updateGuidanceMessage('Click on the canvas to start drawing your deck outline', 'highlight');
+  } else if (!appState.isShapeClosed) {
+    updateGuidanceMessage('Continue adding points or click near start to close shape', 'default');
+  } else if (appState.wallSelectionMode && appState.selectedWallIndices.length === 0) {
+    updateGuidanceMessage('Click on the wall segment that will attach to your house', 'highlight');
+  } else if (appState.selectedWallIndices.length > 0 && !appState.structuralComponents) {
+    updateGuidanceMessage('Click "Generate Framing" to create your deck plan', 'success');
+  } else if (appState.structuralComponents && !appState.structuralComponents.error) {
+    updateGuidanceMessage('Deck plan ready! Add stairs or review materials list', 'success');
+  } else if (appState.stairPlacementMode) {
+    updateGuidanceMessage('Click on any deck edge to place stairs', 'warning');
+  } else {
+    clearGuidanceMessage();
+  }
 }
 
 // --- Dimension Input Handling ---
@@ -714,6 +768,8 @@ function handleDimensionInputApply() {
       calculateAndUpdateDeckDimensions();
       appState.wallSelectionMode = true;
       uiController.updateCanvasStatus("Shape closed. Select the wall attached to structure.");
+      updateContextualPanel(); // Ensure contextual panel shows wall selection prompt
+      updateGuidanceForCurrentState(); // Update guidance message
     } else {
       uiController.updateCanvasStatus("Next point or click near start to close.");
     }
@@ -832,10 +888,12 @@ function handleGeneratePlan() {
       // Disable wall selection mode after successful plan generation
       appState.wallSelectionMode = false;
       updateContextualPanel();
+      updateGuidanceForCurrentState();
     } else {
       uiController.updateCanvasStatus(
         `Error: ${appState.structuralComponents.error}`
       );
+      updateGuidanceForCurrentState();
     }
   } catch (error) {
     console.error("Error during Generate Plan process:", error);
@@ -861,6 +919,7 @@ function handleAddStairs() {
   appState.selectedStairIndex = -1;
   uiController.toggleStairsInputSection(true);
   updateContextualPanel();
+  updateGuidanceForCurrentState();
   
   // Update visual indicators for placement mode
   const mainBtn = document.getElementById('mainStairsBtn');
@@ -891,6 +950,7 @@ function handleCancelStairs() {
   appState.stairPlacementMode = false;
   uiController.toggleStairsInputSection(false);
   updateContextualPanel();
+  updateGuidanceForCurrentState();
   
   // Restore main button appearance
   const mainBtn = document.getElementById('mainStairsBtn');
@@ -908,6 +968,7 @@ function handleFinishStairs() {
   appState.stairPlacementMode = false;
   uiController.toggleStairsInputSection(false);
   updateContextualPanel();
+  updateGuidanceForCurrentState();
   
   // Restore main button appearance and keep stair management visible
   const stairSection = document.getElementById('stairManagementSection');
@@ -1082,6 +1143,7 @@ function handleCanvasClick(viewMouseX, viewMouseY) {
           uiController.updateCanvasStatus(
             `${appState.selectedWallIndices.length} wall(s) selected for ledger attachment.`
           );
+          updateGuidanceForCurrentState();
         } else {
           uiController.updateCanvasStatus(`Error: ${validation.error}`);
         }
@@ -1274,6 +1336,7 @@ function handleCanvasClick(viewMouseX, viewMouseY) {
         appState.points.push(snappedModelPos);
         appState.isDrawing = true;
         updateContextualPanel();
+        updateGuidanceForCurrentState();
       }
     } else {
       if (
@@ -3005,7 +3068,9 @@ if (originalSwitchMenu && typeof originalSwitchMenu === 'function') {
       if (enhancedNavigationInitialized && workflowState) {
         switch(menuName) {
           case 'deck-details':
-            if (workflowState.currentStep > 1) {
+            // Only reset to step 1 if there's no existing drawing
+            // This prevents clearing the user's drawing when switching back to deck-details menu
+            if (workflowState.currentStep > 1 && (!appState.points || appState.points.length === 0)) {
               jumpToWorkflowStep(1);
             }
             break;

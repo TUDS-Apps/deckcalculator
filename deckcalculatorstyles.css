@@ -2794,3 +2794,89 @@ canvas.mode-transition {
     font-weight: normal !important;
   }
 }
+
+/* ========================================
+   GUIDANCE MESSAGING STYLES
+   ======================================== */
+
+#guidance-message-area {
+  display: flex;
+  align-items: center;
+  min-height: 36px;
+  padding: 0.25rem 0.5rem;
+  transition: all 0.3s ease;
+}
+
+#guidance-message {
+  color: #4b5563;
+  font-size: 0.875rem;
+  line-height: 1.4;
+  margin: 0;
+  padding: 0.25rem 0;
+  transition: all 0.3s ease;
+  opacity: 0.8;
+}
+
+#guidance-message:empty {
+  display: none;
+}
+
+#guidance-message.highlight {
+  color: #1f2937;
+  font-weight: 500;
+  opacity: 1;
+}
+
+#guidance-message.success {
+  color: #059669;
+  font-weight: 500;
+  opacity: 1;
+}
+
+#guidance-message.warning {
+  color: #d97706;
+  font-weight: 500;
+  opacity: 1;
+}
+
+#guidance-message.error {
+  color: #dc2626;
+  font-weight: 500;
+  opacity: 1;
+}
+
+/* Animation for guidance message updates */
+@keyframes guidanceUpdate {
+  0% {
+    opacity: 0;
+    transform: translateY(-5px);
+  }
+  100% {
+    opacity: 0.8;
+    transform: translateY(0);
+  }
+}
+
+#guidance-message.updating {
+  animation: guidanceUpdate 0.3s ease-out;
+}
+
+/* Mobile responsive adjustments */
+@media (max-width: 768px) {
+  #guidance-message-area {
+    min-height: 32px;
+    padding: 0.125rem 0.25rem;
+  }
+  
+  #guidance-message {
+    font-size: 0.75rem;
+    line-height: 1.3;
+  }
+}
+
+/* Print styles - hide guidance messaging */
+@media print {
+  #guidance-message-area {
+    display: none !important;
+  }
+}
