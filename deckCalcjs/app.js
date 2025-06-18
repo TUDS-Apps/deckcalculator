@@ -1816,33 +1816,37 @@ function handleToggleDecomposition() {
 
 // --- Legend Hover Handlers ---
 function handleLegendHover() {
-  if (floatingLegend) {
-    floatingLegend.classList.remove('hidden');
+  if (floatingLegend && legendBtn) {
+    // Position the legend relative to the legend button
+    const buttonRect = legendBtn.getBoundingClientRect();
+    floatingLegend.style.left = (buttonRect.right - 280) + 'px'; // Align right edge with button, accounting for legend width
+    floatingLegend.style.top = (buttonRect.bottom + 8) + 'px'; // Position below button with 8px gap
+    floatingLegend.style.display = 'block';
     
     // Show blueprint legend info if in blueprint mode
     if (appState.isBlueprintMode && blueprintLegendFloat) {
-      blueprintLegendFloat.classList.remove('hidden');
+      blueprintLegendFloat.style.display = 'block';
     }
     
     // Show dimensions legend if in blueprint mode
     if (appState.isBlueprintMode && dimensionsLegendFloat) {
-      dimensionsLegendFloat.classList.remove('hidden');
+      dimensionsLegendFloat.style.display = 'block';
     }
   }
 }
 
 function handleLegendLeave() {
   if (floatingLegend) {
-    floatingLegend.classList.add('hidden');
+    floatingLegend.style.display = 'none';
     
     // Hide blueprint legend info
     if (blueprintLegendFloat) {
-      blueprintLegendFloat.classList.add('hidden');
+      blueprintLegendFloat.style.display = 'none';
     }
     
     // Hide dimensions legend
     if (dimensionsLegendFloat) {
-      dimensionsLegendFloat.classList.add('hidden');
+      dimensionsLegendFloat.style.display = 'none';
     }
   }
 }
@@ -2034,9 +2038,9 @@ document.addEventListener("DOMContentLoaded", () => {
   if (blueprintToggleBtn) blueprintToggleBtn.addEventListener("click", handleBlueprintToggle);
   if (toggleDecompositionBtn) toggleDecompositionBtn.addEventListener("click", handleToggleDecomposition);
 
-  // Legend button hover handlers
+  // Legend button hover handlers - attach to container for better hover area
   if (legendBtn) {
-    const legendContainer = legendBtn.parentElement;
+    const legendContainer = legendBtn.parentElement; // This is the <div class="relative">
     if (legendContainer) {
       legendContainer.addEventListener("mouseenter", handleLegendHover);
       legendContainer.addEventListener("mouseleave", handleLegendLeave);
