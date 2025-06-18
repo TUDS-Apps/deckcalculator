@@ -170,6 +170,62 @@
                 </button>
               </div>
             </form>
+            
+            <!-- Stair Configuration Section (hidden by default) -->
+            <div id="drawShape-stair-config" class="hidden mt-6 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
+              <h3 class="text-lg font-semibold text-gray-800 mb-4">Configure Stairs</h3>
+              
+              <!-- Stair Configuration Form -->
+              <form id="stairSpecsForm" class="space-y-4">
+                <div>
+                  <label for="stairWidth" class="form-label">Stair Width</label>
+                  <select id="stairWidth" name="stairWidth" class="form-select">
+                    <option value="4">4'</option>
+                    <option value="5">5'</option>
+                    <option value="6" selected>6'</option>
+                    <option value="7">7'</option>
+                    <option value="8">8'</option>
+                    <option value="9">9'</option>
+                    <option value="10">10'</option>
+                    <option value="11">11'</option>
+                    <option value="12">12'</option>
+                    <option value="13">13'</option>
+                    <option value="14">14'</option>
+                    <option value="15">15'</option>
+                    <option value="16">16'</option>
+                    <option value="17">17'</option>
+                    <option value="18">18'</option>
+                    <option value="19">19'</option>
+                    <option value="20">20'</option>
+                  </select>
+                </div>
+                
+              </form>
+              
+              <!-- Current Configuration Preview -->
+              <div class="bg-blue-50 p-3 rounded-md mt-4 mb-4">
+                <p class="text-sm font-medium text-blue-800 mb-1">Next Stair Placement:</p>
+                <div class="text-xs text-blue-700">
+                  <div>Width: <span id="currentStairWidth" class="font-medium">6'</span></div>
+                  <div class="text-gray-600 mt-1 italic">Structural details will be configured in the Framing menu</div>
+                </div>
+              </div>
+              
+              <!-- Action Buttons -->
+              <div class="flex gap-2">
+                <button
+                  type="button"
+                  id="finishStairsBtn"
+                  class="flex-1 px-4 py-3 bg-green-600 text-white text-lg font-semibold rounded-md hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 transition-colors"
+                >
+                  ✓ Finish Adding Stairs
+                </button>
+              </div>
+              
+              <p class="text-sm text-gray-600 mt-2">
+                💡 <strong>Tip:</strong> Set width above, then click any deck edge to place stairs. Configure structural details later in the Framing menu.
+              </p>
+            </div>
           </div>
           
           <!-- Framing Menu Content -->
@@ -272,6 +328,49 @@
                       </select>
                     </div>
                   </form>
+
+            <!-- Stair Configuration Section -->
+            <div id="framing-stair-config" class="mt-8 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+              <h3 class="text-lg font-semibold text-gray-800 mb-4">Stair Configuration</h3>
+              
+              <div id="stair-config-info" class="mb-4">
+                <p class="text-sm text-gray-600 mb-2">Configure structural details for your stairs. These settings affect material calculations and construction methods.</p>
+                <div id="stair-count-display" class="text-sm font-medium text-blue-700">
+                  No stairs placed yet. Add stairs in the Draw Shape menu first.
+                </div>
+              </div>
+              
+              <!-- Global/Default Configuration -->
+              <div class="mb-6">
+                <h4 class="text-md font-medium text-gray-700 mb-3">Default Configuration (for new stairs)</h4>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label for="defaultStringerType" class="form-label">Default Stringer Type</label>
+                    <select id="defaultStringerType" name="defaultStringerType" class="form-select">
+                      <option value="pylex_steel" selected>Pylex Steel (Pre-fab)</option>
+                      <option value="lvl_wood">LVL Wood (Pre-fab)</option>
+                      <option value="custom_2x12">Custom Cut 2x12</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label for="defaultLandingType" class="form-label">Default Landing Type</label>
+                    <select id="defaultLandingType" name="defaultLandingType" class="form-select">
+                      <option value="existing" selected>Existing Surface</option>
+                      <option value="slabs">16"x16" Slabs</option>
+                      <option value="concrete">Poured Concrete Pad</option>
+                    </select>
+                  </div>
+                </div>
+              </div>
+              
+              <!-- Individual Stair Configuration -->
+              <div id="individual-stair-config" class="hidden">
+                <h4 class="text-md font-medium text-gray-700 mb-3">Individual Stair Configuration</h4>
+                <div id="stair-config-list" class="space-y-4">
+                  <!-- Individual stair configurations will be populated here -->
+                </div>
+              </div>
+            </div>
 
             <!-- Wall Selection Mode Section -->
             <div id="wall-selection-panel" class="panel-section hidden">
@@ -508,13 +607,21 @@
                     <button
                       type="button"
                       id="finishStairsBtn"
-                      class="btn btn-primary btn-full-width"
+                      class="w-full px-4 py-3 bg-green-600 text-white text-lg font-semibold rounded-md hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 transition-colors"
                     >
-                      Finish Adding
+                      ✓ Finish Adding Stairs
                     </button>
                   </div>
-                  <p class="text-sm text-gray-600 mt-2">
-                    Select options above, then click a deck edge (rim joist) to place the stairs.
+                  <div class="bg-blue-50 p-3 rounded-md mt-2 mb-2">
+                    <p class="text-sm font-medium text-blue-800 mb-1">Next Stair Configuration:</p>
+                    <div class="text-xs text-blue-700 space-y-1">
+                      <div>Width: <span id="currentStairWidth" class="font-medium">6'</span></div>
+                      <div>Stringer: <span id="currentStringerType" class="font-medium">Pylex Steel (Pre-fab)</span></div>
+                      <div>Landing: <span id="currentLandingType" class="font-medium">Existing Surface</span></div>
+                    </div>
+                  </div>
+                  <p class="text-sm text-gray-600">
+                    💡 <strong>Tip:</strong> Change settings above to configure the next stair. Each stair can have different settings.
                   </p>
                 </div>
               </div>
@@ -768,6 +875,9 @@
                 <canvas id="deckCanvas"></canvas>
                 
               </div>
+              
+              <!-- Status Messages Container -->
+              <div id="main-status-messages" class="mt-2 space-y-2"></div>
             </div>
           </div>
 

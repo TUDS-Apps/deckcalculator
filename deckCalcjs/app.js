@@ -861,9 +861,23 @@ function handleAddStairs() {
   appState.selectedStairIndex = -1;
   uiController.toggleStairsInputSection(true);
   updateContextualPanel();
+  
+  // Update visual indicators for placement mode
+  const mainBtn = document.getElementById('mainStairsBtn');
+  if (mainBtn) {
+    mainBtn.textContent = '🎯 Placing Stairs...';
+    mainBtn.classList.add('bg-orange-500', 'hover:bg-orange-600');
+    mainBtn.classList.remove('bg-blue-600', 'hover:bg-blue-700');
+  }
+  
   uiController.updateCanvasStatus(
-    "Configure stair details, then click a deck edge to place stairs."
+    "🎯 STAIR PLACEMENT MODE: Configure options above, then click any deck edge to place stairs. Press ESC or 'Finish Adding' to exit."
   );
+  
+  // Set up form change listeners to update preview
+  setupStairPreviewUpdaters();
+  updateStairConfigPreview();
+  
   redrawApp();
 }
 
@@ -871,6 +885,15 @@ function handleCancelStairs() {
   appState.stairPlacementMode = false;
   uiController.toggleStairsInputSection(false);
   updateContextualPanel();
+  
+  // Restore main button appearance
+  const mainBtn = document.getElementById('mainStairsBtn');
+  if (mainBtn) {
+    mainBtn.textContent = '+/- Stairs';
+    mainBtn.classList.remove('bg-orange-500', 'hover:bg-orange-600');
+    mainBtn.classList.add('bg-blue-600', 'hover:bg-blue-700');
+  }
+  
   uiController.updateCanvasStatus("Stair placement cancelled.");
   redrawApp();
 }
@@ -880,18 +903,23 @@ function handleFinishStairs() {
   uiController.toggleStairsInputSection(false);
   updateContextualPanel();
   
-  // Keep the stair management section visible
+  // Restore main button appearance and keep stair management visible
   const stairSection = document.getElementById('stairManagementSection');
   const mainBtn = document.getElementById('mainStairsBtn');
   if (stairSection && mainBtn) {
     stairSection.classList.remove('hidden');
     mainBtn.classList.add('active');
+    
+    // Restore button appearance
+    mainBtn.textContent = '+/- Stairs';
+    mainBtn.classList.remove('bg-orange-500', 'hover:bg-orange-600');
+    mainBtn.classList.add('bg-blue-600', 'hover:bg-blue-700');
   }
   
   // Recalculate BOM to include all stairs
   recalculateAndUpdateBOM();
   
-  uiController.updateCanvasStatus(`Finished adding stairs. Total: ${appState.stairs.length} sets. You can now drag stairs to reposition them.`);
+  uiController.updateCanvasStatus(`✓ Finished adding stairs. Total: ${appState.stairs.length} sets. You can now configure individual stairs or continue with your project.`);
   redrawApp();
 }
 
@@ -1256,6 +1284,22 @@ function handleCanvasClick(viewMouseX, viewMouseY) {
   redrawApp();
 }
 
+// Helper functions for stair configuration preview
+function setupStairPreviewUpdaters() {
+  const stairWidth = document.getElementById('stairWidth');
+  
+  if (stairWidth) stairWidth.addEventListener('change', updateStairConfigPreview);
+}
+
+function updateStairConfigPreview() {
+  const stairWidth = document.getElementById('stairWidth');
+  const currentStairWidth = document.getElementById('currentStairWidth');
+  
+  if (stairWidth && currentStairWidth) {
+    currentStairWidth.textContent = stairWidth.value + "'";
+  }
+}
+
 // Helper function to convert deck outline points to edge format for stair placement
 function convertDeckOutlineToEdges(points) {
   if (!points || points.length < 3) return [];
@@ -1341,7 +1385,7 @@ function handleStairPlacementClick(modelMouseX, modelMouseY) {
       }
       
       uiController.updateCanvasStatus(
-        `Stairs added. Total: ${appState.stairs.length}. Click another edge to add more stairs or "Finish Adding" when done.`
+        `✅ Stair placed (${inputs.stairWidth}' wide)! Total: ${appState.stairs.length}. Adjust settings above for next stair, or click "Finish Adding" when done.`
       );
       updateStairList(); // Update the stair management UI
       recalculateAndUpdateBOM();
@@ -2490,6 +2534,10 @@ function updateStairList() {
     stairList.appendChild(stairItem);
   });
   
+  // Update the Framing menu stair configuration display
+  if (uiController.updateStairConfigDisplay) {
+    uiController.updateStairConfigDisplay(appState.stairs);
+  }
 }
 
 function createStairListItem(stair, index) {

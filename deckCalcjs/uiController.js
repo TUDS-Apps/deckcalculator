@@ -15,10 +15,15 @@ const beamTypeSelect = document.getElementById("beamType");
 const pictureFrameSelect = document.getElementById("pictureFrame");
 const joistProtectionSelect = document.getElementById("joistProtection");
 
-const stairsInputSection = document.getElementById("stairsInputSection");
+const stairsInputSection = document.getElementById("drawShape-stair-config");
 const stairWidthSelect = document.getElementById("stairWidth");
-const stringerTypeSelect = document.getElementById("stringerType");
-const landingTypeSelect = document.getElementById("landingType");
+
+// Framing menu stair configuration elements
+const defaultStringerTypeSelect = document.getElementById("defaultStringerType");
+const defaultLandingTypeSelect = document.getElementById("defaultLandingType");
+const stairCountDisplay = document.getElementById("stair-count-display");
+const individualStairConfig = document.getElementById("individual-stair-config");
+const stairConfigList = document.getElementById("stair-config-list");
 
 const bomSection = document.getElementById("bomSection");
 const bomTableBody = document.getElementById("bomTableBody");
@@ -164,6 +169,17 @@ window.copyItemName = copyItemName;
 export function updateCanvasStatus(message) {
   // Console logging for debugging purposes - canvas status panel removed
   console.log("UI Status Update:", message);
+  
+  // Also send to the main status system if available
+  if (window.showStatusMessage) {
+    // Determine message type based on content
+    let type = 'info';
+    if (message.includes('Error:') || message.includes('error')) type = 'error';
+    else if (message.includes('✅') || message.includes('Success') || message.includes('successfully')) type = 'success';
+    else if (message.includes('🎯') || message.includes('MODE:')) type = 'info';
+    
+    window.showStatusMessage(message, type, 3000); // Show for 3 seconds
+  }
 }
 
 export function getFormInputs() {
@@ -186,13 +202,19 @@ export function getFormInputs() {
 
   if (stairsInputSection && !stairsInputSection.classList.contains("hidden")) {
     inputs["stairWidth"] = parseInt(stairWidthSelect.value, 10);
-    inputs["stringerType"] = stringerTypeSelect.value;
-    inputs["landingType"] = landingTypeSelect.value;
   } else {
-    // Provide defaults, also useful if form inputs are read before stair section is active
-    inputs["stairWidth"] = parseInt(stairWidthSelect.options[0].value, 10);
-    inputs["stringerType"] = stringerTypeSelect.options[0].value;
-    inputs["landingType"] = landingTypeSelect.options[0].value;
+    // Provide default width if stair section is not active
+    inputs["stairWidth"] = parseInt(stairWidthSelect?.value || "6", 10);
+  }
+  
+  // Get default structural values from Framing menu
+  if (defaultStringerTypeSelect && defaultLandingTypeSelect) {
+    inputs["stringerType"] = defaultStringerTypeSelect.value;
+    inputs["landingType"] = defaultLandingTypeSelect.value;
+  } else {
+    // Fallback defaults if elements don't exist yet
+    inputs["stringerType"] = "pylex_steel";
+    inputs["landingType"] = "existing";
   }
   return inputs;
 }
@@ -493,3 +515,82 @@ export function resetUIOutputs() {
   if (summaryList)
     summaryList.innerHTML = "<dt>Status:</dt><dd>Please generate a plan.</dd>";
 }
+
+// --- Stair Configuration Functions for Framing Menu ---
+export function updateStairConfigDisplay(stairs) {
+  if (!stairCountDisplay) return;
+  
+  const stairCount = stairs ? stairs.length : 0;
+  
+  if (stairCount === 0) {
+    stairCountDisplay.textContent = "No stairs placed yet. Add stairs in the Draw Shape menu first.";
+    stairCountDisplay.className = "text-sm font-medium text-blue-700";
+    if (individualStairConfig) individualStairConfig.classList.add("hidden");
+  } else {
+    stairCountDisplay.textContent = `${stairCount} stair set${stairCount > 1 ? 's' : ''} placed. Configure structural details below.`;
+    stairCountDisplay.className = "text-sm font-medium text-green-700";
+    if (individualStairConfig) individualStairConfig.classList.remove("hidden");
+    populateIndividualStairConfig(stairs);
+  }
+}
+
+export function populateIndividualStairConfig(stairs) {
+  if (!stairConfigList || !stairs) return;
+  
+  stairConfigList.innerHTML = "";
+  
+  stairs.forEach((stair, index) => {
+    const stairConfigDiv = document.createElement("div");
+    stairConfigDiv.className = "p-4 border border-gray-200 rounded-lg bg-white";
+    stairConfigDiv.innerHTML = `
+      <div class="flex justify-between items-center mb-3">
+        <h5 class="font-medium text-gray-800">Stair Set ${index + 1}</h5>
+        <span class="text-sm text-gray-600">${stair.widthFt}' wide</span>
+      </div>
+      
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+        <div>
+          <label for="stair_${index}_stringer" class="form-label text-sm">Stringer Type</label>
+          <select id="stair_${index}_stringer" class="form-select text-sm" onchange="updateIndividualStairConfig(${index}, 'stringerType', this.value)">
+            <option value="pylex_steel" ${stair.stringerType === 'pylex_steel' ? 'selected' : ''}>Pylex Steel (Pre-fab)</option>
+            <option value="lvl_wood" ${stair.stringerType === 'lvl_wood' ? 'selected' : ''}>LVL Wood (Pre-fab)</option>
+            <option value="custom_2x12" ${stair.stringerType === 'custom_2x12' ? 'selected' : ''}>Custom Cut 2x12</option>
+          </select>
+        </div>
+        
+        <div>
+          <label for="stair_${index}_landing" class="form-label text-sm">Landing Type</label>
+          <select id="stair_${index}_landing" class="form-select text-sm" onchange="updateIndividualStairConfig(${index}, 'landingType', this.value)">
+            <option value="existing" ${stair.landingType === 'existing' ? 'selected' : ''}>Existing Surface</option>
+            <option value="slabs" ${stair.landingType === 'slabs' ? 'selected' : ''}>16"x16" Slabs</option>
+            <option value="concrete" ${stair.landingType === 'concrete' ? 'selected' : ''}>Poured Concrete Pad</option>
+          </select>
+        </div>
+      </div>
+    `;
+    
+    stairConfigList.appendChild(stairConfigDiv);
+  });
+}
+
+// Global function for individual stair config updates
+window.updateIndividualStairConfig = function(stairIndex, property, value) {
+  if (window.appState && window.appState.stairs && window.appState.stairs[stairIndex]) {
+    window.appState.stairs[stairIndex][property] = value;
+    
+    // Recalculate stair details with new configuration
+    if (window.stairCalculations && window.stairCalculations.calculateStairDetails) {
+      const inputs = getFormInputs();
+      const deckHeight = inputs.deckHeight || 0;
+      window.stairCalculations.calculateStairDetails(window.appState.stairs[stairIndex], deckHeight);
+    }
+    
+    // Update BOM and UI
+    if (window.recalculateAndUpdateBOM) {
+      window.recalculateAndUpdateBOM();
+    }
+    if (window.redrawApp) {
+      window.redrawApp();
+    }
+  }
+};
