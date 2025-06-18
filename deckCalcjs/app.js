@@ -850,6 +850,12 @@ function handleGeneratePlan() {
     return;
   }
   try {
+    console.log("Debug: Starting structural calculations");
+    console.log("Debug: appState.points:", appState.points);
+    console.log("Debug: appState.selectedWallIndices:", appState.selectedWallIndices);
+    console.log("Debug: inputs:", inputs);
+    console.log("Debug: appState.deckDimensions:", appState.deckDimensions);
+    
     // Check if we should use multi-section calculations
     if (isComplexShape()) {
       console.log("Using multi-section calculations for complex shape");
@@ -898,11 +904,14 @@ function handleGeneratePlan() {
     }
   } catch (error) {
     console.error("Error during Generate Plan process:", error);
+    console.error("Error stack:", error.stack);
+    console.error("Error name:", error.name);
+    console.error("Error message:", error.message);
     uiController.updateCanvasStatus(
-      "Error: An unexpected error occurred. Check console."
+      `Error: ${error.message || "An unexpected error occurred. Check console."}`
     );
     appState.structuralComponents = {
-      error: "Unexpected error during generation.",
+      error: `${error.message || "Unexpected error during generation."}`,
     };
     appState.bom = [];
     redrawApp();
