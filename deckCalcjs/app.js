@@ -865,13 +865,19 @@ function handleAddStairs() {
   // Update visual indicators for placement mode
   const mainBtn = document.getElementById('mainStairsBtn');
   if (mainBtn) {
-    mainBtn.textContent = '🎯 Placing Stairs...';
-    mainBtn.classList.add('bg-orange-500', 'hover:bg-orange-600');
-    mainBtn.classList.remove('bg-blue-600', 'hover:bg-blue-700');
+    mainBtn.textContent = 'Finish Stairs';
+    // Remove all color classes and apply brand color
+    mainBtn.className = mainBtn.className.replace(/bg-\S+/g, '').replace(/hover:bg-\S+/g, '');
+    mainBtn.style.backgroundColor = '#133a52';
+    mainBtn.style.color = 'white';
+    
+    // Add hover effect
+    mainBtn.onmouseover = function() { this.style.backgroundColor = '#0d2a3d'; };
+    mainBtn.onmouseout = function() { this.style.backgroundColor = '#133a52'; };
   }
   
   uiController.updateCanvasStatus(
-    "🎯 STAIR PLACEMENT MODE: Configure options above, then click any deck edge to place stairs. Press ESC or 'Finish Adding' to exit."
+    "STAIR PLACEMENT MODE: Set width above, then click any deck edge to place stairs. Press ESC or click 'Finish Stairs' to exit."
   );
   
   // Set up form change listeners to update preview
@@ -889,7 +895,7 @@ function handleCancelStairs() {
   // Restore main button appearance
   const mainBtn = document.getElementById('mainStairsBtn');
   if (mainBtn) {
-    mainBtn.textContent = '+/- Stairs';
+    mainBtn.textContent = 'Add Stairs';
     mainBtn.classList.remove('bg-orange-500', 'hover:bg-orange-600');
     mainBtn.classList.add('bg-blue-600', 'hover:bg-blue-700');
   }
@@ -910,10 +916,13 @@ function handleFinishStairs() {
     stairSection.classList.remove('hidden');
     mainBtn.classList.add('active');
     
-    // Restore button appearance
-    mainBtn.textContent = '+/- Stairs';
-    mainBtn.classList.remove('bg-orange-500', 'hover:bg-orange-600');
-    mainBtn.classList.add('bg-blue-600', 'hover:bg-blue-700');
+    // Restore button appearance to brand colors
+    mainBtn.textContent = 'Add Stairs';
+    mainBtn.style.backgroundColor = '#29aafd';
+    mainBtn.style.color = 'white';
+    mainBtn.onmouseover = function() { this.style.backgroundColor = '#1e8dd6'; };
+    mainBtn.onmouseout = function() { this.style.backgroundColor = '#29aafd'; };
+    mainBtn.classList.remove('bg-blue-600', 'hover:bg-blue-700');
   }
   
   // Recalculate BOM to include all stairs
@@ -1385,7 +1394,7 @@ function handleStairPlacementClick(modelMouseX, modelMouseY) {
       }
       
       uiController.updateCanvasStatus(
-        `✅ Stair placed (${inputs.stairWidth}' wide)! Total: ${appState.stairs.length}. Adjust settings above for next stair, or click "Finish Adding" when done.`
+        `✅ Stair placed (${inputs.stairWidth}' wide)! Total: ${appState.stairs.length}. You can drag it along the edge to reposition. Add more stairs or click "Finish Stairs" when done.`
       );
       updateStairList(); // Update the stair management UI
       recalculateAndUpdateBOM();
@@ -1507,14 +1516,7 @@ function handleCanvasMouseDown(viewMouseX, viewMouseY, event) {
   const modelMouse = getModelMousePosition(viewMouseX, viewMouseY);
   appState.currentModelMousePos = modelMouse;
 
-  if (
-    appState.isDrawing ||
-    appState.stairPlacementMode ||
-    appState.wallSelectionMode ||
-    appState.isDraggingStairs
-  )
-    return;
-
+  // Check for stair dragging first (should work even in placement mode)
   if (appState.isShapeClosed && appState.stairs.length > 0) {
     for (let i = 0; i < appState.stairs.length; i++) {
       if (
@@ -1540,6 +1542,15 @@ function handleCanvasMouseDown(viewMouseX, viewMouseY, event) {
       }
     }
   }
+  
+  // Block other drawing actions if in special modes
+  if (
+    appState.isDrawing ||
+    appState.stairPlacementMode ||
+    appState.wallSelectionMode ||
+    appState.isDraggingStairs
+  )
+    return;
 }
 
 function handleCanvasMouseUp(event) {
@@ -2104,10 +2115,6 @@ document.addEventListener("DOMContentLoaded", () => {
     generatePlanBtn.addEventListener("click", handleGeneratePlan);
   if (addStairsBtn) addStairsBtn.addEventListener("click", handleAddStairs);
   
-  // Add event listener for finish stairs button
-  const finishStairsBtn = document.getElementById("finishStairsBtn");
-  if (finishStairsBtn) finishStairsBtn.addEventListener("click", handleFinishStairs);
-  
   // Add event listeners for individual stair configuration buttons
   const saveStairChangesBtn = document.getElementById("saveStairChangesBtn");
   const cancelStairChangesBtn = document.getElementById("cancelStairChangesBtn");
@@ -2223,25 +2230,31 @@ window.handleMainStairsButton = function() {
   const stairSection = document.getElementById('stairManagementSection');
   const mainBtn = document.getElementById('mainStairsBtn');
   
-  if (stairSection && mainBtn) {
-    const isHidden = stairSection.classList.contains('hidden');
-    
-    if (isHidden) {
-      // Show the stair management section first
-      stairSection.classList.remove('hidden');
-      mainBtn.classList.add('active');
-      updateStairList();
+  if (appState.stairPlacementMode) {
+    // If in placement mode, finish placing stairs
+    handleFinishStairs();
+  } else {
+    // Otherwise, start placing stairs
+    if (stairSection && mainBtn) {
+      const isHidden = stairSection.classList.contains('hidden');
       
-      // Then immediately enter stair adding mode
-      handleAddStairs();
-    } else {
-      // Hide the stair management section
-      stairSection.classList.add('hidden');
-      mainBtn.classList.remove('active');
+      if (isHidden) {
+        // Show the stair management section first
+        stairSection.classList.remove('hidden');
+        mainBtn.classList.add('active');
+        updateStairList();
+        
+        // Then immediately enter stair adding mode
+        handleAddStairs();
+      } else {
+        // Hide the stair management section
+        stairSection.classList.add('hidden');
+        mainBtn.classList.remove('active');
       
-      // Also deselect any selected stairs
-      appState.selectedStairIndex = -1;
-      redrawApp();
+        // Also deselect any selected stairs
+        appState.selectedStairIndex = -1;
+        redrawApp();
+      }
     }
   }
 };
