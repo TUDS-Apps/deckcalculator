@@ -35,7 +35,6 @@ const appState = {
   deckDimensions: null,
   structuralComponents: null,
   stairs: [],
-  editingStairIndex: -1, // Index of stair currently being edited
   bom: [],
   isPrinting: false,
 
@@ -63,7 +62,7 @@ const appState = {
   isBlueprintMode: false, // Toggle between simple lines and to-scale components
   
   // Contextual panel state
-  currentPanelMode: 'drawing' // 'drawing', 'wall-selection', 'specification', 'plan-generated', 'stair-config', 'individual-stair-config'
+  currentPanelMode: 'drawing' // 'drawing', 'wall-selection', 'specification', 'plan-generated', 'stair-config'
 };
 
 // Make appState available globally for section tab debugging
@@ -138,9 +137,6 @@ function initializeViewport() {
 
 // --- Contextual Panel Management Functions ---
 function getCurrentPanelMode() {
-  if (appState.editingStairIndex >= 0) {
-    return 'individual-stair-config';
-  }
   if (appState.stairPlacementMode) {
     return 'stair-config';
   }
@@ -170,8 +166,7 @@ function showContextualPanel(mode) {
     'drawing-mode-panel',
     'wall-selection-panel', 
     'plan-generated-panel',
-    'stair-config-panel',
-    'individual-stair-config-panel'
+    'stair-config-panel'
   ];
   
   panels.forEach(panelId => {
@@ -186,8 +181,7 @@ function showContextualPanel(mode) {
   const targetPanelId = mode === 'drawing' ? 'drawing-mode-panel' : 
                         mode === 'wall-selection' ? 'wall-selection-panel' :
                         mode === 'plan-generated' ? 'plan-generated-panel' :
-                        mode === 'stair-config' ? 'stair-config-panel' :
-                        mode === 'individual-stair-config' ? 'individual-stair-config-panel' : '';
+                        mode === 'stair-config' ? 'stair-config-panel' : '';
   const targetPanel = document.getElementById(targetPanelId);
   
   if (targetPanel) {
@@ -2290,11 +2284,7 @@ document.addEventListener("DOMContentLoaded", () => {
     generatePlanBtn.addEventListener("click", handleGeneratePlan);
   if (addStairsBtn) addStairsBtn.addEventListener("click", handleAddStairs);
   
-  // Add event listeners for individual stair configuration buttons
-  const saveStairChangesBtn = document.getElementById("saveStairChangesBtn");
-  const cancelStairChangesBtn = document.getElementById("cancelStairChangesBtn");
-  if (saveStairChangesBtn) saveStairChangesBtn.addEventListener("click", saveStairChanges);
-  if (cancelStairChangesBtn) cancelStairChangesBtn.addEventListener("click", hideIndividualStairConfigPanel);
+  // Individual stair configuration buttons removed - using inline editing
   if (clearCanvasBtn)
     clearCanvasBtn.addEventListener("click", handleClearCanvas);
   if (printBomBtn) printBomBtn.addEventListener("click", handlePrintPage);
@@ -2900,25 +2890,10 @@ function addSummaryItem(container, label, value) {
 // --- Stair Management Functions ---
 
 function updateStairList() {
-  const stairList = document.getElementById('drawShape-stair-list');
-  const stairCount = document.getElementById('drawShape-stair-count');
-  
-  if (!stairList || !stairCount) return;
-  
-  // Update stair count
-  const count = appState.stairs.length;
-  stairCount.textContent = count === 1 ? '1 set' : `${count} sets`;
-  
-  // Don't automatically show/hide the section - let the toggle button control visibility
-  
-  // Clear existing stairs
-  stairList.innerHTML = '';
-  
-  // Add each stair to the list
-  appState.stairs.forEach((stair, index) => {
-    const stairItem = createStairListItem(stair, index);
-    stairList.appendChild(stairItem);
-  });
+  // This function now delegates to uiController's updateDrawShapeStairDisplay
+  if (uiController.updateDrawShapeStairDisplay) {
+    uiController.updateDrawShapeStairDisplay(appState.stairs);
+  }
   
   // Update the Framing menu stair configuration display
   if (uiController.updateStairConfigDisplay) {
@@ -2926,65 +2901,7 @@ function updateStairList() {
   }
 }
 
-function createStairListItem(stair, index) {
-  const item = document.createElement('div');
-  item.className = `stair-item ${appState.selectedStairIndex === index ? 'selected' : ''}`;
-  item.dataset.stairIndex = index;
-  
-  // Format stair information
-  const widthText = `${stair.widthFt || 4}' wide`;
-  const stepInfo = stair.calculatedNumSteps ? `${stair.calculatedNumSteps} steps` : 'Steps: TBD';
-  const stringerInfo = stair.calculatedStringerQty ? `${stair.calculatedStringerQty} stringers` : 'Stringers: TBD';
-  
-  item.innerHTML = `
-    <div class="stair-item-header">
-      <div class="stair-item-title">Stairs ${index + 1}</div>
-      <div class="stair-item-actions">
-        <button class="btn btn-secondary btn-icon stair-action-btn" 
-                data-action="edit" data-stair-index="${index}"
-                title="Edit stair properties">
-          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-          </svg>
-        </button>
-        <button class="btn btn-danger btn-icon stair-action-btn" 
-                data-action="delete" data-stair-index="${index}"
-                title="Delete this stair set">
-          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-          </svg>
-        </button>
-      </div>
-    </div>
-    <div class="stair-item-info">
-      ${widthText} • ${stepInfo} • ${stringerInfo}
-    </div>
-  `;
-  
-  // Add click listener for selection
-  item.addEventListener('click', (e) => {
-    // Don't select if clicking on action buttons
-    if (e.target.closest('.stair-action-btn')) return;
-    
-    selectStair(index);
-  });
-  
-  // Add action button listeners
-  const editBtn = item.querySelector('[data-action="edit"]');
-  const deleteBtn = item.querySelector('[data-action="delete"]');
-  
-  editBtn?.addEventListener('click', (e) => {
-    e.stopPropagation();
-    editStair(index);
-  });
-  
-  deleteBtn?.addEventListener('click', (e) => {
-    e.stopPropagation();
-    deleteStair(index);
-  });
-  
-  return item;
-}
+// createStairListItem removed - using createDrawShapeStairCard from uiController instead
 
 function selectStair(index) {
   // Select the stair in app state
@@ -2999,103 +2916,15 @@ function selectStair(index) {
 
 
 function editStair(index) {
-  if (index < 0 || index >= appState.stairs.length) return;
-  
-  const stair = appState.stairs[index];
-  appState.editingStairIndex = index; // Store the index being edited
-  
-  // Show the individual stair configuration panel
-  showIndividualStairConfigPanel(stair, index);
+  // This function is no longer needed - inline editing is handled by the stair cards themselves
+  console.warn('editStair() is deprecated. Use inline editing in stair cards.');
 }
 
-function showIndividualStairConfigPanel(stair, index) {
-  const panel = document.getElementById('individual-stair-config-panel');
-  const configTitle = document.getElementById('stair-config-title');
-  const widthSelect = document.getElementById('editStairWidth');
-  const stringerSelect = document.getElementById('editStringerType');
-  const landingSelect = document.getElementById('editLandingType');
-  
-  if (!panel || !configTitle || !widthSelect || !stringerSelect || !landingSelect) return;
-  
-  // Update panel title
-  configTitle.textContent = `Configure Stairs #${index + 1}`;
-  
-  // Set current values, providing defaults for any missing properties
-  widthSelect.value = stair.widthFt || 4;
-  stringerSelect.value = stair.stringerType || 'pylex_steel';
-  landingSelect.value = stair.landingType || 'existing';
-  
-  // The panel visibility is handled by updateContextualPanel through the panel mode system
-  updateContextualPanel();
-}
+// Individual stair config panel functions removed - using inline editing instead
 
-function hideIndividualStairConfigPanel() {
-  const panel = document.getElementById('individual-stair-config-panel');
-  if (panel) {
-    panel.classList.add('hidden');
-  }
-  appState.editingStairIndex = -1;
-  updateContextualPanel();
-}
 
-function saveStairChanges() {
-  if (appState.editingStairIndex < 0 || appState.editingStairIndex >= appState.stairs.length) return;
-  
-  const stair = appState.stairs[appState.editingStairIndex];
-  const widthSelect = document.getElementById('editStairWidth');
-  const stringerSelect = document.getElementById('editStringerType');
-  const landingSelect = document.getElementById('editLandingType');
-  
-  if (!widthSelect || !stringerSelect || !landingSelect) return;
-  
-  // Update stair properties
-  const newWidth = parseFloat(widthSelect.value);
-  const newStringerType = stringerSelect.value;
-  const newLandingType = landingSelect.value;
-  
-  stair.widthFt = newWidth;
-  stair.stringerType = newStringerType;
-  stair.landingType = newLandingType;
-  
-  // Recalculate stair details
-  const inputs = uiController.getFormInputs();
-  const deckHeight = inputs.deckHeight;
-  if (typeof deckHeight === "number" && deckHeight > 0) {
-    stairCalculations.calculateStairDetails(stair, deckHeight);
-  }
-  
-  // Update UI and recalculate BOM
-  updateStairList();
-  recalculateAndUpdateBOM();
-  redrawApp();
-  
-  // Hide the configuration panel
-  hideIndividualStairConfigPanel();
-  
-  uiController.updateCanvasStatus(`Stair ${appState.editingStairIndex + 1} updated successfully.`);
-}
 
-function deleteStair(index) {
-  if (index < 0 || index >= appState.stairs.length) return;
-  
-  if (confirm(`Delete Stairs ${index + 1}?`)) {
-    appState.stairs.splice(index, 1);
-    
-    // Adjust selected index if necessary
-    if (appState.selectedStairIndex === index) {
-      appState.selectedStairIndex = -1;
-    } else if (appState.selectedStairIndex > index) {
-      appState.selectedStairIndex--;
-    }
-    
-    // Update UI
-    updateStairList();
-    recalculateAndUpdateBOM();
-    redrawApp();
-    
-    uiController.updateCanvasStatus(`Stair set deleted. Remaining: ${appState.stairs.length}.`);
-  }
-}
+// deleteStair removed - using deleteDrawShapeStair from uiController instead
 
 // --- Enhanced Navigation System ---
 

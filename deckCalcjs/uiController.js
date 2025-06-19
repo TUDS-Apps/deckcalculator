@@ -18,12 +18,7 @@ const joistProtectionSelect = document.getElementById("joistProtection");
 const stairsInputSection = document.getElementById("drawShape-stair-config");
 const stairWidthSelect = document.getElementById("stairWidth");
 
-// Framing menu stair configuration elements
-const defaultStringerTypeSelect = document.getElementById("defaultStringerType");
-const defaultLandingTypeSelect = document.getElementById("defaultLandingType");
-const stairCountDisplay = document.getElementById("stair-count-display");
-const individualStairConfig = document.getElementById("individual-stair-config");
-const stairConfigList = document.getElementById("stair-config-list");
+// Framing menu stair configuration elements (removed from UI)
 
 const bomSection = document.getElementById("bomSection");
 const bomTableBody = document.getElementById("bomTableBody");
@@ -209,6 +204,9 @@ export function getFormInputs() {
   }
   
   // Get default structural values from Framing menu
+  const defaultStringerTypeSelect = document.getElementById("defaultStringerType");
+  const defaultLandingTypeSelect = document.getElementById("defaultLandingType");
+  
   if (defaultStringerTypeSelect && defaultLandingTypeSelect) {
     inputs["stringerType"] = defaultStringerTypeSelect.value;
     inputs["landingType"] = defaultLandingTypeSelect.value;
@@ -478,25 +476,47 @@ export function populateSummaryCard(
       addIndentedItem("Rise / Run", `${riseFractionStr}" / ${runFractionStr}"`);
 
       let stringerTypeText = "N/A";
-      // Get selected text from dropdown for stringerType
-      const stringerTypeOption = Array.from(stringerTypeSelect.options).find(
-        (opt) => opt.value === stair.stringerType
-      );
-      stringerTypeText = stringerTypeOption
-        ? stringerTypeOption.text
-        : stair.stringerType;
+      // Get text for stringer type
+      const stringerTypeSelect = document.getElementById("stringerType");
+      if (stringerTypeSelect) {
+        const stringerTypeOption = Array.from(stringerTypeSelect.options).find(
+          (opt) => opt.value === stair.stringerType
+        );
+        stringerTypeText = stringerTypeOption
+          ? stringerTypeOption.text
+          : stair.stringerType;
+      } else {
+        // Fallback to descriptive text
+        const stringerTypeMap = {
+          'pylex_steel': 'Pylex Steel (Pre-fab)',
+          'lvl_wood': 'LVL Wood (Pre-fab)',
+          'custom_2x12': 'Custom Cut 2x12'
+        };
+        stringerTypeText = stringerTypeMap[stair.stringerType] || stair.stringerType;
+      }
       addIndentedItem("Stringer Type", stringerTypeText);
 
       addIndentedItem("Stringer Qty", stair.calculatedStringerQty);
 
       let landingTypeText = "N/A";
-      // Get selected text from dropdown for landingType
-      const landingTypeOption = Array.from(landingTypeSelect.options).find(
-        (opt) => opt.value === stair.landingType
-      );
-      landingTypeText = landingTypeOption
-        ? landingTypeOption.text
-        : stair.landingType;
+      // Get text for landing type
+      const landingTypeSelect = document.getElementById("landingType");
+      if (landingTypeSelect) {
+        const landingTypeOption = Array.from(landingTypeSelect.options).find(
+          (opt) => opt.value === stair.landingType
+        );
+        landingTypeText = landingTypeOption
+          ? landingTypeOption.text
+          : stair.landingType;
+      } else {
+        // Fallback to descriptive text
+        const landingTypeMap = {
+          'existing': 'Existing Surface',
+          'slabs': '16"x16" Slabs',
+          'concrete': 'Poured Concrete Pad'
+        };
+        landingTypeText = landingTypeMap[stair.landingType] || stair.landingType;
+      }
       addIndentedItem("Landing", landingTypeText);
     });
   }
@@ -525,31 +545,24 @@ export function resetUIOutputs() {
 
 // --- Stair Configuration Functions for Framing Menu ---
 export function updateStairConfigDisplay(stairs) {
-  if (!stairCountDisplay) return;
+  const stairList = document.getElementById('framing-stair-list');
+  if (!stairList) return;
   
-  const stairCount = stairs ? stairs.length : 0;
+  // Clear existing cards
+  stairList.innerHTML = '';
   
-  if (stairCount === 0) {
-    stairCountDisplay.textContent = "No stairs placed yet. Add stairs in the Draw Shape menu first.";
-    stairCountDisplay.className = "text-sm font-medium text-blue-700";
-    if (individualStairConfig) individualStairConfig.classList.add("hidden");
-  } else {
-    stairCountDisplay.textContent = `${stairCount} stair set${stairCount > 1 ? 's' : ''} placed. Configure structural details below.`;
-    stairCountDisplay.className = "text-sm font-medium text-green-700";
-    if (individualStairConfig) individualStairConfig.classList.remove("hidden");
-    populateIndividualStairConfig(stairs);
+  // Add cards for each stair
+  if (stairs && stairs.length > 0) {
+    stairs.forEach((stair, index) => {
+      const stairCard = createStairCard(stair, index);
+      stairList.appendChild(stairCard);
+    });
   }
 }
 
 export function populateIndividualStairConfig(stairs) {
-  if (!stairConfigList || !stairs) return;
-  
-  stairConfigList.innerHTML = "";
-  
-  stairs.forEach((stair, index) => {
-    const stairCard = createStairCard(stair, index);
-    stairConfigList.appendChild(stairCard);
-  });
+  // Function no longer needed - stair configuration section removed from UI
+  return;
 }
 
 function createStairCard(stair, index) {
@@ -609,6 +622,29 @@ function createStairCard(stair, index) {
     <div id="stair-edit-${index}" class="hidden bg-gray-50 border-t border-gray-200 p-4">
       <div class="space-y-3">
         <div>
+          <label for="stair_${index}_width" class="form-label text-sm">Width</label>
+          <select id="stair_${index}_width" class="form-select text-sm" onchange="updateIndividualStairConfig(${index}, 'widthFt', this.value)">
+            <option value="4" ${stair.widthFt === 4 ? 'selected' : ''}>4 feet</option>
+            <option value="5" ${stair.widthFt === 5 ? 'selected' : ''}>5 feet</option>
+            <option value="6" ${stair.widthFt === 6 ? 'selected' : ''}>6 feet</option>
+            <option value="7" ${stair.widthFt === 7 ? 'selected' : ''}>7 feet</option>
+            <option value="8" ${stair.widthFt === 8 ? 'selected' : ''}>8 feet</option>
+            <option value="9" ${stair.widthFt === 9 ? 'selected' : ''}>9 feet</option>
+            <option value="10" ${stair.widthFt === 10 ? 'selected' : ''}>10 feet</option>
+            <option value="11" ${stair.widthFt === 11 ? 'selected' : ''}>11 feet</option>
+            <option value="12" ${stair.widthFt === 12 ? 'selected' : ''}>12 feet</option>
+            <option value="13" ${stair.widthFt === 13 ? 'selected' : ''}>13 feet</option>
+            <option value="14" ${stair.widthFt === 14 ? 'selected' : ''}>14 feet</option>
+            <option value="15" ${stair.widthFt === 15 ? 'selected' : ''}>15 feet</option>
+            <option value="16" ${stair.widthFt === 16 ? 'selected' : ''}>16 feet</option>
+            <option value="17" ${stair.widthFt === 17 ? 'selected' : ''}>17 feet</option>
+            <option value="18" ${stair.widthFt === 18 ? 'selected' : ''}>18 feet</option>
+            <option value="19" ${stair.widthFt === 19 ? 'selected' : ''}>19 feet</option>
+            <option value="20" ${stair.widthFt === 20 ? 'selected' : ''}>20 feet</option>
+          </select>
+        </div>
+        
+        <div>
           <label for="stair_${index}_stringer" class="form-label text-sm">Stringer Type</label>
           <select id="stair_${index}_stringer" class="form-select text-sm" onchange="updateIndividualStairConfig(${index}, 'stringerType', this.value)">
             <option value="pylex_steel" ${stair.stringerType === 'pylex_steel' ? 'selected' : ''}>Pylex Steel (Pre-fab)</option>
@@ -631,7 +667,7 @@ function createStairCard(stair, index) {
             onclick="toggleStairCardEdit(${index})" 
             class="px-3 py-1 text-sm text-gray-600 hover:text-gray-800 transition-colors"
           >
-            Done
+            Apply
           </button>
         </div>
       </div>
@@ -648,42 +684,13 @@ function createDrawShapeStairCard(stair, index) {
   cardDiv.id = `drawShape-stair-card-${index}`;
   
   cardDiv.innerHTML = `
-    <!-- Card Header -->
+    <!-- Card Header (always visible) -->
     <div class="p-4">
       <div class="flex justify-between items-center">
-        <div class="flex-1">
+        <div>
           <h5 class="font-medium text-gray-800">Stair Set ${index + 1}</h5>
-          
-          <!-- Width Display (normal state) -->
-          <div id="drawShape-width-display-${index}" class="text-sm text-gray-600">
-            ${stair.widthFt}' wide
-          </div>
-          
-          <!-- Width Editor (edit state - hidden by default) -->
-          <div id="drawShape-width-editor-${index}" class="hidden mt-2">
-            <label for="drawShape_stair_${index}_width" class="block text-xs font-medium text-gray-700 mb-1">Width</label>
-            <select id="drawShape_stair_${index}_width" class="form-select text-sm w-20" onchange="updateDrawShapeStairWidth(${index}, this.value)">
-              <option value="4" ${stair.widthFt === 4 ? 'selected' : ''}>4'</option>
-              <option value="5" ${stair.widthFt === 5 ? 'selected' : ''}>5'</option>
-              <option value="6" ${stair.widthFt === 6 ? 'selected' : ''}>6'</option>
-              <option value="7" ${stair.widthFt === 7 ? 'selected' : ''}>7'</option>
-              <option value="8" ${stair.widthFt === 8 ? 'selected' : ''}>8'</option>
-              <option value="9" ${stair.widthFt === 9 ? 'selected' : ''}>9'</option>
-              <option value="10" ${stair.widthFt === 10 ? 'selected' : ''}>10'</option>
-              <option value="11" ${stair.widthFt === 11 ? 'selected' : ''}>11'</option>
-              <option value="12" ${stair.widthFt === 12 ? 'selected' : ''}>12'</option>
-              <option value="13" ${stair.widthFt === 13 ? 'selected' : ''}>13'</option>
-              <option value="14" ${stair.widthFt === 14 ? 'selected' : ''}>14'</option>
-              <option value="15" ${stair.widthFt === 15 ? 'selected' : ''}>15'</option>
-              <option value="16" ${stair.widthFt === 16 ? 'selected' : ''}>16'</option>
-              <option value="17" ${stair.widthFt === 17 ? 'selected' : ''}>17'</option>
-              <option value="18" ${stair.widthFt === 18 ? 'selected' : ''}>18'</option>
-              <option value="19" ${stair.widthFt === 19 ? 'selected' : ''}>19'</option>
-              <option value="20" ${stair.widthFt === 20 ? 'selected' : ''}>20'</option>
-            </select>
-          </div>
+          <p class="text-sm text-gray-600">${stair.widthFt} feet wide · ${stair.calculatedNumSteps ? stair.calculatedNumSteps + ' steps' : 'Steps: TBD'}</p>
         </div>
-        
         <div class="flex items-center space-x-2">
           <button 
             onclick="toggleDrawShapeStairEdit(${index})" 
@@ -702,6 +709,43 @@ function createDrawShapeStairCard(stair, index) {
             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
             </svg>
+          </button>
+        </div>
+      </div>
+    </div>
+    
+    <!-- Expandable Edit Section (hidden by default) -->
+    <div id="drawShape-stair-edit-${index}" class="hidden bg-gray-50 border-t border-gray-200 p-4">
+      <div class="space-y-3">
+        <div>
+          <label for="drawShape_stair_${index}_width_edit" class="form-label text-sm">Width</label>
+          <select id="drawShape_stair_${index}_width_edit" class="form-select text-sm" onchange="updateDrawShapeStairWidth(${index}, this.value)">
+            <option value="4" ${stair.widthFt === 4 ? 'selected' : ''}>4 feet</option>
+            <option value="5" ${stair.widthFt === 5 ? 'selected' : ''}>5 feet</option>
+            <option value="6" ${stair.widthFt === 6 ? 'selected' : ''}>6 feet</option>
+            <option value="7" ${stair.widthFt === 7 ? 'selected' : ''}>7 feet</option>
+            <option value="8" ${stair.widthFt === 8 ? 'selected' : ''}>8 feet</option>
+            <option value="9" ${stair.widthFt === 9 ? 'selected' : ''}>9 feet</option>
+            <option value="10" ${stair.widthFt === 10 ? 'selected' : ''}>10 feet</option>
+            <option value="11" ${stair.widthFt === 11 ? 'selected' : ''}>11 feet</option>
+            <option value="12" ${stair.widthFt === 12 ? 'selected' : ''}>12 feet</option>
+            <option value="13" ${stair.widthFt === 13 ? 'selected' : ''}>13 feet</option>
+            <option value="14" ${stair.widthFt === 14 ? 'selected' : ''}>14 feet</option>
+            <option value="15" ${stair.widthFt === 15 ? 'selected' : ''}>15 feet</option>
+            <option value="16" ${stair.widthFt === 16 ? 'selected' : ''}>16 feet</option>
+            <option value="17" ${stair.widthFt === 17 ? 'selected' : ''}>17 feet</option>
+            <option value="18" ${stair.widthFt === 18 ? 'selected' : ''}>18 feet</option>
+            <option value="19" ${stair.widthFt === 19 ? 'selected' : ''}>19 feet</option>
+            <option value="20" ${stair.widthFt === 20 ? 'selected' : ''}>20 feet</option>
+          </select>
+        </div>
+        
+        <div class="flex justify-end space-x-2 mt-4">
+          <button 
+            onclick="applyDrawShapeStairEdit(${index})" 
+            class="px-3 py-1 text-sm text-gray-600 hover:text-gray-800 transition-colors"
+          >
+            Apply
           </button>
         </div>
       </div>
@@ -802,11 +846,25 @@ window.deleteStairConfig = function(stairIndex) {
 
 window.updateIndividualStairConfig = function(stairIndex, property, value) {
   if (window.appState && window.appState.stairs && window.appState.stairs[stairIndex]) {
+    // Convert value to integer if it's widthFt
+    if (property === 'widthFt') {
+      value = parseInt(value);
+    }
+    
     window.appState.stairs[stairIndex][property] = value;
     
     // Update the card display to reflect the new settings
     const stairCard = document.getElementById(`stair-card-${stairIndex}`);
     if (stairCard) {
+      // Update width display if width changed
+      if (property === 'widthFt') {
+        const widthDisplay = stairCard.querySelector('p.text-sm.text-gray-600');
+        if (widthDisplay) {
+          widthDisplay.textContent = `${value}' wide`;
+        }
+      }
+      
+      // Update settings summary
       const settingsSummary = stairCard.querySelector('.mt-2.text-sm');
       if (settingsSummary) {
         const stair = window.appState.stairs[stairIndex];
@@ -846,21 +904,26 @@ window.updateIndividualStairConfig = function(stairIndex, property, value) {
 
 // Global functions for Draw Shape stair management
 window.toggleDrawShapeStairEdit = function(stairIndex) {
-  const displayElement = document.getElementById(`drawShape-width-display-${stairIndex}`);
-  const editorElement = document.getElementById(`drawShape-width-editor-${stairIndex}`);
+  const editSection = document.getElementById(`drawShape-stair-edit-${stairIndex}`);
   
-  if (displayElement && editorElement) {
-    const isEditing = editorElement.classList.contains('hidden');
-    
-    if (isEditing) {
-      // Show editor, hide display
-      displayElement.classList.add('hidden');
-      editorElement.classList.remove('hidden');
-    } else {
-      // Show display, hide editor
-      displayElement.classList.remove('hidden');
-      editorElement.classList.add('hidden');
-    }
+  if (editSection) {
+    editSection.classList.toggle('hidden');
+  }
+};
+
+window.applyDrawShapeStairEdit = function(stairIndex) {
+  // Get the current value from the width dropdown and apply it
+  const widthSelect = document.getElementById(`drawShape_stair_${stairIndex}_width_edit`);
+  if (widthSelect) {
+    const newWidth = widthSelect.value;
+    // Apply the width change
+    updateDrawShapeStairWidth(stairIndex, newWidth);
+  }
+  
+  // Close the edit section
+  const editSection = document.getElementById(`drawShape-stair-edit-${stairIndex}`);
+  if (editSection) {
+    editSection.classList.add('hidden');
   }
 };
 
@@ -898,10 +961,14 @@ window.updateDrawShapeStairWidth = function(stairIndex, newWidth) {
     const width = parseInt(newWidth);
     window.appState.stairs[stairIndex].widthFt = width;
     
-    // Update the display element to reflect the new width
-    const displayElement = document.getElementById(`drawShape-width-display-${stairIndex}`);
-    if (displayElement) {
-      displayElement.textContent = `${width}' wide`;
+    // Find the card's paragraph element and update it
+    const card = document.getElementById(`drawShape-stair-card-${stairIndex}`);
+    if (card) {
+      const displayP = card.querySelector('p.text-sm.text-gray-600');
+      if (displayP) {
+        const stair = window.appState.stairs[stairIndex];
+        displayP.textContent = `${width} feet wide · ${stair.calculatedNumSteps ? stair.calculatedNumSteps + ' steps' : 'Steps: TBD'}`;
+      }
     }
     
     // Recalculate stair details with new width
@@ -909,6 +976,17 @@ window.updateDrawShapeStairWidth = function(stairIndex, newWidth) {
       const inputs = getFormInputs();
       const deckHeight = inputs.deckHeight || 0;
       window.stairCalculations.calculateStairDetails(window.appState.stairs[stairIndex], deckHeight);
+      
+      // Get updated stair object
+      const stair = window.appState.stairs[stairIndex];
+      
+      // Update display again with recalculated step count
+      if (card) {
+        const displayP = card.querySelector('p.text-sm.text-gray-600');
+        if (displayP) {
+          displayP.textContent = `${width} feet wide · ${stair.calculatedNumSteps ? stair.calculatedNumSteps + ' steps' : 'Steps: TBD'}`;
+        }
+      }
     }
     
     // Update BOM and UI
