@@ -1018,26 +1018,35 @@ function processStairs(
         stair.stringerType === "lvl_wood" &&
         stair.calculatedStringerQty > 0
       ) {
-        const maxLVLSteps = 8;
-        const stepsToLookup = Math.min(
-          maxLVLSteps,
-          Math.max(2, stair.calculatedNumSteps || 2)
-        );
-        const searchTerm = `${stepsToLookup} step`.toLowerCase();
-        const lvlItem = parsedStockData.find(
-          (i) =>
-            i.item
-              ?.toLowerCase()
-              .includes("pressure treated lvl stair stringer") &&
-            i.item?.toLowerCase().includes(searchTerm)
-        );
-        addItemToBOMAggregated(
-          bomItems,
-          lvlItem,
-          `LVL Stringer (${stepsToLookup}-Step)${stairDescSuffix}`,
-          stair.calculatedStringerQty,
-          "STAIRS"
-        );
+        const maxLVLSteps = 10;
+
+        // Check if stairs exceed max LVL capacity (requires landing)
+        if (stair.calculatedNumSteps > maxLVLSteps) {
+          addItemToBOMAggregated(
+            bomItems,
+            null,
+            `LVL Stringer${stairDescSuffix} - LANDING REQUIRED (${stair.calculatedNumSteps} steps exceeds ${maxLVLSteps}-step max)`,
+            stair.calculatedStringerQty,
+            "STAIRS"
+          );
+        } else {
+          const stepsToLookup = Math.max(2, stair.calculatedNumSteps || 2);
+          const searchTerm = `${stepsToLookup} step`.toLowerCase();
+          const lvlItem = parsedStockData.find(
+            (i) =>
+              i.item
+                ?.toLowerCase()
+                .includes("pressure treated lvl stair stringer") &&
+              i.item?.toLowerCase().includes(searchTerm)
+          );
+          addItemToBOMAggregated(
+            bomItems,
+            lvlItem,
+            `LVL Stringer (${stepsToLookup}-Step)${stairDescSuffix}`,
+            stair.calculatedStringerQty,
+            "STAIRS"
+          );
+        }
       } else if (
         stair.stringerType === "custom_2x12" &&
         stair.calculatedStringerQty > 0
@@ -1093,6 +1102,15 @@ function processStairs(
             });
           }
         }
+      } else if (stair.calculatedStringerQty > 0) {
+        // Fallback for unknown or missing stringer type
+        addItemToBOMAggregated(
+          bomItems,
+          null,
+          `Stringers${stairDescSuffix} - Unknown type "${stair.stringerType || 'not specified'}"`,
+          stair.calculatedStringerQty,
+          "STAIRS"
+        );
       }
 
       // Landing Materials
