@@ -932,6 +932,7 @@ export function calculateStructure(
     pictureFrameBlocking: [],
     error: null,
     totalDepthFeet: 0,
+    cornerCount: shapePoints?.length || 4, // Number of corners for angle brackets
   };
   let joistStartFixedCoord,
     joistEndFixedCoord1,

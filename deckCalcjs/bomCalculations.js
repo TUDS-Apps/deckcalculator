@@ -582,64 +582,70 @@ function processHardwareAndAccessories(
     }
   }
 
-  let tieCount = 0;
-  const mainAndPFJoists = structure.joists || [];
-  tieCount += mainAndPFJoists.length;
+  // H2.5Z hurricane ties: only for drop beam configurations
+  // One tie per joist at each drop beam intersection
+  if (inputs.beamType === "drop") {
+    const dropBeamCount = structure.beams?.filter(b => !b.isFlush).length || 0;
 
-  const endJoistSegments = (structure.rimJoists || []).filter(
-    (r) => r.usage === "End Joist"
-  );
-  tieCount += endJoistSegments.length;
+    if (dropBeamCount > 0) {
+      const joistCount = (structure.joists || []).length;
+      const endJoistCount = (structure.rimJoists || []).filter(
+        (r) => r.usage === "End Joist"
+      ).length;
+      const tieCount = (joistCount + endJoistCount) * dropBeamCount;
 
-  if (tieCount > 0) {
-    const h25Item = parsedStockData.find((i) =>
-      i.item?.toLowerCase().includes("h2.5az")
-    );
-    addItemToBOMAggregated(bomItems, h25Item, "H2.5 Tie", tieCount, "JOISTS, LEDGER, RIMS & BLOCKING");
-    if (h25Item) totalScrews1_5 += tieCount * 10;
+      if (tieCount > 0) {
+        const h25Item = parsedStockData.find((i) =>
+          i.item?.toLowerCase().includes("h2.5az")
+        );
+        addItemToBOMAggregated(bomItems, h25Item, "H2.5 Tie (Drop Beam)", tieCount, "JOISTS, LEDGER, RIMS & BLOCKING");
+        if (h25Item) totalScrews1_5 += tieCount * 10;
+      }
+    }
   }
 
+  // Joist hangers: needed at ledger and flush beam connections
   let hanger_count_final = 0;
   const candidateJoistSegmentsForHangers = (structure.joists || []).filter(
     (j) => j.usage === "Joist" || j.usage === "Picture Frame Joist"
   );
 
   if (candidateJoistSegmentsForHangers.length > 0) {
-    let numCandidateJoistRuns = candidateJoistSegmentsForHangers.length;
-    const hasMidBeam = structure.beams?.some(
-      (b) => b.usage === "Mid Beam" && !b.isFlush
-    );
-    if (hasMidBeam && candidateJoistSegmentsForHangers.length > 1) {
-      numCandidateJoistRuns = candidateJoistSegmentsForHangers.length / 2;
-    }
-    numCandidateJoistRuns = Math.ceil(numCandidateJoistRuns);
+    // Calculate joist runs (segments may be split by mid-beams)
+    const numJoistSegments = candidateJoistSegmentsForHangers.length;
+    const numMidBeams = structure.beams?.filter(
+      (b) => b.usage?.includes("Mid Beam")
+    ).length || 0;
+    const numJoistRuns = numMidBeams > 0
+      ? Math.ceil(numJoistSegments / (numMidBeams + 1))
+      : numJoistSegments;
 
-    if (inputs.beamType === "drop") {
-      if (inputs.attachmentType === "house_rim" && structure.ledger) {
-        hanger_count_final = numCandidateJoistRuns;
-      } else if (
-        inputs.attachmentType === "concrete" &&
-        structure.rimJoists?.some((r) => r.usage === "Wall Rim Joist")
-      ) {
-        hanger_count_final = numCandidateJoistRuns;
-      } else if (inputs.attachmentType === "floating") {
-        const wallSideBeam = structure.beams?.find(
-          (b) => b.usage === "Wall-Side Beam"
-        );
-        if (wallSideBeam && wallSideBeam.isFlush) {
-          hanger_count_final = numCandidateJoistRuns;
-        } else {
-          hanger_count_final = 0;
-        }
-      } else {
-        hanger_count_final = 0;
-      }
-    } else {
-      // Flush beamType
-      console.warn(
-        "Hanger logic for 'flush' beam type for Joists/PF Joists is using candidateJoistSegmentsForHangers.length * 2. This assumes all ends connect to a flush member."
+    // 1. Hangers at ledger (if ledger exists)
+    if (inputs.attachmentType === "house_rim" && structure.ledger) {
+      hanger_count_final += numJoistRuns;
+    }
+
+    // 2. Hangers at flush wall-side beam (floating deck with flush beams)
+    if (inputs.attachmentType === "floating") {
+      const wallSideBeam = structure.beams?.find(
+        (b) => b.usage === "Wall-Side Beam"
       );
-      hanger_count_final = candidateJoistSegmentsForHangers.length * 2;
+      if (wallSideBeam && wallSideBeam.isFlush) {
+        hanger_count_final += numJoistRuns;
+      }
+    }
+
+    // 3. Hangers at flush mid-beams (joists connect from both sides)
+    if (inputs.beamType === "flush" && numMidBeams > 0) {
+      hanger_count_final += numJoistRuns * 2 * numMidBeams;
+    }
+
+    // 4. Hangers at flush outer beam
+    if (inputs.beamType === "flush") {
+      const outerBeam = structure.beams?.find((b) => b.usage === "Outer Beam");
+      if (outerBeam) {
+        hanger_count_final += numJoistRuns;
+      }
     }
   }
 
@@ -717,7 +723,7 @@ function processHardwareAndAccessories(
     }
   }
 
-  const numCornerAngles = 4;
+  const numCornerAngles = structure.cornerCount || 4;
   if (primaryJoistSize) {
     let angleLookup = "";
     let screws_per_angle = 0;
@@ -751,7 +757,8 @@ function processHardwareAndAccessories(
     }
   }
 
-  const deckAreaSqFt = deckDimensions.widthFeet * deckDimensions.heightFeet;
+  // Use actual area for complex shapes (L, U), fallback to bounding box for simple rectangles
+  const deckAreaSqFt = deckDimensions.actualAreaSqFt || (deckDimensions.widthFeet * deckDimensions.heightFeet);
   const estUnitsScrews = Math.max(100, Math.ceil(deckAreaSqFt * 5));
   const estLbsScrewsByWeight = Math.max(1, Math.ceil(deckAreaSqFt * 0.05));
 
@@ -955,53 +962,57 @@ function processStairs(
             "STAIRS"
           );
         } else {
-          needsPylexConnectorsForThisStairSet = true;
-          let remainingStepsForThisStair = stair.calculatedNumSteps;
-          const firstPartSteps = maxAvailablePylexStepSize;
-          const firstPartSearchTerm = `${firstPartSteps} step`.toLowerCase();
-          const firstPylexItem = allPylexStringerItems.find((i) =>
-            i.item?.toLowerCase().includes(firstPartSearchTerm)
-          );
-          addItemToBOMAggregated(
-            bomItems,
-            firstPylexItem,
-            `Pylex Stringer (${firstPartSteps}-Step Upper)${stairDescSuffix}`,
-            stair.calculatedStringerQty,
-            "STAIRS"
-          );
-          remainingStepsForThisStair -= firstPartSteps;
-          if (remainingStepsForThisStair > 0) {
-            const secondPartSteps = Math.min(
-              maxAvailablePylexStepSize,
-              Math.max(1, remainingStepsForThisStair)
+          // Need to split into multiple stringer pieces
+          let remainingSteps = stair.calculatedNumSteps;
+          let partNumber = 1;
+          let totalParts = 0;
+
+          while (remainingSteps > 0) {
+            const partSteps = Math.min(maxAvailablePylexStepSize, remainingSteps);
+            const partSearchTerm = `${partSteps} step`.toLowerCase();
+            const pylexItem = allPylexStringerItems.find((i) =>
+              i.item?.toLowerCase().includes(partSearchTerm)
             );
-            const secondPartSearchTerm =
-              `${secondPartSteps} step`.toLowerCase();
-            const secondPylexItem = allPylexStringerItems.find((i) =>
-              i.item?.toLowerCase().includes(secondPartSearchTerm)
-            );
+
+            // Label parts: Upper, Middle 1, Middle 2, ..., Lower
+            let partLabel;
+            if (partNumber === 1) {
+              partLabel = "Upper";
+            } else if (remainingSteps <= partSteps) {
+              partLabel = "Lower";
+            } else {
+              partLabel = `Middle ${partNumber - 1}`;
+            }
+
             addItemToBOMAggregated(
               bomItems,
-              secondPylexItem,
-              `Pylex Stringer (${secondPartSteps}-Step Lower)${stairDescSuffix}`,
+              pylexItem,
+              `Pylex Stringer (${partSteps}-Step ${partLabel})${stairDescSuffix}`,
               stair.calculatedStringerQty,
               "STAIRS"
             );
+
+            remainingSteps -= partSteps;
+            partNumber++;
+            totalParts++;
           }
-        }
-        if (needsPylexConnectorsForThisStairSet) {
-          const connectorItem = parsedStockData.find((i) =>
-            i.item
-              ?.toLowerCase()
-              .includes("pylex steel stair stringer connector bracket")
-          );
-          addItemToBOMAggregated(
-            bomItems,
-            connectorItem,
-            `Pylex Stringer Connector${stairDescSuffix}`,
-            stair.calculatedStringerQty,
-            "STAIRS"
-          );
+
+          // Add connectors: one connector kit per joint (totalParts - 1 joints) per stringer
+          if (totalParts > 1) {
+            const connectorItem = parsedStockData.find((i) =>
+              i.item
+                ?.toLowerCase()
+                .includes("pylex steel stair stringer connector bracket")
+            );
+            const connectorsPerStringer = totalParts - 1;
+            addItemToBOMAggregated(
+              bomItems,
+              connectorItem,
+              `Pylex Stringer Connector${stairDescSuffix}`,
+              stair.calculatedStringerQty * connectorsPerStringer,
+              "STAIRS"
+            );
+          }
         }
       } else if (
         stair.stringerType === "lvl_wood" &&
@@ -1100,10 +1111,16 @@ function processStairs(
           "STAIRS"
         );
       } else if (stair.landingType === "concrete_pad") {
-        const landingDepthFt = 4.0; // Default depth is 4ft.
+        const landingDepthFt = 4.0;
+        const padThicknessInches = 3;
+        const padThicknessFt = padThicknessInches / 12;
 
+        // Calculate concrete volume and bags needed
+        // 30kg Quikrete yields ~0.5 cubic feet when mixed
         const landingAreaSqFt = stair.widthFt * landingDepthFt;
-        const bagsNeeded = Math.ceil(landingAreaSqFt); // Rule: 1 bag per sq ft.
+        const volumeCuFt = landingAreaSqFt * padThicknessFt;
+        const yieldPerBagCuFt = 0.5;
+        const bagsNeeded = Math.ceil(volumeCuFt / yieldPerBagCuFt);
 
         const concreteItem = parsedStockData.find((i) =>
           i.item?.toLowerCase().includes("quikrete 30kg")
@@ -1111,7 +1128,7 @@ function processStairs(
         addItemToBOMAggregated(
           bomItems,
           concreteItem,
-          `Concrete Mix for Landing Pad (${stair.widthFt}'W x ${landingDepthFt}'D)${stairDescSuffix}`,
+          `Concrete Mix for Landing Pad (${stair.widthFt}'W x ${landingDepthFt}'D x ${padThicknessInches}")${stairDescSuffix}`,
           bagsNeeded,
           "STAIRS"
         );
@@ -1229,54 +1246,94 @@ export function calculateBOM(structure, inputs, stairs, deckDimensions) {
       currentBomItems
     ) => {
       if (totalNeeded <= 0) return;
+
       const availableBoxes = stockData
         .filter(
           (i) =>
             i.item?.toLowerCase().includes("sd connector screw") &&
             i.item?.toLowerCase().includes(screwDesc.toLowerCase()) &&
             i.pkg_unit === "box" &&
-            (i.pkg_qty || 0) > 0
+            (i.pkg_qty || 0) > 0 &&
+            (i.price || 0) > 0
         )
-        .sort((a, b) => (a.pkg_qty || 0) - (b.pkg_qty || 0));
+        .sort((a, b) => (b.pkg_qty || 0) - (a.pkg_qty || 0)); // Sort largest first
 
-      let remainingNeeded = totalNeeded;
-      if (availableBoxes.length > 0) {
-        const chosenBox = availableBoxes[0];
-        const numBoxes = Math.ceil(remainingNeeded / chosenBox.pkg_qty);
+      if (availableBoxes.length === 0) {
         addItemToBOMAggregated(
           currentBomItems,
-          chosenBox,
-          `SD Screws ${screwDesc} (Box of ${chosenBox.pkg_qty})`,
-          numBoxes,
+          null,
+          `SD Screws ${screwDesc} - No Boxes Available`,
+          totalNeeded,
           "JOISTS, LEDGER, RIMS & BLOCKING"
         );
-        remainingNeeded = 0;
+        return;
       }
 
-      if (remainingNeeded > 0) {
-        const singleItem = stockData.find(
-          (i) =>
-            i.item?.toLowerCase().includes("sd connector screw") &&
-            i.item?.toLowerCase().includes(screwDesc.toLowerCase()) &&
-            i.pkg_unit !== "box"
-        );
-        if (singleItem) {
-          addItemToBOMAggregated(
-            currentBomItems,
-            singleItem,
-            `SD Screws ${screwDesc} (Singles)`,
-            remainingNeeded,
-            "JOISTS, LEDGER, RIMS & BLOCKING"
-          );
-        } else {
-          addItemToBOMAggregated(
-            currentBomItems,
-            null,
-            `SD Screws ${screwDesc} - No Suitable Stock/Singles`,
-            remainingNeeded,
-            "JOISTS, LEDGER, RIMS & BLOCKING"
-          );
+      // Find the most economical combination of boxes
+      let bestCombination = null;
+      let bestCost = Infinity;
+
+      // Try all reasonable combinations (works well for 2-3 box sizes)
+      const maxLargeBoxes = Math.ceil(totalNeeded / availableBoxes[0].pkg_qty) + 1;
+
+      for (let largeQty = 0; largeQty <= maxLargeBoxes; largeQty++) {
+        const largeBox = availableBoxes[0];
+        const coveredByLarge = largeQty * largeBox.pkg_qty;
+        const remaining = totalNeeded - coveredByLarge;
+
+        if (remaining <= 0) {
+          // Large boxes alone cover the need
+          const cost = largeQty * largeBox.price;
+          if (cost < bestCost) {
+            bestCost = cost;
+            bestCombination = [{ box: largeBox, qty: largeQty }];
+          }
+        } else if (availableBoxes.length > 1) {
+          // Need to fill remainder with smaller boxes
+          const smallBox = availableBoxes[availableBoxes.length - 1]; // Smallest
+          const smallQty = Math.ceil(remaining / smallBox.pkg_qty);
+          const cost = largeQty * largeBox.price + smallQty * smallBox.price;
+
+          if (cost < bestCost) {
+            bestCost = cost;
+            bestCombination = [];
+            if (largeQty > 0) bestCombination.push({ box: largeBox, qty: largeQty });
+            if (smallQty > 0) bestCombination.push({ box: smallBox, qty: smallQty });
+          }
         }
+      }
+
+      // Also try using only small boxes (in case that's cheaper)
+      if (availableBoxes.length > 1) {
+        const smallBox = availableBoxes[availableBoxes.length - 1];
+        const smallOnlyQty = Math.ceil(totalNeeded / smallBox.pkg_qty);
+        const smallOnlyCost = smallOnlyQty * smallBox.price;
+        if (smallOnlyCost < bestCost) {
+          bestCost = smallOnlyCost;
+          bestCombination = [{ box: smallBox, qty: smallOnlyQty }];
+        }
+      }
+
+      // Add the best combination to BOM
+      if (bestCombination && bestCombination.length > 0) {
+        bestCombination.forEach(({ box, qty }) => {
+          addItemToBOMAggregated(
+            currentBomItems,
+            box,
+            `SD Screws ${screwDesc} (Box of ${box.pkg_qty})`,
+            qty,
+            "JOISTS, LEDGER, RIMS & BLOCKING"
+          );
+        });
+      } else {
+        // Fallback if no valid combination found
+        addItemToBOMAggregated(
+          currentBomItems,
+          null,
+          `SD Screws ${screwDesc} - Could not determine box combination`,
+          totalNeeded,
+          "JOISTS, LEDGER, RIMS & BLOCKING"
+        );
       }
     };
 

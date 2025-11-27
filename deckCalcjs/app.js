@@ -403,9 +403,25 @@ function calculateAndUpdateDeckDimensions() {
   }
   const widthModelPixels = maxX - minX;
   const heightModelPixels = maxY - minY;
+  const widthFeet = widthModelPixels / config.PIXELS_PER_FOOT;
+  const heightFeet = heightModelPixels / config.PIXELS_PER_FOOT;
+
+  // Calculate actual area from rectangular sections (for complex shapes like L, U)
+  let actualAreaSqFt = 0;
+  if (appState.rectangularSections && appState.rectangularSections.length > 0) {
+    appState.rectangularSections.forEach(section => {
+      const sectionDims = multiSectionCalculations.calculateSectionDimensions(section);
+      actualAreaSqFt += sectionDims.widthFeet * sectionDims.heightFeet;
+    });
+  } else {
+    // Simple rectangle - use bounding box
+    actualAreaSqFt = widthFeet * heightFeet;
+  }
+
   appState.deckDimensions = {
-    widthFeet: widthModelPixels / config.PIXELS_PER_FOOT,
-    heightFeet: heightModelPixels / config.PIXELS_PER_FOOT,
+    widthFeet: widthFeet,
+    heightFeet: heightFeet,
+    actualAreaSqFt: actualAreaSqFt,
     minX: minX,
     maxX: maxX,
     minY: minY,
