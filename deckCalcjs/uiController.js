@@ -492,4 +492,142 @@ export function resetUIOutputs() {
   if (summarySection) summarySection.classList.add("hidden");
   if (summaryList)
     summaryList.innerHTML = "<dt>Status:</dt><dd>Please generate a plan.</dd>";
+
+  // Hide view specs button (modal based)
+  const viewSpecsBtn = document.getElementById("viewSpecsBtn");
+  if (viewSpecsBtn) viewSpecsBtn.classList.add("hidden");
+}
+
+// --- Structural Specifications Population ---
+export function populateStructuralSpecs(structure, inputs, deckDimensions, maxJoistSpanFt = null) {
+  const viewSpecsBtn = document.getElementById("viewSpecsBtn");
+  const specsModal = document.getElementById("specsModal");
+
+  if (!structure || structure.error || !inputs || !deckDimensions) {
+    // Hide the view specs button if no valid structure
+    if (viewSpecsBtn) viewSpecsBtn.classList.add("hidden");
+    return;
+  }
+
+  // Show the view specs button
+  if (viewSpecsBtn) viewSpecsBtn.classList.remove("hidden");
+
+  // Helper to safely set text content
+  const setSpecValue = (id, value) => {
+    const el = document.getElementById(id);
+    if (el) el.textContent = value || "--";
+  };
+
+  // --- Joist System ---
+  const joistSize = structure.joists?.[0]?.size || structure.ledger?.size || "N/A";
+  setSpecValue("specJoistSize", joistSize);
+  setSpecValue("specJoistSpacing", `${inputs.joistSpacing}" O.C.`);
+
+  // Calculate actual joist span
+  const actualSpan = structure.totalDepthFeet || deckDimensions.heightFeet || 0;
+  setSpecValue("specJoistActualSpan", `${actualSpan.toFixed(1)}'`);
+
+  // Set max allowable span if provided
+  if (maxJoistSpanFt) {
+    setSpecValue("specJoistMaxSpan", `${maxJoistSpanFt.toFixed(1)}'`);
+  } else {
+    // Estimate based on common span tables
+    const estimatedMaxSpan = getEstimatedMaxSpan(joistSize, inputs.joistSpacing);
+    setSpecValue("specJoistMaxSpan", estimatedMaxSpan ? `${estimatedMaxSpan}'` : "See span tables");
+  }
+
+  // Update compliance status
+  const complianceStatus = document.getElementById("joistComplianceStatus");
+  if (complianceStatus) {
+    const maxSpan = maxJoistSpanFt || getEstimatedMaxSpan(joistSize, inputs.joistSpacing);
+    complianceStatus.classList.remove("compliant", "warning", "non-compliant");
+
+    if (maxSpan && actualSpan <= maxSpan) {
+      complianceStatus.classList.add("compliant");
+      complianceStatus.querySelector(".compliance-text").textContent = "Span within allowable limits";
+    } else if (structure.beams?.some(b => b.usage === "Mid Beam")) {
+      complianceStatus.classList.add("compliant");
+      complianceStatus.querySelector(".compliance-text").textContent = "Mid-beam added for compliance";
+    } else {
+      complianceStatus.classList.add("warning");
+      complianceStatus.querySelector(".compliance-text").textContent = "Verify with local code requirements";
+    }
+  }
+
+  // --- Beam System ---
+  if (structure.beams && structure.beams.length > 0) {
+    const firstBeam = structure.beams[0];
+    const beamConfig = `${firstBeam.ply}-ply ${firstBeam.size}`;
+    setSpecValue("specBeamConfig", beamConfig);
+    setSpecValue("specBeamType", firstBeam.isFlush ? "Flush Beam" : "Drop Beam");
+
+    const totalBeamLength = structure.beams.reduce((sum, b) => sum + (b.lengthFeet || 0), 0);
+    setSpecValue("specBeamLength", `${totalBeamLength.toFixed(1)}'`);
+    setSpecValue("specBeamCount", structure.beams.length.toString());
+  } else {
+    setSpecValue("specBeamConfig", "N/A");
+    setSpecValue("specBeamType", "N/A");
+    setSpecValue("specBeamLength", "N/A");
+    setSpecValue("specBeamCount", "0");
+  }
+
+  // --- Posts & Foundations ---
+  const postSize = structure.posts?.[0]?.size || "N/A";
+  setSpecValue("specPostSize", postSize);
+
+  const postHeight = structure.posts?.[0]?.heightFeet;
+  setSpecValue("specPostHeight", postHeight ? formatFeetInches(postHeight) : "N/A");
+  setSpecValue("specPostCount", (structure.posts?.length || 0).toString());
+
+  // Footing information
+  const footingType = footingTypeSelect?.options[footingTypeSelect.selectedIndex]?.text || inputs.footingType || "N/A";
+  setSpecValue("specFootingType", footingType);
+  setSpecValue("specFootingCount", (structure.footings?.length || 0).toString());
+
+  // --- Attachment Method ---
+  let attachmentText = "N/A";
+  if (inputs.attachmentType === "house_rim") attachmentText = "Ledger to House Rim";
+  else if (inputs.attachmentType === "concrete") attachmentText = "To Concrete Foundation";
+  else if (inputs.attachmentType === "floating") attachmentText = "Floating Deck";
+  setSpecValue("specAttachmentType", attachmentText);
+
+  // Ledger specifications
+  if (structure.ledger) {
+    setSpecValue("specLedgerSize", structure.ledger.size || "N/A");
+    setSpecValue("specLedgerLength", `${structure.ledger.lengthFeet?.toFixed(1) || 0}'`);
+  } else {
+    setSpecValue("specLedgerSize", "N/A (Floating)");
+    setSpecValue("specLedgerLength", "N/A");
+
+    const ledgerNote = document.getElementById("specLedgerNote");
+    if (ledgerNote) {
+      ledgerNote.textContent = "Floating deck - no ledger attachment";
+    }
+  }
+
+  // Set up print button handler
+  const printBtn = document.getElementById("printSpecsBtn");
+  if (printBtn && !printBtn.dataset.initialized) {
+    printBtn.dataset.initialized = "true";
+    printBtn.addEventListener("click", () => {
+      window.print();
+    });
+  }
+}
+
+// Helper function to get estimated max span from common span tables
+function getEstimatedMaxSpan(joistSize, spacingInches) {
+  // Common span values for SPF #2 lumber at 40 PSF live load + 10 PSF dead load
+  const spanTable = {
+    "2x6": { 12: 9.5, 16: 8.5, 24: 7 },
+    "2x8": { 12: 12.5, 16: 11.5, 24: 9.5 },
+    "2x10": { 12: 16, 16: 14.5, 24: 12 },
+    "2x12": { 12: 19, 16: 17.5, 24: 14.5 }
+  };
+
+  const sizes = spanTable[joistSize];
+  if (sizes && sizes[spacingInches]) {
+    return sizes[spacingInches];
+  }
+  return null;
 }

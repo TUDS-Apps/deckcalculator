@@ -56,7 +56,7 @@ export function validateShape(points) {
 }
 
 /**
- * Checks that all corners in the shape are 90-degree angles
+ * Checks that all corners in the shape have valid angles (90° or 45°/135°)
  * @param {Array<{x: number, y: number}>} points - Array of points defining the shape
  * @returns {{isValid: boolean, error: string | null}} Validation result
  */
@@ -73,35 +73,41 @@ export function hasOnlyRightAngles(points) {
     // Calculate vectors from current point
     const v1 = { x: prevPoint.x - currentPoint.x, y: prevPoint.y - currentPoint.y };
     const v2 = { x: nextPoint.x - currentPoint.x, y: nextPoint.y - currentPoint.y };
-    
+
     // Calculate dot product
     const dotProduct = v1.x * v2.x + v1.y * v2.y;
     const magnitude1 = Math.sqrt(v1.x * v1.x + v1.y * v1.y);
     const magnitude2 = Math.sqrt(v2.x * v2.x + v2.y * v2.y);
-    
+
     if (magnitude1 < EPSILON || magnitude2 < EPSILON) {
       continue; // Skip if vectors are too small
     }
-    
+
     const cosAngle = dotProduct / (magnitude1 * magnitude2);
-    
-    // For rectilinear polygons, we expect:
+
+    // Valid angles for deck shapes (interior angles):
     // 0° = collinear edges pointing same direction (cosine ≈ 1)
-    // 90° = perpendicular edges (cosine ≈ 0) 
+    // 45° = sharp corner (cosine ≈ 0.707)
+    // 90° = perpendicular edges (cosine ≈ 0)
+    // 135° = obtuse corner (cosine ≈ -0.707)
     // 180° = collinear edges pointing opposite directions (cosine ≈ -1)
-    
-    const tolerance = 0.1;
+
+    const tolerance = 0.15; // Slightly increased tolerance for 45° angles
+    const cos45 = Math.SQRT1_2; // ~0.707
+
     const is0Degree = Math.abs(cosAngle - 1) < tolerance; // cosine near 1
+    const is45Degree = Math.abs(Math.abs(cosAngle) - cos45) < tolerance; // cosine near ±0.707
     const is90Degree = Math.abs(cosAngle) < tolerance; // cosine near 0
+    const is135Degree = Math.abs(cosAngle + cos45) < tolerance; // cosine near -0.707
     const is180Degree = Math.abs(cosAngle + 1) < tolerance; // cosine near -1
-    
-    if (!is0Degree && !is90Degree && !is180Degree) {
-      // This is not a valid rectilinear angle
+
+    if (!is0Degree && !is45Degree && !is90Degree && !is135Degree && !is180Degree) {
+      // This is not a valid angle
       const angleInRadians = Math.acos(Math.min(1, Math.max(-1, Math.abs(cosAngle))));
       const angleInDegrees = angleInRadians * 180 / Math.PI;
-      return { 
-        isValid: false, 
-        error: `Invalid angle at point ${i + 1}: ${angleInDegrees.toFixed(1)}°. Only 90-degree corners are supported.` 
+      return {
+        isValid: false,
+        error: `Invalid angle at point ${i + 1}: ${angleInDegrees.toFixed(1)}°. Only 90° and 45°/135° corners are supported.`
       };
     }
   }
@@ -146,35 +152,125 @@ function checkSelfIntersections(points) {
 }
 
 /**
- * Checks if the shape can be decomposed into rectangles
+ * Checks if the shape can be decomposed into sections (rectangles and triangular corners)
  * @param {Array<{x: number, y: number}>} points - Array of points defining the shape
  * @returns {{isValid: boolean, error: string | null}} Validation result
  */
 function canBeDecomposedIntoRectangles(points) {
-  // For a polygon to be decomposable into rectangles, it must be:
-  // 1. Rectilinear (only 90-degree angles) - already checked
+  // For a polygon to be decomposable, it must be:
+  // 1. Have valid angles (90° or 45°/135°) - already checked
   // 2. Simple (no self-intersections) - already checked
-  
-  // Check that the shape forms a valid rectilinear polygon
-  // All edges must be either horizontal or vertical
+
+  // Check that the shape forms a valid polygon with allowed edge types
+  // All edges must be either horizontal, vertical, or 45-degree diagonal
   for (let i = 0; i < points.length; i++) {
     const p1 = points[i];
     const p2 = points[(i + 1) % points.length];
-    
-    const isHorizontal = Math.abs(p1.y - p2.y) < EPSILON;
-    const isVertical = Math.abs(p1.x - p2.x) < EPSILON;
-    
-    if (!isHorizontal && !isVertical) {
-      return { 
-        isValid: false, 
-        error: `Edge ${i + 1} is neither horizontal nor vertical. All edges must be aligned with grid axes.` 
+
+    const edgeType = classifyEdge(p1, p2);
+
+    if (edgeType === 'other') {
+      return {
+        isValid: false,
+        error: `Edge ${i + 1} is not aligned to a valid angle. Edges must be horizontal, vertical, or at 45°.`
       };
     }
   }
 
-  // For now, accept any rectilinear polygon
-  // More complex decomposition validation can be added later if needed
+  // Accept polygons with valid edge types
   return { isValid: true, error: null };
+}
+
+/**
+ * Classifies an edge as horizontal, vertical, diagonal (45°), or other
+ * @param {Object} p1 - Start point {x, y}
+ * @param {Object} p2 - End point {x, y}
+ * @param {number} tolerance - Angle tolerance in degrees (default 2°)
+ * @returns {string} 'horizontal', 'vertical', 'diagonal', or 'other'
+ */
+export function classifyEdge(p1, p2, tolerance = 2) {
+  const dx = p2.x - p1.x;
+  const dy = p2.y - p1.y;
+
+  // Check for zero-length edge
+  if (Math.abs(dx) < EPSILON && Math.abs(dy) < EPSILON) {
+    return 'other';
+  }
+
+  // Calculate angle in degrees (0-180 range for classification)
+  const angleRad = Math.atan2(Math.abs(dy), Math.abs(dx));
+  const angleDeg = angleRad * (180 / Math.PI);
+
+  // Horizontal: angle near 0°
+  if (angleDeg < tolerance) {
+    return 'horizontal';
+  }
+
+  // Vertical: angle near 90°
+  if (Math.abs(angleDeg - 90) < tolerance) {
+    return 'vertical';
+  }
+
+  // Diagonal (45°): angle near 45°
+  if (Math.abs(angleDeg - 45) < tolerance) {
+    return 'diagonal';
+  }
+
+  return 'other';
+}
+
+/**
+ * Gets the angle of an edge in radians
+ * @param {Object} p1 - Start point {x, y}
+ * @param {Object} p2 - End point {x, y}
+ * @returns {number} Angle in radians
+ */
+export function getEdgeAngle(p1, p2) {
+  return Math.atan2(p2.y - p1.y, p2.x - p1.x);
+}
+
+/**
+ * Gets the length of an edge
+ * @param {Object} p1 - Start point {x, y}
+ * @param {Object} p2 - End point {x, y}
+ * @returns {number} Edge length
+ */
+export function getEdgeLength(p1, p2) {
+  const dx = p2.x - p1.x;
+  const dy = p2.y - p1.y;
+  return Math.sqrt(dx * dx + dy * dy);
+}
+
+/**
+ * Checks if an edge is diagonal (45°)
+ * @param {Object} p1 - Start point {x, y}
+ * @param {Object} p2 - End point {x, y}
+ * @returns {boolean} True if edge is at 45°
+ */
+export function isDiagonalEdge(p1, p2) {
+  return classifyEdge(p1, p2) === 'diagonal';
+}
+
+/**
+ * Gets all edges with their classifications from a set of points
+ * @param {Array<{x: number, y: number}>} points - Array of points defining the shape
+ * @returns {Array<{p1: Object, p2: Object, type: string, angle: number, length: number, index: number}>}
+ */
+export function getClassifiedEdges(points) {
+  const edges = [];
+  for (let i = 0; i < points.length; i++) {
+    const p1 = points[i];
+    const p2 = points[(i + 1) % points.length];
+    edges.push({
+      p1,
+      p2,
+      type: classifyEdge(p1, p2),
+      angle: getEdgeAngle(p1, p2),
+      length: getEdgeLength(p1, p2),
+      index: i
+    });
+  }
+  return edges;
 }
 
 /**
@@ -274,9 +370,8 @@ export function isSimplePolygon(points) {
 export function getValidationRequirements() {
   return `Deck shapes must meet the following requirements:
 • At least 3 unique corner points
-• All corners must be exactly 90 degrees
-• All edges must be horizontal or vertical
+• All corners must be 90° or 45°/135° angles
+• All edges must be horizontal, vertical, or at 45°
 • No self-intersecting lines
-• Shape must be a simple closed polygon
-• Must be decomposable into rectangular sections`;
+• Shape must be a simple closed polygon`;
 }

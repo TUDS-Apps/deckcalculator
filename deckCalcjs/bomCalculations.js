@@ -369,13 +369,25 @@ function processLumber(structure, inputs, bomItems, parsedStockData) {
           size: beam.size,
           lengthFeet: beam.lengthFeet,
           usage: beam.usage || "Beam",
+          isAngled: beam.isAngled || false, // Track angled beams
         }))
     ),
-    ...structure.joists.map((j) => ({ ...j, usage: j.usage || "Joist" })),
-    ...structure.rimJoists.map((r) => ({
-      ...r,
-      usage: r.usage || "Rim/End Joist",
-    })),
+    ...structure.joists.map((j) => {
+      // Include cut angle info in usage description if present
+      let usage = j.usage || "Joist";
+      if (j.cutAngle && j.cutAngle !== 90) {
+        usage = `${usage} (${j.cutAngle}° miter)`;
+      }
+      return { ...j, usage };
+    }),
+    ...structure.rimJoists.map((r) => {
+      // Include cut angle info for rim joists too
+      let usage = r.usage || "Rim/End Joist";
+      if (r.cutAngle && r.cutAngle !== 90) {
+        usage = `${usage} (${r.cutAngle}° miter)`;
+      }
+      return { ...r, usage };
+    }),
     ...structure.posts.map((p) => ({
       size: p.size,
       lengthFeet: p.heightFeet,

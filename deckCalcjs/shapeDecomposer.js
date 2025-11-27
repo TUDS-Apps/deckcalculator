@@ -55,6 +55,20 @@ function decomposePolygonIntoRectangles(points, wallIndex) {
     }
   }
 
+  // SPECIAL CASE: For shapes with diagonal edges, return a single rectangle
+  // covering the orthogonal bounding box. The diagonal edge trimming logic
+  // in structural calculations will handle proper joist termination.
+  if (hasDiagonalEdge(workingPoints)) {
+    console.log("Shape has diagonal edges - returning single bounding rectangle");
+    const bounds = getPolygonBounds(workingPoints);
+    return [{
+      x: bounds.minX,
+      y: bounds.minY,
+      width: bounds.maxX - bounds.minX,
+      height: bounds.maxY - bounds.minY
+    }];
+  }
+
   // Step 1: Find all unique X and Y coordinates to create a grid
   const xCoords = [...new Set(workingPoints.map(p => p.x))].sort((a, b) => a - b);
   const yCoords = [...new Set(workingPoints.map(p => p.y))].sort((a, b) => a - b);
@@ -1196,6 +1210,35 @@ export function visualizeDecomposition(rectangles) {
 // Helper functions
 
 /**
+ * Checks if any edge in the polygon is a diagonal (45-degree) edge
+ * @param {Array<{x: number, y: number}>} points - Array of polygon points
+ * @returns {boolean} True if polygon has at least one diagonal edge
+ */
+function hasDiagonalEdge(points) {
+  for (let i = 0; i < points.length; i++) {
+    const p1 = points[i];
+    const p2 = points[(i + 1) % points.length];
+
+    const dx = Math.abs(p2.x - p1.x);
+    const dy = Math.abs(p2.y - p1.y);
+
+    // Skip zero-length edges
+    if (dx < EPSILON && dy < EPSILON) continue;
+
+    // Check if edge is neither horizontal nor vertical (i.e., it's diagonal)
+    const isHorizontal = dy < EPSILON;
+    const isVertical = dx < EPSILON;
+
+    if (!isHorizontal && !isVertical) {
+      // It's a diagonal edge
+      console.log(`Found diagonal edge from (${p1.x}, ${p1.y}) to (${p2.x}, ${p2.y})`);
+      return true;
+    }
+  }
+  return false;
+}
+
+/**
  * Gets the bounding box of a polygon
  * @param {Array<{x: number, y: number}>} points - Array of points
  * @returns {Object} Bounding box with minX, maxX, minY, maxY
@@ -1452,22 +1495,99 @@ export function canDecomposeShape(points) {
   try {
     // Basic validation
     if (points.length < 4) return false;
-    
-    // Check if all edges are horizontal or vertical
+
+    // Check if all edges are horizontal, vertical, or 45-degree diagonal
     for (let i = 0; i < points.length - 1; i++) {
       const p1 = points[i];
       const p2 = points[i + 1];
-      
-      const isHorizontal = Math.abs(p1.y - p2.y) < EPSILON;
-      const isVertical = Math.abs(p1.x - p2.x) < EPSILON;
-      
-      if (!isHorizontal && !isVertical) {
+
+      const edgeType = classifyEdgeType(p1, p2);
+
+      if (edgeType === 'other') {
         return false;
       }
     }
-    
+
     return true;
   } catch (error) {
     return false;
   }
+}
+
+/**
+ * Classifies an edge as horizontal, vertical, diagonal (45°), or other
+ * @param {Object} p1 - Start point {x, y}
+ * @param {Object} p2 - End point {x, y}
+ * @param {number} tolerance - Angle tolerance in degrees (default 2°)
+ * @returns {string} 'horizontal', 'vertical', 'diagonal', or 'other'
+ */
+function classifyEdgeType(p1, p2, tolerance = 2) {
+  const dx = p2.x - p1.x;
+  const dy = p2.y - p1.y;
+
+  // Check for zero-length edge
+  if (Math.abs(dx) < EPSILON && Math.abs(dy) < EPSILON) {
+    return 'other';
+  }
+
+  // Calculate angle in degrees (0-90 range for classification)
+  const angleRad = Math.atan2(Math.abs(dy), Math.abs(dx));
+  const angleDeg = angleRad * (180 / Math.PI);
+
+  // Horizontal: angle near 0°
+  if (angleDeg < tolerance) {
+    return 'horizontal';
+  }
+
+  // Vertical: angle near 90°
+  if (Math.abs(angleDeg - 90) < tolerance) {
+    return 'vertical';
+  }
+
+  // Diagonal (45°): angle near 45°
+  if (Math.abs(angleDeg - 45) < tolerance) {
+    return 'diagonal';
+  }
+
+  return 'other';
+}
+
+/**
+ * Checks if a shape has any diagonal (45°) edges
+ * @param {Array<{x: number, y: number}>} points - Array of points defining the shape
+ * @returns {boolean} True if shape has diagonal edges
+ */
+export function shapeHasDiagonalEdges(points) {
+  for (let i = 0; i < points.length - 1; i++) {
+    const p1 = points[i];
+    const p2 = points[i + 1];
+
+    if (classifyEdgeType(p1, p2) === 'diagonal') {
+      return true;
+    }
+  }
+  return false;
+}
+
+/**
+ * Gets all diagonal edges from a shape
+ * @param {Array<{x: number, y: number}>} points - Array of points defining the shape
+ * @returns {Array<Object>} Array of diagonal edge objects with p1, p2, index
+ */
+export function getDiagonalEdgesFromShape(points) {
+  const diagonalEdges = [];
+  for (let i = 0; i < points.length - 1; i++) {
+    const p1 = points[i];
+    const p2 = points[i + 1];
+
+    if (classifyEdgeType(p1, p2) === 'diagonal') {
+      diagonalEdges.push({
+        p1,
+        p2,
+        index: i,
+        angle: Math.atan2(p2.y - p1.y, p2.x - p1.x)
+      });
+    }
+  }
+  return diagonalEdges;
 }

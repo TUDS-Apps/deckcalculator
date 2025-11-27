@@ -1117,10 +1117,57 @@ export function calculateStructure(
           ? -(DROP_BEAM_CENTERLINE_SETBACK_FEET * PIXELS_PER_FOOT)
           : DROP_BEAM_CENTERLINE_SETBACK_FEET * PIXELS_PER_FOOT);
     }
+
+    // Check for diagonal edges and find where horizontal outer edge ends
+    // If diagonal edges exist, we may need to trim the outer beam
+    let trimmedDeckDimensions = { ...deckDimensions };
+    if (shapePoints && shapePoints.length >= 3) {
+      const diagonalEdgesCheck = getDiagonalEdges(shapePoints);
+      if (diagonalEdgesCheck.length > 0) {
+        // Find the horizontal outer edge (not the ledger) and get its extent
+        for (let i = 0; i < shapePoints.length; i++) {
+          if (i === wallIndex) continue; // Skip ledger
+
+          const edgeP1 = shapePoints[i];
+          const edgeP2 = shapePoints[(i + 1) % shapePoints.length];
+          const edgeType = classifyEdge(edgeP1, edgeP2);
+
+          // Check if this is the horizontal outer edge
+          if (edgeType === 'horizontal') {
+            const edgeY = (edgeP1.y + edgeP2.y) / 2;
+            // Check if this edge is on the outer side of the deck
+            const isOuterEdge = isWallHorizontal
+              ? (deckExtendsPositiveDir ? edgeY > (deckDimensions.minY + deckDimensions.maxY) / 2 : edgeY < (deckDimensions.minY + deckDimensions.maxY) / 2)
+              : (deckExtendsPositiveDir ? edgeP1.x > (deckDimensions.minX + deckDimensions.maxX) / 2 : edgeP1.x < (deckDimensions.minX + deckDimensions.maxX) / 2);
+
+            if (isOuterEdge) {
+              // Trim the outer beam to only cover this horizontal edge
+              const edgeMinX = Math.min(edgeP1.x, edgeP2.x);
+              const edgeMaxX = Math.max(edgeP1.x, edgeP2.x);
+              const edgeMinY = Math.min(edgeP1.y, edgeP2.y);
+              const edgeMaxY = Math.max(edgeP1.y, edgeP2.y);
+
+              if (isWallHorizontal) {
+                // Horizontal wall: trim X range of outer beam
+                trimmedDeckDimensions.minX = edgeMinX;
+                trimmedDeckDimensions.maxX = edgeMaxX;
+              } else {
+                // Vertical wall: trim Y range of outer beam
+                trimmedDeckDimensions.minY = edgeMinY;
+                trimmedDeckDimensions.maxY = edgeMaxY;
+              }
+              console.log(`Trimmed outer beam to cover horizontal edge from ${edgeMinX},${edgeMinY} to ${edgeMaxX},${edgeMaxY}`);
+              break;
+            }
+          }
+        }
+      }
+    }
+
     const obRes = calculateBeamAndPostsInternal(
       obPosCoord,
       isWallHorizontal,
-      deckDimensions,
+      trimmedDeckDimensions,
       beamSize,
       beamPly,
       postSize,
@@ -1206,6 +1253,101 @@ export function calculateStructure(
     // For backward compatibility, keep midBeam as the first mid-beam
     midBeam = midBeams.length > 0 ? midBeams[0] : null;
   }
+
+  // ============================================================================
+  // DIAGONAL EDGE BEAM CALCULATION
+  // For edges that are 45° (diagonal), we need beams running parallel to them
+  // ============================================================================
+  const diagonalBeams = [];
+  const detectedDiagonalEdges = []; // Store detected diagonal edges for joist extension
+  if (shapePoints && shapePoints.length >= 3) {
+    // Use getDiagonalEdges for consistent edge detection
+    const allDiagonalEdges = getDiagonalEdges(shapePoints);
+    console.log(`[DIAGONAL] Found ${allDiagonalEdges.length} diagonal edges in shape with ${shapePoints.length} points`);
+    console.log(`[DIAGONAL] wallIndex = ${wallIndex}`);
+
+    for (const diagEdgeInfo of allDiagonalEdges) {
+      console.log(`[DIAGONAL] Edge ${diagEdgeInfo.index}: (${diagEdgeInfo.p1.x.toFixed(1)}, ${diagEdgeInfo.p1.y.toFixed(1)}) to (${diagEdgeInfo.p2.x.toFixed(1)}, ${diagEdgeInfo.p2.y.toFixed(1)})`);
+      // Skip the ledger wall edge
+      if (diagEdgeInfo.index === wallIndex) {
+        console.log(`[DIAGONAL] Skipping edge ${diagEdgeInfo.index} - it's the ledger wall`);
+        continue;
+      }
+
+      const edgeP1 = diagEdgeInfo.p1;
+      const edgeP2 = diagEdgeInfo.p2;
+      const edgeType = 'diagonal'; // Already classified by getDiagonalEdges
+
+      // Store for later joist extension
+      detectedDiagonalEdges.push(diagEdgeInfo);
+
+      if (edgeType === 'diagonal') {
+        // Calculate setback based on beam type
+        const setbackFeet = inputs.beamType === 'drop' ? DROP_BEAM_CENTERLINE_SETBACK_FEET : 0;
+
+        // Determine which direction to offset the beam (into the deck)
+        // We need to offset perpendicular to the edge, toward the deck interior
+        const edgeMidX = (edgeP1.x + edgeP2.x) / 2;
+        const edgeMidY = (edgeP1.y + edgeP2.y) / 2;
+        const deckCenterX = (deckDimensions.minX + deckDimensions.maxX) / 2;
+        const deckCenterY = (deckDimensions.minY + deckDimensions.maxY) / 2;
+
+        // Calculate perpendicular direction toward deck center
+        const edgeAngle = getEdgeAngle(edgeP1, edgeP2);
+        const perpVec = getPerpendicularVector(edgeAngle);
+
+        // Test which perpendicular direction points toward deck center
+        const testX = edgeMidX + perpVec.x * 10;
+        const testY = edgeMidY + perpVec.y * 10;
+        const distToCenter1 = Math.sqrt((testX - deckCenterX) ** 2 + (testY - deckCenterY) ** 2);
+        const distToCenter2 = Math.sqrt((edgeMidX - perpVec.x * 10 - deckCenterX) ** 2 +
+                                         (edgeMidY - perpVec.y * 10 - deckCenterY) ** 2);
+
+        // Use the direction that gets closer to deck center
+        const inwardSign = distToCenter1 < distToCenter2 ? 1 : -1;
+
+        const diagBeamRes = calculateAngledBeamAndPosts(
+          edgeP1,
+          edgeP2,
+          setbackFeet,
+          beamSize,
+          beamPly,
+          postSize,
+          deckHeightInches,
+          inputs.footingType,
+          "Diagonal Beam",
+          inputs.beamType,
+          inwardSign
+        );
+
+        console.log(`[DIAGONAL] Diagonal beam result: length=${diagBeamRes.beam?.lengthFeet?.toFixed(2) || 'N/A'} ft`);
+        if (diagBeamRes.beam) {
+          console.log(`[DIAGONAL] Beam p1: (${diagBeamRes.beam.p1.x.toFixed(1)}, ${diagBeamRes.beam.p1.y.toFixed(1)})`);
+          console.log(`[DIAGONAL] Beam p2: (${diagBeamRes.beam.p2.x.toFixed(1)}, ${diagBeamRes.beam.p2.y.toFixed(1)})`);
+        }
+        if (diagBeamRes.beam && diagBeamRes.beam.lengthFeet > EPSILON) {
+          console.log(`[DIAGONAL] Adding diagonal beam to components`);
+
+          // Extend the diagonal beam to meet the deck edge (axis-aligned rim joist)
+          const extendedBeam = extendDiagonalBeamToEdge(
+            diagBeamRes.beam,
+            deckDimensions,
+            { p1: edgeP1, p2: edgeP2 },
+            { x: deckCenterX, y: deckCenterY }
+          );
+
+          components.beams.push(extendedBeam);
+          components.posts.push(...diagBeamRes.posts);
+          components.footings.push(...diagBeamRes.footings);
+          diagonalBeams.push(extendedBeam);
+        } else {
+          console.log(`[DIAGONAL] NOT adding beam - length too small or beam is null`);
+        }
+      }
+    }
+  }
+  console.log(`[DIAGONAL] Total diagonal beams added: ${diagonalBeams.length}`);
+  console.log(`[DIAGONAL] Total detected diagonal edges for joists: ${detectedDiagonalEdges.length}`);
 
   if (components.ledger) {
     joistStartFixedCoord = isWallHorizontal
@@ -1301,6 +1443,21 @@ export function calculateStructure(
     );
   }
 
+  // ============================================================================
+  // EXTEND JOISTS TO DIAGONAL EDGES
+  // For shapes with 45° diagonal edges, extend joists to reach the diagonal rim
+  // ============================================================================
+  if (detectedDiagonalEdges.length > 0) {
+    console.log(`Extending joists to ${detectedDiagonalEdges.length} diagonal edge(s)`);
+    components.joists = extendJoistsToDiagonalEdges(
+      components.joists,
+      detectedDiagonalEdges,
+      isWallHorizontal,
+      deckDimensions,
+      deckExtendsPositiveDir
+    );
+  }
+
   const deckEdgeP1_WallSide = isWallHorizontal
     ? { x: deckDimensions.minX, y: wallSideActualEdgeCoord }
     : { x: wallSideActualEdgeCoord, y: deckDimensions.minY };
@@ -1356,6 +1513,21 @@ export function calculateStructure(
       deckEdgeP2_OuterSide,
       inputs.attachmentType,
       forceSingleSpanJoistsAndRims // Pass the flag for End Joists
+    );
+  }
+
+  // Handle diagonal rim joists - add diagonal rim joists and trim axis-aligned ones
+  if (detectedDiagonalEdges && detectedDiagonalEdges.length > 0) {
+    const deckCenter = {
+      x: (deckDimensions.minX + deckDimensions.maxX) / 2,
+      y: (deckDimensions.minY + deckDimensions.maxY) / 2
+    };
+    console.log(`[DIAG_RIM] Processing ${detectedDiagonalEdges.length} diagonal edges for rim joists`);
+    components.rimJoists = handleDiagonalRimJoists(
+      components.rimJoists,
+      detectedDiagonalEdges,
+      deckCenter,
+      joistSize
     );
   }
 
@@ -1762,7 +1934,963 @@ function mergeTwoBeams(beam1, beam2) {
   if (beam1.usage !== beam2.usage) {
     mergedBeam.usage = `${beam1.usage} + ${beam2.usage}`;
   }
-  
+
   return mergedBeam;
+}
+
+// ============================================================================
+// 45-DEGREE ANGLE SUPPORT FUNCTIONS
+// ============================================================================
+
+/**
+ * Classifies an edge as horizontal, vertical, diagonal (45°), or other
+ * @param {Object} p1 - Start point {x, y}
+ * @param {Object} p2 - End point {x, y}
+ * @param {number} tolerance - Angle tolerance in degrees (default 2°)
+ * @returns {string} 'horizontal', 'vertical', 'diagonal', or 'other'
+ */
+export function classifyEdge(p1, p2, tolerance = 2) {
+  const dx = p2.x - p1.x;
+  const dy = p2.y - p1.y;
+
+  if (Math.abs(dx) < EPSILON && Math.abs(dy) < EPSILON) {
+    return 'other';
+  }
+
+  const angleRad = Math.atan2(Math.abs(dy), Math.abs(dx));
+  const angleDeg = angleRad * (180 / Math.PI);
+
+  if (angleDeg < tolerance) return 'horizontal';
+  if (Math.abs(angleDeg - 90) < tolerance) return 'vertical';
+  if (Math.abs(angleDeg - 45) < tolerance) return 'diagonal';
+
+  return 'other';
+}
+
+/**
+ * Gets the angle of an edge in radians
+ * @param {Object} p1 - Start point {x, y}
+ * @param {Object} p2 - End point {x, y}
+ * @returns {number} Angle in radians
+ */
+export function getEdgeAngle(p1, p2) {
+  return Math.atan2(p2.y - p1.y, p2.x - p1.x);
+}
+
+/**
+ * Gets a perpendicular unit vector to the given angle
+ * @param {number} angle - Angle in radians
+ * @returns {Object} Perpendicular unit vector {x, y}
+ */
+export function getPerpendicularVector(angle) {
+  return {
+    x: Math.cos(angle + Math.PI / 2),
+    y: Math.sin(angle + Math.PI / 2)
+  };
+}
+
+/**
+ * Gets a unit vector along the given angle
+ * @param {number} angle - Angle in radians
+ * @returns {Object} Unit vector {x, y}
+ */
+export function getUnitVector(angle) {
+  return {
+    x: Math.cos(angle),
+    y: Math.sin(angle)
+  };
+}
+
+/**
+ * Calculates beam and posts for an angled edge (supports 45° diagonals)
+ * @param {Object} edgeP1 - Start point of the edge
+ * @param {Object} edgeP2 - End point of the edge
+ * @param {number} setbackFeet - How far back from the edge the beam centerline should be
+ * @param {string} beamSizeString - Beam size string
+ * @param {number} beamPly - Number of plies
+ * @param {string} postSize - Post size string
+ * @param {number} deckHeightInches - Deck height
+ * @param {string} footingType - Footing type
+ * @param {string} usageLabel - Usage label for the beam
+ * @param {string} beamType - 'flush' or 'drop'
+ * @param {number} inwardSign - Direction multiplier for setback (1 or -1), defaults to 1
+ * @returns {Object} {beam, posts, footings}
+ */
+export function calculateAngledBeamAndPosts(
+  edgeP1,
+  edgeP2,
+  setbackFeet,
+  beamSizeString,
+  beamPly,
+  postSize,
+  deckHeightInches,
+  footingType,
+  usageLabel,
+  beamType,
+  inwardSign = 1
+) {
+  const beamPosts = [];
+  const beamFootings = [];
+
+  // Calculate edge properties
+  const edgeAngle = getEdgeAngle(edgeP1, edgeP2);
+  const edgeLength = distance(edgeP1, edgeP2);
+  const unitVec = getUnitVector(edgeAngle);
+  const perpVec = getPerpendicularVector(edgeAngle);
+
+  // Calculate setback offset in pixels, using inwardSign to determine direction
+  const setbackPixels = setbackFeet * PIXELS_PER_FOOT * inwardSign;
+
+  // Beam runs parallel to the edge, offset by the setback (inward toward deck center)
+  const beamAxisP1 = {
+    x: edgeP1.x + perpVec.x * setbackPixels,
+    y: edgeP1.y + perpVec.y * setbackPixels
+  };
+  const beamAxisP2 = {
+    x: edgeP2.x + perpVec.x * setbackPixels,
+    y: edgeP2.y + perpVec.y * setbackPixels
+  };
+
+  const beamLengthPixels = distance(beamAxisP1, beamAxisP2);
+
+  if (beamLengthPixels < EPSILON) {
+    return {
+      beam: {
+        p1: beamAxisP1,
+        p2: beamAxisP1,
+        centerlineP1: beamAxisP1,
+        centerlineP2: beamAxisP1,
+        positionCoordinateLineP1: beamAxisP1,
+        positionCoordinateLineP2: beamAxisP1,
+        size: beamSizeString,
+        lengthFeet: 0,
+        ply: beamPly,
+        usage: usageLabel,
+        isFlush: beamType === 'flush',
+        isAngled: true,
+        angle: edgeAngle
+      },
+      posts: [],
+      footings: []
+    };
+  }
+
+  // Post placement follows same rules as regular beams
+  const postInsetPixels = POST_INSET_FEET * PIXELS_PER_FOOT;
+  const actualPostInsetPixels = Math.min(postInsetPixels, beamLengthPixels / 2 - EPSILON * 10);
+
+  const post1Pos = {
+    x: beamAxisP1.x + unitVec.x * actualPostInsetPixels,
+    y: beamAxisP1.y + unitVec.y * actualPostInsetPixels
+  };
+  const post2Pos = {
+    x: beamAxisP2.x - unitVec.x * actualPostInsetPixels,
+    y: beamAxisP2.y - unitVec.y * actualPostInsetPixels
+  };
+
+  if (beamLengthPixels < POST_INSET_FEET * PIXELS_PER_FOOT * 2 && beamLengthPixels > EPSILON) {
+    // Single center post for short beams
+    beamPosts.push({
+      x: beamAxisP1.x + unitVec.x * (beamLengthPixels / 2),
+      y: beamAxisP1.y + unitVec.y * (beamLengthPixels / 2),
+      size: postSize,
+      heightFeet: deckHeightInches / 12
+    });
+  } else if (beamLengthPixels >= POST_INSET_FEET * PIXELS_PER_FOOT * 2) {
+    beamPosts.push({ ...post1Pos, size: postSize, heightFeet: deckHeightInches / 12 });
+    if (distance(post1Pos, post2Pos) > EPSILON) {
+      beamPosts.push({ ...post2Pos, size: postSize, heightFeet: deckHeightInches / 12 });
+    }
+
+    // Add intermediate posts if needed
+    if (beamPosts.length === 2) {
+      const postSpanPixels = distance(beamPosts[0], beamPosts[1]);
+      if (postSpanPixels / PIXELS_PER_FOOT > MAX_POST_SPACING_FEET) {
+        const numIntermediatePosts = Math.floor(postSpanPixels / PIXELS_PER_FOOT / MAX_POST_SPACING_FEET);
+        const intermediateSpacingPixels = postSpanPixels / (numIntermediatePosts + 1);
+        for (let i = 1; i <= numIntermediatePosts; i++) {
+          beamPosts.push({
+            x: beamPosts[0].x + unitVec.x * intermediateSpacingPixels * i,
+            y: beamPosts[0].y + unitVec.y * intermediateSpacingPixels * i,
+            size: postSize,
+            heightFeet: deckHeightInches / 12
+          });
+        }
+      }
+    }
+  }
+
+  // Sort posts along the beam direction
+  beamPosts.sort((a, b) => {
+    const dotA = (a.x - beamAxisP1.x) * unitVec.x + (a.y - beamAxisP1.y) * unitVec.y;
+    const dotB = (b.x - beamAxisP1.x) * unitVec.x + (b.y - beamAxisP1.y) * unitVec.y;
+    return dotA - dotB;
+  });
+
+  // Calculate material endpoints with cantilever
+  let beamMaterialP1 = beamAxisP1;
+  let beamMaterialP2 = beamAxisP2;
+  if (beamPosts.length > 0) {
+    const cantileverPixels = BEAM_CANTILEVER_FEET * PIXELS_PER_FOOT;
+    const firstPost = beamPosts[0];
+    const lastPost = beamPosts[beamPosts.length - 1];
+    beamMaterialP1 = {
+      x: firstPost.x - unitVec.x * cantileverPixels,
+      y: firstPost.y - unitVec.y * cantileverPixels
+    };
+    beamMaterialP2 = {
+      x: lastPost.x + unitVec.x * cantileverPixels,
+      y: lastPost.y + unitVec.y * cantileverPixels
+    };
+  }
+
+  // Create footings
+  beamFootings.push(...beamPosts.map(post => ({
+    x: post.x,
+    y: post.y,
+    type: footingType
+  })));
+
+  return {
+    beam: {
+      p1: beamMaterialP1,
+      p2: beamMaterialP2,
+      centerlineP1: beamAxisP1,
+      centerlineP2: beamAxisP2,
+      positionCoordinateLineP1: beamAxisP1,
+      positionCoordinateLineP2: beamAxisP2,
+      size: beamSizeString,
+      lengthFeet: distance(beamMaterialP1, beamMaterialP2) / PIXELS_PER_FOOT,
+      ply: beamPly,
+      usage: usageLabel,
+      isFlush: beamType === 'flush',
+      isAngled: true,
+      angle: edgeAngle
+    },
+    posts: beamPosts,
+    footings: beamFootings
+  };
+}
+
+/**
+ * Calculates the intersection point of two lines
+ * @param {Object} line1P1 - Line 1 start point
+ * @param {Object} line1P2 - Line 1 end point
+ * @param {Object} line2P1 - Line 2 start point
+ * @param {Object} line2P2 - Line 2 end point
+ * @returns {Object|null} Intersection point {x, y} or null if parallel
+ */
+export function lineIntersection(line1P1, line1P2, line2P1, line2P2) {
+  const x1 = line1P1.x, y1 = line1P1.y;
+  const x2 = line1P2.x, y2 = line1P2.y;
+  const x3 = line2P1.x, y3 = line2P1.y;
+  const x4 = line2P2.x, y4 = line2P2.y;
+
+  const denom = (x1 - x2) * (y3 - y4) - (y1 - y2) * (x3 - x4);
+  if (Math.abs(denom) < EPSILON) return null; // Parallel lines
+
+  const t = ((x1 - x3) * (y3 - y4) - (y1 - y3) * (x3 - x4)) / denom;
+
+  return {
+    x: x1 + t * (x2 - x1),
+    y: y1 + t * (y2 - y1)
+  };
+}
+
+/**
+ * Trims a joist where it meets an angled edge
+ * @param {Object} joist - Joist object with p1, p2
+ * @param {Object} angledEdgeP1 - Angled edge start point
+ * @param {Object} angledEdgeP2 - Angled edge end point
+ * @returns {Object} Updated joist with trimmed endpoint and cut angle info
+ */
+export function trimJoistAtAngledEdge(joist, angledEdgeP1, angledEdgeP2) {
+  // Find intersection of joist line with angled edge
+  const intersection = lineIntersection(joist.p1, joist.p2, angledEdgeP1, angledEdgeP2);
+
+  if (!intersection) {
+    // No intersection - return joist unchanged
+    return { ...joist, cutAngle: null };
+  }
+
+  // Determine which end of the joist is closer to the angled edge
+  const dist1 = distance(joist.p1, intersection);
+  const dist2 = distance(joist.p2, intersection);
+
+  // Calculate the cut angle
+  const joistAngle = getEdgeAngle(joist.p1, joist.p2);
+  const edgeAngle = getEdgeAngle(angledEdgeP1, angledEdgeP2);
+  const cutAngleDeg = Math.abs(joistAngle - edgeAngle) * (180 / Math.PI);
+  const normalizedCutAngle = cutAngleDeg > 90 ? 180 - cutAngleDeg : cutAngleDeg;
+
+  // Create trimmed joist
+  let trimmedJoist;
+  if (dist1 < dist2) {
+    // Trim p1 end
+    trimmedJoist = {
+      ...joist,
+      p1: intersection,
+      lengthFeet: distance(intersection, joist.p2) / PIXELS_PER_FOOT,
+      cutAngle: Math.round(normalizedCutAngle),
+      cutEnd: 'p1'
+    };
+  } else {
+    // Trim p2 end
+    trimmedJoist = {
+      ...joist,
+      p2: intersection,
+      lengthFeet: distance(joist.p1, intersection) / PIXELS_PER_FOOT,
+      cutAngle: Math.round(normalizedCutAngle),
+      cutEnd: 'p2'
+    };
+  }
+
+  return trimmedJoist;
+}
+
+/**
+ * Checks if a point is on the line segment (not just the infinite line)
+ * @param {Object} point - Point to check
+ * @param {Object} lineP1 - Line start point
+ * @param {Object} lineP2 - Line end point
+ * @returns {boolean} True if point is on the segment
+ */
+export function isPointOnSegment(point, lineP1, lineP2) {
+  const minX = Math.min(lineP1.x, lineP2.x) - EPSILON;
+  const maxX = Math.max(lineP1.x, lineP2.x) + EPSILON;
+  const minY = Math.min(lineP1.y, lineP2.y) - EPSILON;
+  const maxY = Math.max(lineP1.y, lineP2.y) + EPSILON;
+
+  return point.x >= minX && point.x <= maxX && point.y >= minY && point.y <= maxY;
+}
+
+/**
+ * Checks if an edge array contains any diagonal (45°) edges
+ * @param {Array} edges - Array of edge objects with p1, p2
+ * @returns {boolean} True if any diagonal edges exist
+ */
+export function hasAngledEdges(edges) {
+  for (const edge of edges) {
+    if (classifyEdge(edge.p1, edge.p2) === 'diagonal') {
+      return true;
+    }
+  }
+  return false;
+}
+
+/**
+ * Gets all diagonal edges from a set of points
+ * @param {Array} points - Array of shape points
+ * @returns {Array} Array of diagonal edge objects with p1, p2, angle
+ */
+export function getDiagonalEdges(points) {
+  const diagonalEdges = [];
+  for (let i = 0; i < points.length; i++) {
+    const p1 = points[i];
+    const p2 = points[(i + 1) % points.length];
+    if (classifyEdge(p1, p2) === 'diagonal') {
+      diagonalEdges.push({
+        p1,
+        p2,
+        angle: getEdgeAngle(p1, p2),
+        index: i
+      });
+    }
+  }
+  return diagonalEdges;
+}
+
+/**
+ * Extends joists to reach diagonal edges (rim joists) and trims them at the intersection.
+ * This allows joists to run continuously from the ledger to an angled rim joist.
+ * @param {Array} joists - Array of joist objects with p1, p2, size, usage, lengthFeet
+ * @param {Array} diagonalEdges - Array of diagonal edge objects with p1, p2
+ * @param {boolean} isWallHorizontal - Whether the ledger/wall is horizontal
+ * @param {Object} deckDimensions - Deck bounding box dimensions
+ * @param {boolean} deckExtendsPositiveDir - Direction the deck extends from the wall
+ * @returns {Array} Modified joists array with extended joists trimmed at diagonal edges
+ */
+export function extendJoistsToDiagonalEdges(joists, diagonalEdges, isWallHorizontal, deckDimensions, deckExtendsPositiveDir) {
+  console.log(`[JOIST_EXT] extendJoistsToDiagonalEdges called with ${joists.length} joists and ${diagonalEdges?.length || 0} diagonal edges`);
+  console.log(`[JOIST_EXT] isWallHorizontal=${isWallHorizontal}, deckExtendsPositiveDir=${deckExtendsPositiveDir}`);
+
+  if (!diagonalEdges || diagonalEdges.length === 0) {
+    console.log(`[JOIST_EXT] No diagonal edges, returning original joists`);
+    return joists;
+  }
+
+  const modifiedJoists = [];
+  let trimmedCount = 0;
+
+  for (const joist of joists) {
+    let joistModified = false;
+    let modifiedJoist = { ...joist };
+
+    for (const diagEdge of diagonalEdges) {
+      // Determine if this joist is within the horizontal span of the diagonal edge
+      const diagMinX = Math.min(diagEdge.p1.x, diagEdge.p2.x);
+      const diagMaxX = Math.max(diagEdge.p1.x, diagEdge.p2.x);
+      const diagMinY = Math.min(diagEdge.p1.y, diagEdge.p2.y);
+      const diagMaxY = Math.max(diagEdge.p1.y, diagEdge.p2.y);
+
+      // Get joist position on the perpendicular axis (where it's placed)
+      const joistPosX = isWallHorizontal ? joist.p1.x : (joist.p1.x + joist.p2.x) / 2;
+      const joistPosY = isWallHorizontal ? (joist.p1.y + joist.p2.y) / 2 : joist.p1.y;
+
+      // Check if joist is within the diagonal edge's coverage area
+      let isInDiagonalArea = false;
+      if (isWallHorizontal) {
+        // For horizontal ledger, check if joist X is within diagonal's X range
+        isInDiagonalArea = joistPosX >= diagMinX - EPSILON && joistPosX <= diagMaxX + EPSILON;
+      } else {
+        // For vertical ledger, check if joist Y is within diagonal's Y range
+        isInDiagonalArea = joistPosY >= diagMinY - EPSILON && joistPosY <= diagMaxY + EPSILON;
+      }
+
+      if (isInDiagonalArea) {
+        // Extend joist to diagonal edge
+        // First, project the joist line to extend beyond current endpoint
+        const joistStart = joist.p1;
+        let joistExtendedEnd;
+
+        if (isWallHorizontal) {
+          // Joists run vertically (Y direction), extend in Y
+          const extendY = deckExtendsPositiveDir
+            ? Math.max(diagEdge.p1.y, diagEdge.p2.y) + 100  // Extend well beyond diagonal
+            : Math.min(diagEdge.p1.y, diagEdge.p2.y) - 100;
+          joistExtendedEnd = { x: joist.p1.x, y: extendY };
+        } else {
+          // Joists run horizontally (X direction), extend in X
+          const extendX = deckExtendsPositiveDir
+            ? Math.max(diagEdge.p1.x, diagEdge.p2.x) + 100
+            : Math.min(diagEdge.p1.x, diagEdge.p2.x) - 100;
+          joistExtendedEnd = { x: extendX, y: joist.p1.y };
+        }
+
+        // Find intersection with diagonal edge
+        const intersection = lineIntersection(joistStart, joistExtendedEnd, diagEdge.p1, diagEdge.p2);
+
+        console.log(`[JOIST_EXT] Checking joist at x=${joist.p1.x.toFixed(1)} against diagonal edge`);
+        console.log(`[JOIST_EXT] isInDiagonalArea=${isInDiagonalArea}, diagMinX=${diagMinX.toFixed(1)}, diagMaxX=${diagMaxX.toFixed(1)}, joistPosX=${joistPosX.toFixed(1)}`);
+
+        if (intersection) {
+          // Verify intersection is actually on the diagonal segment
+          const onSegment = isPointOnSegment(intersection, diagEdge.p1, diagEdge.p2);
+          console.log(`[JOIST_EXT] Intersection found at (${intersection.x.toFixed(1)}, ${intersection.y.toFixed(1)}), onSegment=${onSegment}`);
+
+          if (onSegment) {
+            // Calculate cut angle
+            const joistAngle = getEdgeAngle(joist.p1, joist.p2);
+            const edgeAngle = getEdgeAngle(diagEdge.p1, diagEdge.p2);
+            const cutAngleDeg = Math.abs(joistAngle - edgeAngle) * (180 / Math.PI);
+            const normalizedCutAngle = cutAngleDeg > 90 ? 180 - cutAngleDeg : cutAngleDeg;
+
+            // Update joist endpoint to intersection
+            // p1 is ALWAYS the wall/ledger side, p2 is ALWAYS the outer side
+            // The diagonal is on the outer edge, so we ALWAYS modify p2
+            console.log(`[JOIST_EXT] TRIMMING joist: old p2=(${joist.p2.x.toFixed(1)}, ${joist.p2.y.toFixed(1)}), new p2=(${intersection.x.toFixed(1)}, ${intersection.y.toFixed(1)})`);
+            modifiedJoist.p2 = intersection;
+
+            modifiedJoist.lengthFeet = distance(modifiedJoist.p1, modifiedJoist.p2) / PIXELS_PER_FOOT;
+            modifiedJoist.cutAngle = Math.round(normalizedCutAngle);
+            modifiedJoist.trimmedAtDiagonal = true;
+            joistModified = true;
+            trimmedCount++;
+            break; // Only trim at one diagonal edge per joist
+          }
+        } else if (isInDiagonalArea) {
+          console.log(`[JOIST_EXT] In diagonal area but no intersection found!`);
+        }
+      }
+    }
+
+    modifiedJoists.push(joistModified ? modifiedJoist : joist);
+  }
+
+  console.log(`[JOIST_EXT] Done: ${trimmedCount} joists trimmed out of ${joists.length} total`);
+  return modifiedJoists;
+}
+
+/**
+ * Trims two beams (one axis-aligned, one diagonal) so they meet at their intersection point
+ * instead of overlapping. Also handles posts and footings at the intersection.
+ * @param {Object} outerBeam - The axis-aligned outer beam
+ * @param {Object} diagonalBeam - The diagonal beam (angled)
+ * @param {Array} outerPosts - Posts for the outer beam
+ * @param {Array} diagonalPosts - Posts for the diagonal beam
+ * @param {Array} outerFootings - Footings for the outer beam
+ * @param {Array} diagonalFootings - Footings for the diagonal beam
+ * @param {string} postSize - Size of posts
+ * @param {number} deckHeightInches - Deck height in inches
+ * @param {string} footingType - Type of footing
+ * @returns {Object} Modified beams, posts, and footings
+ */
+export function trimBeamsAtIntersection(
+  outerBeam,
+  diagonalBeam,
+  outerPosts,
+  diagonalPosts,
+  outerFootings,
+  diagonalFootings,
+  postSize,
+  deckHeightInches,
+  footingType
+) {
+  console.log(`[BEAM_TRIM] Trimming beams at intersection`);
+  console.log(`[BEAM_TRIM] Outer beam: (${outerBeam.p1.x.toFixed(1)}, ${outerBeam.p1.y.toFixed(1)}) to (${outerBeam.p2.x.toFixed(1)}, ${outerBeam.p2.y.toFixed(1)})`);
+  console.log(`[BEAM_TRIM] Diagonal beam: (${diagonalBeam.p1.x.toFixed(1)}, ${diagonalBeam.p1.y.toFixed(1)}) to (${diagonalBeam.p2.x.toFixed(1)}, ${diagonalBeam.p2.y.toFixed(1)})`);
+
+  // Find intersection point between the two beam centerlines
+  const intersection = lineIntersection(
+    outerBeam.centerlineP1 || outerBeam.p1,
+    outerBeam.centerlineP2 || outerBeam.p2,
+    diagonalBeam.centerlineP1 || diagonalBeam.p1,
+    diagonalBeam.centerlineP2 || diagonalBeam.p2
+  );
+
+  if (!intersection) {
+    console.log(`[BEAM_TRIM] No intersection found (beams are parallel)`);
+    return {
+      outerBeam,
+      diagonalBeam,
+      outerPosts,
+      diagonalPosts,
+      outerFootings,
+      diagonalFootings,
+      intersectionPost: null
+    };
+  }
+
+  console.log(`[BEAM_TRIM] Intersection point: (${intersection.x.toFixed(1)}, ${intersection.y.toFixed(1)})`);
+
+  // Determine which end of each beam to trim
+  // For outer beam: find which endpoint is closer to the intersection
+  const outerP1Dist = distance(outerBeam.centerlineP1 || outerBeam.p1, intersection);
+  const outerP2Dist = distance(outerBeam.centerlineP2 || outerBeam.p2, intersection);
+
+  // For diagonal beam: find which endpoint is closer to the intersection
+  const diagP1Dist = distance(diagonalBeam.centerlineP1 || diagonalBeam.p1, intersection);
+  const diagP2Dist = distance(diagonalBeam.centerlineP2 || diagonalBeam.p2, intersection);
+
+  // Clone beams to modify
+  const trimmedOuterBeam = { ...outerBeam };
+  const trimmedDiagonalBeam = { ...diagonalBeam };
+
+  // Trim outer beam - the end closest to the intersection should become the intersection point
+  // But we need to determine if the intersection is actually between the beam endpoints
+  // or beyond one end
+  const outerBeamLength = distance(outerBeam.centerlineP1 || outerBeam.p1, outerBeam.centerlineP2 || outerBeam.p2);
+
+  // Check if intersection is closer to P2 (the end we want to trim for outer beam typically)
+  if (outerP2Dist < outerP1Dist && outerP2Dist < outerBeamLength) {
+    // Trim the P2 end of outer beam
+    trimmedOuterBeam.p2 = { ...intersection };
+    trimmedOuterBeam.centerlineP2 = { ...intersection };
+    if (trimmedOuterBeam.positionCoordinateLineP2) {
+      trimmedOuterBeam.positionCoordinateLineP2 = { ...intersection };
+    }
+    console.log(`[BEAM_TRIM] Trimmed outer beam P2 end`);
+  } else if (outerP1Dist < outerP2Dist && outerP1Dist < outerBeamLength) {
+    // Trim the P1 end of outer beam
+    trimmedOuterBeam.p1 = { ...intersection };
+    trimmedOuterBeam.centerlineP1 = { ...intersection };
+    if (trimmedOuterBeam.positionCoordinateLineP1) {
+      trimmedOuterBeam.positionCoordinateLineP1 = { ...intersection };
+    }
+    console.log(`[BEAM_TRIM] Trimmed outer beam P1 end`);
+  }
+
+  // Trim diagonal beam - find which end should be trimmed
+  const diagBeamLength = distance(diagonalBeam.centerlineP1 || diagonalBeam.p1, diagonalBeam.centerlineP2 || diagonalBeam.p2);
+
+  if (diagP1Dist < diagP2Dist && diagP1Dist < diagBeamLength) {
+    // Trim the P1 end of diagonal beam
+    trimmedDiagonalBeam.p1 = { ...intersection };
+    trimmedDiagonalBeam.centerlineP1 = { ...intersection };
+    if (trimmedDiagonalBeam.positionCoordinateLineP1) {
+      trimmedDiagonalBeam.positionCoordinateLineP1 = { ...intersection };
+    }
+    console.log(`[BEAM_TRIM] Trimmed diagonal beam P1 end`);
+  } else if (diagP2Dist < diagP1Dist && diagP2Dist < diagBeamLength) {
+    // Trim the P2 end of diagonal beam
+    trimmedDiagonalBeam.p2 = { ...intersection };
+    trimmedDiagonalBeam.centerlineP2 = { ...intersection };
+    if (trimmedDiagonalBeam.positionCoordinateLineP2) {
+      trimmedDiagonalBeam.positionCoordinateLineP2 = { ...intersection };
+    }
+    console.log(`[BEAM_TRIM] Trimmed diagonal beam P2 end`);
+  }
+
+  // Recalculate beam lengths
+  trimmedOuterBeam.lengthFeet = distance(trimmedOuterBeam.p1, trimmedOuterBeam.p2) / PIXELS_PER_FOOT;
+  trimmedDiagonalBeam.lengthFeet = distance(trimmedDiagonalBeam.p1, trimmedDiagonalBeam.p2) / PIXELS_PER_FOOT;
+
+  console.log(`[BEAM_TRIM] New outer beam length: ${trimmedOuterBeam.lengthFeet.toFixed(2)} ft`);
+  console.log(`[BEAM_TRIM] New diagonal beam length: ${trimmedDiagonalBeam.lengthFeet.toFixed(2)} ft`);
+
+  // Filter posts that are beyond the trim point
+  const filteredOuterPosts = filterPostsWithinBeam(outerPosts, trimmedOuterBeam);
+  const filteredDiagonalPosts = filterPostsWithinBeam(diagonalPosts, trimmedDiagonalBeam);
+
+  // Create shared post at intersection
+  const intersectionPost = {
+    x: intersection.x,
+    y: intersection.y,
+    size: postSize,
+    heightFeet: deckHeightInches / 12,
+    isShared: true,
+    usage: "Intersection Post"
+  };
+
+  // Create footing for intersection post
+  const intersectionFooting = {
+    x: intersection.x,
+    y: intersection.y,
+    type: footingType
+  };
+
+  // Filter footings that are beyond the trim point
+  const filteredOuterFootings = filterFootingsWithinBeam(outerFootings, trimmedOuterBeam);
+  const filteredDiagonalFootings = filterFootingsWithinBeam(diagonalFootings, trimmedDiagonalBeam);
+
+  return {
+    outerBeam: trimmedOuterBeam,
+    diagonalBeam: trimmedDiagonalBeam,
+    outerPosts: filteredOuterPosts,
+    diagonalPosts: filteredDiagonalPosts,
+    outerFootings: filteredOuterFootings,
+    diagonalFootings: filteredDiagonalFootings,
+    intersectionPost,
+    intersectionFooting
+  };
+}
+
+/**
+ * Filters posts to only include those within the beam's endpoints
+ * @param {Array} posts - Array of post objects
+ * @param {Object} beam - Beam object with p1 and p2
+ * @returns {Array} Filtered posts
+ */
+function filterPostsWithinBeam(posts, beam) {
+  if (!posts || posts.length === 0) return [];
+
+  const beamP1 = beam.centerlineP1 || beam.p1;
+  const beamP2 = beam.centerlineP2 || beam.p2;
+  const beamLength = distance(beamP1, beamP2);
+
+  if (beamLength < EPSILON) return [];
+
+  // Calculate beam unit vector
+  const unitVecX = (beamP2.x - beamP1.x) / beamLength;
+  const unitVecY = (beamP2.y - beamP1.y) / beamLength;
+
+  return posts.filter(post => {
+    // Project post onto beam axis
+    const postVecX = post.x - beamP1.x;
+    const postVecY = post.y - beamP1.y;
+    const projection = postVecX * unitVecX + postVecY * unitVecY;
+
+    // Check if projection is within beam length (with small tolerance)
+    const tolerance = POST_INSET_FEET * PIXELS_PER_FOOT * 0.5;
+    return projection >= -tolerance && projection <= beamLength + tolerance;
+  });
+}
+
+/**
+ * Filters footings to only include those within the beam's endpoints
+ * @param {Array} footings - Array of footing objects
+ * @param {Object} beam - Beam object with p1 and p2
+ * @returns {Array} Filtered footings
+ */
+function filterFootingsWithinBeam(footings, beam) {
+  if (!footings || footings.length === 0) return [];
+
+  const beamP1 = beam.centerlineP1 || beam.p1;
+  const beamP2 = beam.centerlineP2 || beam.p2;
+  const beamLength = distance(beamP1, beamP2);
+
+  if (beamLength < EPSILON) return [];
+
+  // Calculate beam unit vector
+  const unitVecX = (beamP2.x - beamP1.x) / beamLength;
+  const unitVecY = (beamP2.y - beamP1.y) / beamLength;
+
+  return footings.filter(footing => {
+    // Project footing onto beam axis
+    const footingVecX = footing.x - beamP1.x;
+    const footingVecY = footing.y - beamP1.y;
+    const projection = footingVecX * unitVecX + footingVecY * unitVecY;
+
+    // Check if projection is within beam length (with small tolerance)
+    const tolerance = POST_INSET_FEET * PIXELS_PER_FOOT * 0.5;
+    return projection >= -tolerance && projection <= beamLength + tolerance;
+  });
+}
+
+/**
+ * Extends a diagonal beam to meet the axis-aligned rim joist at the deck edge
+ * @param {Object} beam - The diagonal beam to extend
+ * @param {Object} dimensions - Deck dimensions with minX, maxX, minY, maxY
+ * @param {Object} diagEdge - The diagonal edge {p1, p2}
+ * @param {Object} deckCenter - Center point of deck {x, y}
+ * @returns {Object} Extended beam with updated endpoints and length
+ */
+export function extendDiagonalBeamToEdge(beam, dimensions, diagEdge, deckCenter) {
+  console.log('[EXTEND_BEAM] Starting beam extension');
+  console.log('[EXTEND_BEAM] Input beam:', JSON.stringify(beam));
+  console.log('[EXTEND_BEAM] Dimensions:', JSON.stringify(dimensions));
+  console.log('[EXTEND_BEAM] DiagEdge:', JSON.stringify(diagEdge));
+
+  if (!beam || !beam.p1 || !beam.p2) {
+    console.log('[EXTEND_BEAM] Invalid beam, returning as-is');
+    return beam;
+  }
+
+  // Calculate deck center if not provided
+  const center = deckCenter || {
+    x: (dimensions.minX + dimensions.maxX) / 2,
+    y: (dimensions.minY + dimensions.maxY) / 2
+  };
+
+  // Determine which endpoint is the "outer" one (farther from deck center)
+  const dist1 = distance(beam.p1, center);
+  const dist2 = distance(beam.p2, center);
+
+  // The outer point is the one farther from center - this is what needs to be extended
+  const outerIdx = dist1 > dist2 ? 1 : 2;
+  const outerPoint = outerIdx === 1 ? beam.p1 : beam.p2;
+  const innerPoint = outerIdx === 1 ? beam.p2 : beam.p1;
+
+  console.log(`[EXTEND_BEAM] Outer point (idx ${outerIdx}):`, outerPoint);
+  console.log('[EXTEND_BEAM] Inner point:', innerPoint);
+
+  // Beam direction from inner to outer
+  const beamDx = outerPoint.x - innerPoint.x;
+  const beamDy = outerPoint.y - innerPoint.y;
+  const beamLen = Math.sqrt(beamDx * beamDx + beamDy * beamDy);
+
+  if (beamLen < EPSILON) {
+    console.log('[EXTEND_BEAM] Beam has zero length, returning as-is');
+    return beam;
+  }
+
+  // Unit direction vector
+  const unitDx = beamDx / beamLen;
+  const unitDy = beamDy / beamLen;
+
+  // Determine which axis-aligned edge to intersect based on the diagonal corner position
+  // The diagonal is at a corner - find which two edges meet at that corner
+  let targetEdges = [];
+
+  // Check which corner the diagonal is at
+  const cornerTolerance = 2 * PIXELS_PER_FOOT;
+  const diagMidX = (diagEdge.p1.x + diagEdge.p2.x) / 2;
+  const diagMidY = (diagEdge.p1.y + diagEdge.p2.y) / 2;
+
+  const isNearLeft = diagMidX < center.x;
+  const isNearTop = diagMidY < center.y;
+
+  console.log(`[EXTEND_BEAM] Diagonal is near: ${isNearLeft ? 'left' : 'right'}, ${isNearTop ? 'top' : 'bottom'}`);
+
+  // Based on diagonal position, determine which axis-aligned edges form that corner
+  if (isNearTop) {
+    // Top edge: y = minY
+    targetEdges.push({ axis: 'y', value: dimensions.minY, type: 'top' });
+  } else {
+    // Bottom edge: y = maxY
+    targetEdges.push({ axis: 'y', value: dimensions.maxY, type: 'bottom' });
+  }
+
+  if (isNearLeft) {
+    // Left edge: x = minX
+    targetEdges.push({ axis: 'x', value: dimensions.minX, type: 'left' });
+  } else {
+    // Right edge: x = maxX
+    targetEdges.push({ axis: 'x', value: dimensions.maxX, type: 'right' });
+  }
+
+  console.log('[EXTEND_BEAM] Target edges:', JSON.stringify(targetEdges));
+
+  // Find intersection with nearest axis-aligned edge along beam direction
+  let bestIntersection = null;
+  let bestT = Infinity;
+
+  for (const edge of targetEdges) {
+    let t, intersectX, intersectY;
+
+    if (edge.axis === 'x') {
+      // Vertical edge at x = edge.value
+      if (Math.abs(unitDx) < EPSILON) continue;
+      t = (edge.value - innerPoint.x) / (unitDx * beamLen);
+      intersectX = edge.value;
+      intersectY = innerPoint.y + t * beamLen * unitDy;
+    } else {
+      // Horizontal edge at y = edge.value
+      if (Math.abs(unitDy) < EPSILON) continue;
+      t = (edge.value - innerPoint.y) / (unitDy * beamLen);
+      intersectX = innerPoint.x + t * beamLen * unitDx;
+      intersectY = edge.value;
+    }
+
+    console.log(`[EXTEND_BEAM] Edge ${edge.type}: t=${t.toFixed(3)}, intersection=(${intersectX.toFixed(1)}, ${intersectY.toFixed(1)})`);
+
+    // t > 1 means it's beyond current outer endpoint (extension needed)
+    // We want the closest intersection point that extends the beam
+    if (t > 0.5 && t < bestT) {
+      bestT = t;
+      bestIntersection = { x: intersectX, y: intersectY };
+    }
+  }
+
+  if (!bestIntersection) {
+    console.log('[EXTEND_BEAM] No valid intersection found, returning beam as-is');
+    return beam;
+  }
+
+  console.log('[EXTEND_BEAM] Best intersection:', bestIntersection, 'at t=', bestT.toFixed(3));
+
+  // Create new beam with extended endpoint
+  const newBeam = { ...beam };
+  if (outerIdx === 1) {
+    newBeam.p1 = bestIntersection;
+    newBeam.centerlineP1 = bestIntersection;
+  } else {
+    newBeam.p2 = bestIntersection;
+    newBeam.centerlineP2 = bestIntersection;
+  }
+
+  // Recalculate length
+  const newLength = distance(newBeam.p1, newBeam.p2);
+  newBeam.lengthFeet = newLength / PIXELS_PER_FOOT;
+
+  console.log(`[EXTEND_BEAM] Extended beam length: ${beam.lengthFeet.toFixed(2)}' -> ${newBeam.lengthFeet.toFixed(2)}'`);
+
+  return newBeam;
+}
+
+/**
+ * Handles diagonal rim joists - adds diagonal rim joists and trims existing axis-aligned ones
+ * @param {Array} rimJoists - Existing rim joists
+ * @param {Array} diagonalEdges - Diagonal edges array
+ * @param {Object} deckCenter - Center point of deck
+ * @param {string} rimJoistSize - Size for rim joists (e.g., '2x10')
+ * @returns {Array} Modified rim joists with diagonal rim joists added
+ */
+export function handleDiagonalRimJoists(rimJoists, diagonalEdges, deckCenter, rimJoistSize) {
+  console.log('[DIAG_RIM] Starting diagonal rim joist handling');
+  console.log('[DIAG_RIM] Input rim joists:', rimJoists.length);
+  console.log('[DIAG_RIM] Diagonal edges:', diagonalEdges.length);
+
+  if (!diagonalEdges || diagonalEdges.length === 0) {
+    return rimJoists;
+  }
+
+  const modifiedRimJoists = [...rimJoists];
+
+  for (const diagEdge of diagonalEdges) {
+    console.log('[DIAG_RIM] Processing diagonal edge:', JSON.stringify(diagEdge));
+
+    // 1. Add the diagonal rim joist
+    const diagLength = distance(diagEdge.p1, diagEdge.p2);
+    const diagRimJoist = {
+      p1: { ...diagEdge.p1 },
+      p2: { ...diagEdge.p2 },
+      lengthFeet: diagLength / PIXELS_PER_FOOT,
+      size: rimJoistSize,
+      isDiagonal: true
+    };
+
+    console.log(`[DIAG_RIM] Added diagonal rim joist: length=${diagRimJoist.lengthFeet.toFixed(2)}'`);
+    modifiedRimJoists.push(diagRimJoist);
+
+    // 2. Trim existing axis-aligned rim joists at their intersection with diagonal
+    for (let i = 0; i < modifiedRimJoists.length; i++) {
+      const rimJoist = modifiedRimJoists[i];
+      if (rimJoist.isDiagonal) continue;  // Skip diagonal rim joists
+
+      // Check if this rim joist intersects or connects to the diagonal edge
+      const isHorizontal = Math.abs(rimJoist.p1.y - rimJoist.p2.y) < EPSILON;
+      const isVertical = Math.abs(rimJoist.p1.x - rimJoist.p2.x) < EPSILON;
+
+      if (!isHorizontal && !isVertical) continue;  // Skip non-axis-aligned
+
+      // Find intersection point of rim joist line with diagonal edge
+      let intersection = null;
+
+      if (isHorizontal) {
+        // Rim joist is horizontal: y = rimJoist.p1.y
+        // Diagonal line: from diagEdge.p1 to diagEdge.p2
+        const diagDx = diagEdge.p2.x - diagEdge.p1.x;
+        const diagDy = diagEdge.p2.y - diagEdge.p1.y;
+
+        if (Math.abs(diagDy) > EPSILON) {
+          const t = (rimJoist.p1.y - diagEdge.p1.y) / diagDy;
+          if (t >= -0.01 && t <= 1.01) {
+            const intersectX = diagEdge.p1.x + t * diagDx;
+            // Check if intersection is within rim joist's x range
+            const minX = Math.min(rimJoist.p1.x, rimJoist.p2.x);
+            const maxX = Math.max(rimJoist.p1.x, rimJoist.p2.x);
+            if (intersectX >= minX - EPSILON && intersectX <= maxX + EPSILON) {
+              intersection = { x: intersectX, y: rimJoist.p1.y };
+            }
+          }
+        }
+      } else if (isVertical) {
+        // Rim joist is vertical: x = rimJoist.p1.x
+        const diagDx = diagEdge.p2.x - diagEdge.p1.x;
+        const diagDy = diagEdge.p2.y - diagEdge.p1.y;
+
+        if (Math.abs(diagDx) > EPSILON) {
+          const t = (rimJoist.p1.x - diagEdge.p1.x) / diagDx;
+          if (t >= -0.01 && t <= 1.01) {
+            const intersectY = diagEdge.p1.y + t * diagDy;
+            // Check if intersection is within rim joist's y range
+            const minY = Math.min(rimJoist.p1.y, rimJoist.p2.y);
+            const maxY = Math.max(rimJoist.p1.y, rimJoist.p2.y);
+            if (intersectY >= minY - EPSILON && intersectY <= maxY + EPSILON) {
+              intersection = { x: rimJoist.p1.x, y: intersectY };
+            }
+          }
+        }
+      }
+
+      if (!intersection) continue;
+
+      console.log(`[DIAG_RIM] Found intersection for rim joist ${i}:`, intersection);
+
+      // Determine which endpoint to trim (the one "outside" the diagonal)
+      // Use signed distance from diagonal line to determine which side of the diagonal each endpoint is on
+      const diagVecX = diagEdge.p2.x - diagEdge.p1.x;
+      const diagVecY = diagEdge.p2.y - diagEdge.p1.y;
+
+      // Cross product sign tells us which side of the line a point is on
+      const crossP1 = (rimJoist.p1.x - diagEdge.p1.x) * diagVecY - (rimJoist.p1.y - diagEdge.p1.y) * diagVecX;
+      const crossP2 = (rimJoist.p2.x - diagEdge.p1.x) * diagVecY - (rimJoist.p2.y - diagEdge.p1.y) * diagVecX;
+      const crossCenter = (deckCenter.x - diagEdge.p1.x) * diagVecY - (deckCenter.y - diagEdge.p1.y) * diagVecX;
+
+      // The "inside" point has the same sign as the center
+      // The "outside" point has opposite sign - that's the one to trim to intersection
+      const p1IsOutside = (crossP1 * crossCenter) < 0;
+      const p2IsOutside = (crossP2 * crossCenter) < 0;
+
+      console.log(`[DIAG_RIM] Cross products: p1=${crossP1.toFixed(1)}, p2=${crossP2.toFixed(1)}, center=${crossCenter.toFixed(1)}`);
+      console.log(`[DIAG_RIM] p1IsOutside=${p1IsOutside}, p2IsOutside=${p2IsOutside}`);
+
+      if (p1IsOutside && !p2IsOutside) {
+        // Trim p1 to intersection
+        console.log(`[DIAG_RIM] Trimming p1 from (${rimJoist.p1.x.toFixed(1)}, ${rimJoist.p1.y.toFixed(1)}) to (${intersection.x.toFixed(1)}, ${intersection.y.toFixed(1)})`);
+        rimJoist.p1 = { ...intersection };
+        rimJoist.lengthFeet = distance(rimJoist.p1, rimJoist.p2) / PIXELS_PER_FOOT;
+      } else if (p2IsOutside && !p1IsOutside) {
+        // Trim p2 to intersection
+        console.log(`[DIAG_RIM] Trimming p2 from (${rimJoist.p2.x.toFixed(1)}, ${rimJoist.p2.y.toFixed(1)}) to (${intersection.x.toFixed(1)}, ${intersection.y.toFixed(1)})`);
+        rimJoist.p2 = { ...intersection };
+        rimJoist.lengthFeet = distance(rimJoist.p1, rimJoist.p2) / PIXELS_PER_FOOT;
+      }
+    }
+  }
+
+  console.log('[DIAG_RIM] Final rim joists count:', modifiedRimJoists.length);
+  return modifiedRimJoists;
 }
 

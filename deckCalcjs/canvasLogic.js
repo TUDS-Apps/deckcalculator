@@ -168,6 +168,16 @@ function drawDeckContent(currentCtx, state) {
     isDrawing = false,
     viewportScale,
     isScaledForPrint = false,
+    layerVisibility = {
+      outline: true,
+      ledger: true,
+      joists: true,
+      beams: true,
+      posts: true,
+      blocking: true,
+      dimensions: true,
+      stairs: true
+    }
   } = state;
 
   const effectiveScale = isScaledForPrint
@@ -178,7 +188,8 @@ function drawDeckContent(currentCtx, state) {
   const scaledLineWidth = (width) =>
     Math.max(0.5 / effectiveScale, width / effectiveScale);
 
-  if (points.length > 0) {
+  // Draw outline if visible
+  if (points.length > 0 && layerVisibility.outline) {
     currentCtx.strokeStyle = config.DECK_OUTLINE_COLOR;
     currentCtx.lineWidth = scaledLineWidth(2);
     currentCtx.beginPath();
@@ -226,19 +237,22 @@ function drawDeckContent(currentCtx, state) {
         currentCtx.lineTo(snappedPreviewPos.x, snappedPreviewPos.y);
         currentCtx.stroke();
         currentCtx.setLineDash([]);
-        displayDimension(
-          currentCtx,
-          points[points.length - 1],
-          snappedPreviewPos,
-          deckDimensions,
-          effectiveScale,
-          isScaledForPrint
-        );
+        if (layerVisibility.dimensions) {
+          displayDimension(
+            currentCtx,
+            points[points.length - 1],
+            snappedPreviewPos,
+            deckDimensions,
+            effectiveScale,
+            isScaledForPrint
+          );
+        }
       }
     }
   }
 
-  if (!isScaledForPrint && points.length > 0) {
+  // Draw vertex points (tied to outline visibility)
+  if (!isScaledForPrint && points.length > 0 && layerVisibility.outline) {
     currentCtx.fillStyle = config.DECK_OUTLINE_COLOR;
     const pointRadiusModel = 3 / effectiveScale;
     points.forEach((p) => {
@@ -257,7 +271,8 @@ function drawDeckContent(currentCtx, state) {
     );
   }
 
-  if (points.length >= 2) {
+  // Draw dimensions if visible
+  if (points.length >= 2 && layerVisibility.dimensions) {
     drawAllDimensions(
       currentCtx,
       points,
@@ -267,16 +282,19 @@ function drawDeckContent(currentCtx, state) {
       isScaledForPrint
     );
   }
+  // Draw structural components with layer visibility
   if (isShapeClosed && structuralComponents && !structuralComponents.error) {
     drawStructuralComponentsInternal(
       currentCtx,
       structuralComponents,
       effectiveScale,
       isScaledForPrint,
-      state.isBlueprintMode
+      state.isBlueprintMode,
+      layerVisibility
     );
   }
-  if (stairs && stairs.length > 0 && deckDimensions) {
+  // Draw stairs if visible
+  if (stairs && stairs.length > 0 && deckDimensions && layerVisibility.stairs) {
     drawStairsInternal(
       currentCtx,
       stairs,
@@ -666,7 +684,8 @@ export function getSnappedPos(
   modelMouseY,
   modelPoints,
   isShapeClosed,
-  forceOrthogonal = true
+  forceOrthogonal = true,
+  allow45Degrees = true // New parameter to enable 45-degree snapping
 ) {
   // For the first point, snap to 12" (1 foot) grid
   if (!modelPoints || modelPoints.length === 0) {
@@ -675,20 +694,87 @@ export function getSnappedPos(
     let snappedY = Math.round(modelMouseY / footGridStep) * footGridStep;
     return { x: snappedX, y: snappedY };
   }
-  
-  // For subsequent points, use the 1" grid and enforce orthogonal if needed
+
+  // For subsequent points, use the 1" grid and enforce angle snapping if needed
   const GSP = config.GRID_SPACING_PIXELS;
   let snappedX = Math.round(modelMouseX / GSP) * GSP;
   let snappedY = Math.round(modelMouseY / GSP) * GSP;
 
   if (modelPoints && modelPoints.length > 0 && !isShapeClosed && forceOrthogonal) {
     const prevPoint = modelPoints[modelPoints.length - 1];
-    const dx = Math.abs(snappedX - prevPoint.x);
-    const dy = Math.abs(snappedY - prevPoint.y);
-    if (dx < dy) {
-      snappedX = prevPoint.x;
+    const dx = snappedX - prevPoint.x;
+    const dy = snappedY - prevPoint.y;
+    const absDx = Math.abs(dx);
+    const absDy = Math.abs(dy);
+
+    if (allow45Degrees) {
+      // Calculate angle from previous point to current snapped position
+      const distance = Math.sqrt(dx * dx + dy * dy);
+
+      if (distance > 5) { // Only snap if far enough from previous point
+        // Calculate current angle in degrees (-180 to 180)
+        const angleRad = Math.atan2(dy, dx);
+        const angleDeg = angleRad * (180 / Math.PI);
+
+        // Valid snap angles: 0, 45, 90, 135, 180, -45, -90, -135
+        const snapAngles = [0, 45, 90, 135, 180, -45, -90, -135, -180];
+        const snapThreshold = 22.5; // Degrees - halfway between snap angles
+
+        // Find nearest snap angle
+        let nearestAngle = 0;
+        let minDiff = Infinity;
+        for (const snap of snapAngles) {
+          const diff = Math.abs(angleDeg - snap);
+          if (diff < minDiff) {
+            minDiff = diff;
+            nearestAngle = snap;
+          }
+        }
+
+        // Calculate snapped position at the nearest valid angle
+        const snappedAngleRad = nearestAngle * (Math.PI / 180);
+        const snappedDx = distance * Math.cos(snappedAngleRad);
+        const snappedDy = distance * Math.sin(snappedAngleRad);
+
+        // Apply to get new snapped position
+        snappedX = prevPoint.x + snappedDx;
+        snappedY = prevPoint.y + snappedDy;
+
+        // Re-snap to grid while maintaining angle
+        // For orthogonal lines, snap both coordinates
+        // For 45-degree lines, snap one coordinate and calculate the other
+        if (Math.abs(nearestAngle) === 0 || Math.abs(nearestAngle) === 180) {
+          // Horizontal line - snap X, keep Y at previous
+          snappedX = Math.round(snappedX / GSP) * GSP;
+          snappedY = prevPoint.y;
+        } else if (Math.abs(nearestAngle) === 90) {
+          // Vertical line - snap Y, keep X at previous
+          snappedX = prevPoint.x;
+          snappedY = Math.round(snappedY / GSP) * GSP;
+        } else {
+          // 45-degree line - snap to grid while maintaining 45° angle
+          // Snap X first, then calculate Y to maintain 45° angle
+          snappedX = Math.round(snappedX / GSP) * GSP;
+          const gridDx = snappedX - prevPoint.x;
+          // For 45°, |dy| should equal |dx|
+          const sign = (nearestAngle > 0 && nearestAngle < 180) ? 1 : -1;
+          const diagonal45 = (nearestAngle === 45 || nearestAngle === -135);
+          if (diagonal45) {
+            snappedY = prevPoint.y + Math.abs(gridDx) * Math.sign(dy);
+          } else {
+            snappedY = prevPoint.y - Math.abs(gridDx) * Math.sign(dy) * -1;
+          }
+          // Ensure the 45° relationship: |dx| = |dy|
+          snappedY = prevPoint.y + Math.abs(gridDx) * Math.sign(snappedY - prevPoint.y);
+        }
+      }
     } else {
-      snappedY = prevPoint.y;
+      // Original orthogonal-only logic
+      if (absDx < absDy) {
+        snappedX = prevPoint.x;
+      } else {
+        snappedY = prevPoint.y;
+      }
     }
   }
   return { x: snappedX, y: snappedY };
@@ -853,7 +939,8 @@ function drawStructuralComponentsInternal(
   components,
   scale,
   isScaledForPrint,
-  isBlueprintMode = false
+  isBlueprintMode = false,
+  layerVisibility = { ledger: true, joists: true, beams: true, posts: true, blocking: true }
 ) {
   if (!currentCtx || !components || components.error || scale === 0) return;
   
@@ -986,156 +1073,164 @@ function drawStructuralComponentsInternal(
   }
 
   // Draw ledger (typically a single 2x board against the house)
-  if (ledger) {
+  if (ledger && layerVisibility.ledger) {
     drawToScaleLine(ledger.p1, ledger.p2, LUMBER_THICKNESS_PIXELS, config.LEDGER_COLOR);
   }
-  
+
   // Draw beams (typically 2-ply or 3-ply)
   // Enhanced for multi-section: merged beams may be longer and span multiple sections
-  beams.forEach((beam) => {
-    // Default to 2-ply if not specified
-    const plyCount = beam.ply || 2;
-    
-    // Enhanced beam rendering for multi-section structures
-    if (beam.isMerged) {
-      // Draw merged beams with slightly different styling to indicate they span sections
-      drawMultiplyBoard(beam.p1, beam.p2, plyCount, config.BEAM_COLOR, true);
-    } else {
-      drawMultiplyBoard(beam.p1, beam.p2, plyCount, config.BEAM_COLOR);
-    }
-  });
+  if (layerVisibility.beams) {
+    beams.forEach((beam) => {
+      // Default to 2-ply if not specified
+      const plyCount = beam.ply || 2;
+
+      // Enhanced beam rendering for multi-section structures
+      if (beam.isMerged) {
+        // Draw merged beams with slightly different styling to indicate they span sections
+        drawMultiplyBoard(beam.p1, beam.p2, plyCount, config.BEAM_COLOR, true);
+      } else {
+        drawMultiplyBoard(beam.p1, beam.p2, plyCount, config.BEAM_COLOR);
+      }
+    });
+  }
 
   // Draw joists (single 2x boards)
   // Enhanced for multi-section: joists may span sections or be section-specific
-  currentCtx.strokeStyle = config.JOIST_RIM_COLOR;
-  joists.forEach((joist) => {
-    // Check if this joist spans multiple sections (indicated by extended length)
-    const joistLength = Math.sqrt(
-      Math.pow(joist.p2.x - joist.p1.x, 2) + Math.pow(joist.p2.y - joist.p1.y, 2)
-    );
-    
-    // Draw joist with appropriate styling
-    if (joist.spansSections) {
-      // Draw spanning joists with slightly thicker line to indicate continuity
-      drawToScaleLine(joist.p1, joist.p2, LUMBER_THICKNESS_PIXELS, config.JOIST_RIM_COLOR, false, 1.2);
-    } else {
-      drawToScaleLine(joist.p1, joist.p2, LUMBER_THICKNESS_PIXELS, config.JOIST_RIM_COLOR);
-    }
-  });
-  
-  // Draw rim joists (typically single 2x boards around the perimeter)
-  // Enhanced for multi-section: rim joists may be merged across sections
-  rimJoists.forEach((rim) => {
-    if (rim.isMerged) {
-      // Draw merged rim joists with enhanced styling to show continuity
-      drawToScaleLine(rim.p1, rim.p2, LUMBER_THICKNESS_PIXELS, config.JOIST_RIM_COLOR, false, 1.3);
-    } else {
-      drawToScaleLine(rim.p1, rim.p2, LUMBER_THICKNESS_PIXELS, config.JOIST_RIM_COLOR);
-    }
-  });
+  if (layerVisibility.joists) {
+    currentCtx.strokeStyle = config.JOIST_RIM_COLOR;
+    joists.forEach((joist) => {
+      // Check if this joist spans multiple sections (indicated by extended length)
+      const joistLength = Math.sqrt(
+        Math.pow(joist.p2.x - joist.p1.x, 2) + Math.pow(joist.p2.y - joist.p1.y, 2)
+      );
+
+      // Draw joist with appropriate styling
+      if (joist.spansSections) {
+        // Draw spanning joists with slightly thicker line to indicate continuity
+        drawToScaleLine(joist.p1, joist.p2, LUMBER_THICKNESS_PIXELS, config.JOIST_RIM_COLOR, false, 1.2);
+      } else {
+        drawToScaleLine(joist.p1, joist.p2, LUMBER_THICKNESS_PIXELS, config.JOIST_RIM_COLOR);
+      }
+    });
+
+    // Draw rim joists (typically single 2x boards around the perimeter)
+    // Enhanced for multi-section: rim joists may be merged across sections
+    rimJoists.forEach((rim) => {
+      if (rim.isMerged) {
+        // Draw merged rim joists with enhanced styling to show continuity
+        drawToScaleLine(rim.p1, rim.p2, LUMBER_THICKNESS_PIXELS, config.JOIST_RIM_COLOR, false, 1.3);
+      } else {
+        drawToScaleLine(rim.p1, rim.p2, LUMBER_THICKNESS_PIXELS, config.JOIST_RIM_COLOR);
+      }
+    });
+  }
 
   // Draw blocking (typically single 2x boards between joists)
-  midSpanBlocking.forEach((block) => {
-    drawToScaleLine(block.p1, block.p2, LUMBER_THICKNESS_PIXELS, config.BLOCKING_COLOR, true);
-  });
-  
-  // Draw picture frame blocking
-  pictureFrameBlocking.forEach((block) => {
-    drawToScaleLine(block.p1, block.p2, LUMBER_THICKNESS_PIXELS, config.BLOCKING_COLOR, true);
-  });
+  if (layerVisibility.blocking) {
+    midSpanBlocking.forEach((block) => {
+      drawToScaleLine(block.p1, block.p2, LUMBER_THICKNESS_PIXELS, config.BLOCKING_COLOR, true);
+    });
 
-  // Draw footings
+    // Draw picture frame blocking
+    pictureFrameBlocking.forEach((block) => {
+      drawToScaleLine(block.p1, block.p2, LUMBER_THICKNESS_PIXELS, config.BLOCKING_COLOR, true);
+    });
+  }
+
+  // Draw footings and posts (combined under posts visibility)
   // Enhanced for multi-section: footings are deduplicated at shared locations
-  const footingScreenRadius = isScaledForPrint ? 7 : 8;
-  const footingModelRadius = footingScreenRadius / scale;
-  footings.forEach((f) => {
-    currentCtx.beginPath();
-    
-    if (blueprintMode) {
-      // In blueprint mode, draw a circle representing the footing
-      currentCtx.arc(f.x, f.y, footingModelRadius, 0, Math.PI * 2);
-      currentCtx.strokeStyle = config.FOOTING_STROKE_COLOR;
-      currentCtx.lineWidth = Math.max(0.5 / scale, (f.isShared ? 1.5 : 1) / scale);
-      currentCtx.stroke();
-      
-      // Add visual indicator for shared footings
-      if (f.isShared) {
-        currentCtx.beginPath();
-        currentCtx.arc(f.x, f.y, footingModelRadius * 1.2, 0, Math.PI * 2);
-        currentCtx.strokeStyle = config.FOOTING_STROKE_COLOR;
-        currentCtx.lineWidth = Math.max(0.3 / scale, 0.5 / scale);
-        currentCtx.setLineDash([Math.max(2 / scale, 1), Math.max(2 / scale, 1)]);
-        currentCtx.stroke();
-        currentCtx.setLineDash([]);
-      }
-    } else {
-      // Normal mode - draw a simple small square
-      const smallSize = Math.max(5 / scale, 3 / scale);
-      const sizeMultiplier = f.isShared ? 1.2 : 1;
-      currentCtx.rect(
-        f.x - (smallSize * sizeMultiplier) / 2,
-        f.y - (smallSize * sizeMultiplier) / 2,
-        smallSize * sizeMultiplier,
-        smallSize * sizeMultiplier
-      );
-      currentCtx.strokeStyle = config.FOOTING_STROKE_COLOR;
-      currentCtx.lineWidth = Math.max(0.5 / scale, (f.isShared ? 1.5 : 1) / scale);
-      currentCtx.stroke();
-    }
-  });
-
-  // Draw posts - using actual post dimensions (typically 4x4 or 6x6)
-  // Enhanced for multi-section: posts are deduplicated at shared locations
-  posts.forEach((p) => {
-    // Default to 4x4 if not specified (actual dimensions 3.5" x 3.5")
-    const postSizeInches = p.size ? (p.size === "6x6" ? 5.5 : 3.5) : 3.5;
-    const postSizeFeet = postSizeInches / 12;
-    const postSizePixels = postSizeFeet * config.PIXELS_PER_FOOT;
-    
-    if (blueprintMode) {
-      // In blueprint mode, draw an outline square representing actual post dimensions
+  if (layerVisibility.posts) {
+    const footingScreenRadius = isScaledForPrint ? 7 : 8;
+    const footingModelRadius = footingScreenRadius / scale;
+    footings.forEach((f) => {
       currentCtx.beginPath();
-      currentCtx.rect(
-        p.x - postSizePixels / 2,
-        p.y - postSizePixels / 2,
-        postSizePixels,
-        postSizePixels
-      );
-      currentCtx.strokeStyle = config.POST_STROKE_COLOR;
-      currentCtx.lineWidth = Math.max(0.5 / scale, (p.isShared ? 1.5 : 1) / scale);
-      currentCtx.stroke();
-      
-      // Add visual indicator for shared posts (from multiple sections)
-      if (p.isShared) {
+
+      if (blueprintMode) {
+        // In blueprint mode, draw a circle representing the footing
+        currentCtx.arc(f.x, f.y, footingModelRadius, 0, Math.PI * 2);
+        currentCtx.strokeStyle = config.FOOTING_STROKE_COLOR;
+        currentCtx.lineWidth = Math.max(0.5 / scale, (f.isShared ? 1.5 : 1) / scale);
+        currentCtx.stroke();
+
+        // Add visual indicator for shared footings
+        if (f.isShared) {
+          currentCtx.beginPath();
+          currentCtx.arc(f.x, f.y, footingModelRadius * 1.2, 0, Math.PI * 2);
+          currentCtx.strokeStyle = config.FOOTING_STROKE_COLOR;
+          currentCtx.lineWidth = Math.max(0.3 / scale, 0.5 / scale);
+          currentCtx.setLineDash([Math.max(2 / scale, 1), Math.max(2 / scale, 1)]);
+          currentCtx.stroke();
+          currentCtx.setLineDash([]);
+        }
+      } else {
+        // Normal mode - draw a simple small square
+        const smallSize = Math.max(5 / scale, 3 / scale);
+        const sizeMultiplier = f.isShared ? 1.2 : 1;
+        currentCtx.rect(
+          f.x - (smallSize * sizeMultiplier) / 2,
+          f.y - (smallSize * sizeMultiplier) / 2,
+          smallSize * sizeMultiplier,
+          smallSize * sizeMultiplier
+        );
+        currentCtx.strokeStyle = config.FOOTING_STROKE_COLOR;
+        currentCtx.lineWidth = Math.max(0.5 / scale, (f.isShared ? 1.5 : 1) / scale);
+        currentCtx.stroke();
+      }
+    });
+
+    // Draw posts - using actual post dimensions (typically 4x4 or 6x6)
+    // Enhanced for multi-section: posts are deduplicated at shared locations
+    posts.forEach((p) => {
+      // Default to 4x4 if not specified (actual dimensions 3.5" x 3.5")
+      const postSizeInches = p.size ? (p.size === "6x6" ? 5.5 : 3.5) : 3.5;
+      const postSizeFeet = postSizeInches / 12;
+      const postSizePixels = postSizeFeet * config.PIXELS_PER_FOOT;
+
+      if (blueprintMode) {
+        // In blueprint mode, draw an outline square representing actual post dimensions
         currentCtx.beginPath();
         currentCtx.rect(
-          p.x - (postSizePixels * 1.1) / 2,
-          p.y - (postSizePixels * 1.1) / 2,
-          postSizePixels * 1.1,
-          postSizePixels * 1.1
+          p.x - postSizePixels / 2,
+          p.y - postSizePixels / 2,
+          postSizePixels,
+          postSizePixels
         );
         currentCtx.strokeStyle = config.POST_STROKE_COLOR;
-        currentCtx.lineWidth = Math.max(0.3 / scale, 0.5 / scale);
-        currentCtx.setLineDash([Math.max(2 / scale, 1), Math.max(2 / scale, 1)]);
+        currentCtx.lineWidth = Math.max(0.5 / scale, (p.isShared ? 1.5 : 1) / scale);
         currentCtx.stroke();
-        currentCtx.setLineDash([]);
+
+        // Add visual indicator for shared posts (from multiple sections)
+        if (p.isShared) {
+          currentCtx.beginPath();
+          currentCtx.rect(
+            p.x - (postSizePixels * 1.1) / 2,
+            p.y - (postSizePixels * 1.1) / 2,
+            postSizePixels * 1.1,
+            postSizePixels * 1.1
+          );
+          currentCtx.strokeStyle = config.POST_STROKE_COLOR;
+          currentCtx.lineWidth = Math.max(0.3 / scale, 0.5 / scale);
+          currentCtx.setLineDash([Math.max(2 / scale, 1), Math.max(2 / scale, 1)]);
+          currentCtx.stroke();
+          currentCtx.setLineDash([]);
+        }
+      } else {
+        // Normal mode - draw a small square
+        const smallSize = Math.max(6 / scale, 4 / scale);
+        const sizeMultiplier = p.isShared ? 1.2 : 1;
+        currentCtx.beginPath();
+        currentCtx.rect(
+          p.x - (smallSize * sizeMultiplier) / 2,
+          p.y - (smallSize * sizeMultiplier) / 2,
+          smallSize * sizeMultiplier,
+          smallSize * sizeMultiplier
+        );
+        currentCtx.strokeStyle = config.POST_STROKE_COLOR;
+        currentCtx.lineWidth = Math.max(0.5 / scale, (p.isShared ? 1.5 : 1) / scale);
+        currentCtx.stroke();
       }
-    } else {
-      // Normal mode - draw a small square
-      const smallSize = Math.max(6 / scale, 4 / scale);
-      const sizeMultiplier = p.isShared ? 1.2 : 1;
-      currentCtx.beginPath();
-      currentCtx.rect(
-        p.x - (smallSize * sizeMultiplier) / 2,
-        p.y - (smallSize * sizeMultiplier) / 2,
-        smallSize * sizeMultiplier,
-        smallSize * sizeMultiplier
-      );
-      currentCtx.strokeStyle = config.POST_STROKE_COLOR;
-      currentCtx.lineWidth = Math.max(0.5 / scale, (p.isShared ? 1.5 : 1) / scale);
-      currentCtx.stroke();
-    }
-  });
+    });
+  }
 }
 
 function drawStairsInternal(
