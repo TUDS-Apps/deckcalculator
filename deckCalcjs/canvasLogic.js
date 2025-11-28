@@ -958,6 +958,7 @@ function drawStructuralComponentsInternal(
     rimJoists = [],
     midSpanBlocking = [],
     pictureFrameBlocking = [],
+    diagonalLedgers = [],
   } = components;
   const scaledLineWidth = (width) => Math.max(0.5 / scale, width / scale);
   
@@ -1075,6 +1076,15 @@ function drawStructuralComponentsInternal(
   // Draw ledger (typically a single 2x board against the house)
   if (ledger && layerVisibility.ledger) {
     drawToScaleLine(ledger.p1, ledger.p2, LUMBER_THICKNESS_PIXELS, config.LEDGER_COLOR);
+  }
+
+  // Draw diagonal ledgers (for bay window configurations where diagonals attach to house)
+  if (diagonalLedgers.length > 0 && layerVisibility.ledger) {
+    diagonalLedgers.forEach((diagLedger) => {
+      if (diagLedger.p1 && diagLedger.p2) {
+        drawToScaleLine(diagLedger.p1, diagLedger.p2, LUMBER_THICKNESS_PIXELS, config.LEDGER_COLOR);
+      }
+    });
   }
 
   // Draw beams (typically 2-ply or 3-ply)

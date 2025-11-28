@@ -917,10 +917,15 @@ function calculateLadderStylePictureFrameBlocking(
 
 export function calculateStructure(
   shapePoints,
-  wallIndex,
+  ledgerIndices,  // Array of edge indices that are ledgers (can include diagonal edges)
   inputs,
   deckDimensions
 ) {
+  // Handle both array and single index for backward compatibility
+  const ledgerIndicesArray = Array.isArray(ledgerIndices) ? ledgerIndices : [ledgerIndices];
+  // Primary wall index determines joist direction (first selected edge)
+  const wallIndex = ledgerIndicesArray[0];
+
   const components = {
     ledger: null,
     beams: [],
@@ -930,6 +935,7 @@ export function calculateStructure(
     rimJoists: [],
     midSpanBlocking: [],
     pictureFrameBlocking: [],
+    diagonalLedgers: [],  // For diagonal edges marked as ledgers
     error: null,
     totalDepthFeet: 0,
     cornerCount: shapePoints?.length || 4, // Number of corners for angle brackets
@@ -1268,17 +1274,31 @@ export function calculateStructure(
 
     for (const diagEdgeInfo of allDiagonalEdges) {
       console.log(`[DIAGONAL] Edge ${diagEdgeInfo.index}: (${diagEdgeInfo.p1.x.toFixed(1)}, ${diagEdgeInfo.p1.y.toFixed(1)}) to (${diagEdgeInfo.p2.x.toFixed(1)}, ${diagEdgeInfo.p2.y.toFixed(1)})`);
-      // Skip the ledger wall edge
-      if (diagEdgeInfo.index === wallIndex) {
-        console.log(`[DIAGONAL] Skipping edge ${diagEdgeInfo.index} - it's the ledger wall`);
-        continue;
+
+      // Check if this diagonal edge is a ledger (attached to house, e.g., bay window)
+      if (ledgerIndicesArray.includes(diagEdgeInfo.index)) {
+        console.log(`[DIAGONAL] Edge ${diagEdgeInfo.index} is a ledger - creating diagonal ledger instead of beam`);
+
+        // Create diagonal ledger component (no beam, posts, or footings needed)
+        const diagLedger = {
+          p1: { ...diagEdgeInfo.p1 },
+          p2: { ...diagEdgeInfo.p2 },
+          size: joistSize, // Use same size as regular ledger
+          lengthFeet: distance(diagEdgeInfo.p1, diagEdgeInfo.p2) / PIXELS_PER_FOOT,
+          isDiagonal: true,
+          edgeIndex: diagEdgeInfo.index,
+          angle: diagEdgeInfo.angle
+        };
+        components.diagonalLedgers.push(diagLedger);
+        console.log(`[DIAGONAL] Added diagonal ledger: length=${diagLedger.lengthFeet.toFixed(2)}ft`);
+        continue; // Skip beam generation for this edge
       }
 
       const edgeP1 = diagEdgeInfo.p1;
       const edgeP2 = diagEdgeInfo.p2;
       const edgeType = 'diagonal'; // Already classified by getDiagonalEdges
 
-      // Store for later joist extension
+      // Store for later joist extension (only non-ledger diagonal edges need beams)
       detectedDiagonalEdges.push(diagEdgeInfo);
 
       if (edgeType === 'diagonal') {
@@ -1452,6 +1472,21 @@ export function calculateStructure(
     components.joists = extendJoistsToDiagonalEdges(
       components.joists,
       detectedDiagonalEdges,
+      isWallHorizontal,
+      deckDimensions,
+      deckExtendsPositiveDir
+    );
+  }
+
+  // ============================================================================
+  // EXTEND JOISTS TO DIAGONAL LEDGERS (HOUSE SIDE)
+  // For bay window configurations, extend joists to reach diagonal ledgers
+  // ============================================================================
+  if (components.diagonalLedgers.length > 0) {
+    console.log(`Extending joists to ${components.diagonalLedgers.length} diagonal ledger(s)`);
+    components.joists = extendJoistsToLedgerDiagonals(
+      components.joists,
+      components.diagonalLedgers,
       isWallHorizontal,
       deckDimensions,
       deckExtendsPositiveDir
@@ -2892,5 +2927,119 @@ export function handleDiagonalRimJoists(rimJoists, diagonalEdges, deckCenter, ri
 
   console.log('[DIAG_RIM] Final rim joists count:', modifiedRimJoists.length);
   return modifiedRimJoists;
+}
+
+/**
+ * Extends joists to reach diagonal ledgers on the house side (e.g., bay windows)
+ * This modifies the START point (p1) of joists to meet diagonal ledger edges
+ * @param {Array} joists - Array of joist objects with p1, p2
+ * @param {Array} diagonalLedgers - Array of diagonal ledger objects with p1, p2
+ * @param {boolean} isWallHorizontal - Whether the main ledger is horizontal
+ * @param {Object} deckDimensions - Deck bounding box dimensions
+ * @param {boolean} deckExtendsPositiveDir - Direction the deck extends from the wall
+ * @returns {Array} Modified joists array with extended start points
+ */
+export function extendJoistsToLedgerDiagonals(joists, diagonalLedgers, isWallHorizontal, deckDimensions, deckExtendsPositiveDir) {
+  console.log(`[JOIST_LEDGER_EXT] extendJoistsToLedgerDiagonals called with ${joists.length} joists and ${diagonalLedgers?.length || 0} diagonal ledgers`);
+
+  if (!diagonalLedgers || diagonalLedgers.length === 0) {
+    return joists;
+  }
+
+  const modifiedJoists = [];
+
+  for (const joist of joists) {
+    let joistModified = false;
+    let modifiedJoist = { ...joist };
+
+    for (const diagLedger of diagonalLedgers) {
+      // Determine the X/Y range of the diagonal ledger
+      const diagMinX = Math.min(diagLedger.p1.x, diagLedger.p2.x);
+      const diagMaxX = Math.max(diagLedger.p1.x, diagLedger.p2.x);
+      const diagMinY = Math.min(diagLedger.p1.y, diagLedger.p2.y);
+      const diagMaxY = Math.max(diagLedger.p1.y, diagLedger.p2.y);
+
+      // Get joist position on the perpendicular axis
+      const joistPosX = isWallHorizontal ? joist.p1.x : (joist.p1.x + joist.p2.x) / 2;
+      const joistPosY = isWallHorizontal ? (joist.p1.y + joist.p2.y) / 2 : joist.p1.y;
+
+      // Check if joist is within the diagonal ledger's coverage area
+      let isInDiagonalArea = false;
+      if (isWallHorizontal) {
+        isInDiagonalArea = joistPosX >= diagMinX - EPSILON && joistPosX <= diagMaxX + EPSILON;
+      } else {
+        isInDiagonalArea = joistPosY >= diagMinY - EPSILON && joistPosY <= diagMaxY + EPSILON;
+      }
+
+      if (isInDiagonalArea) {
+        console.log(`[JOIST_LEDGER_EXT] Joist at ${isWallHorizontal ? 'x=' : 'y='}${isWallHorizontal ? joistPosX : joistPosY} is in diagonal ledger area`);
+
+        // Calculate where the joist START should be on the diagonal ledger
+        // For horizontal wall: joist runs vertically, need to find Y on diagonal at joist's X
+        // For vertical wall: joist runs horizontally, need to find X on diagonal at joist's Y
+
+        const diagDx = diagLedger.p2.x - diagLedger.p1.x;
+        const diagDy = diagLedger.p2.y - diagLedger.p1.y;
+
+        let intersectX, intersectY;
+
+        if (isWallHorizontal) {
+          // Joist is vertical (runs in Y direction), find Y at joist's X position
+          if (Math.abs(diagDx) > EPSILON) {
+            const t = (joistPosX - diagLedger.p1.x) / diagDx;
+            if (t >= -0.01 && t <= 1.01) {
+              intersectY = diagLedger.p1.y + t * diagDy;
+              intersectX = joistPosX;
+
+              // Check if this intersection is on the "house side" of the joist
+              // For horizontal wall extending in positive Y, p1 is at lower Y (house side)
+              const currentStartY = joist.p1.y;
+
+              // Only extend if the diagonal ledger is further in the house direction
+              const shouldExtend = deckExtendsPositiveDir
+                ? intersectY < currentStartY  // Deck extends positive, house at lower Y
+                : intersectY > currentStartY; // Deck extends negative, house at higher Y
+
+              if (shouldExtend) {
+                console.log(`[JOIST_LEDGER_EXT] Extending joist start from y=${currentStartY.toFixed(1)} to y=${intersectY.toFixed(1)}`);
+                modifiedJoist.p1 = { x: intersectX, y: intersectY };
+                modifiedJoist.lengthFeet = distance(modifiedJoist.p1, modifiedJoist.p2) / PIXELS_PER_FOOT;
+                joistModified = true;
+              }
+            }
+          }
+        } else {
+          // Joist is horizontal (runs in X direction), find X at joist's Y position
+          if (Math.abs(diagDy) > EPSILON) {
+            const t = (joistPosY - diagLedger.p1.y) / diagDy;
+            if (t >= -0.01 && t <= 1.01) {
+              intersectX = diagLedger.p1.x + t * diagDx;
+              intersectY = joistPosY;
+
+              // Check if this intersection is on the "house side" of the joist
+              const currentStartX = joist.p1.x;
+
+              // Only extend if the diagonal ledger is further in the house direction
+              const shouldExtend = deckExtendsPositiveDir
+                ? intersectX < currentStartX  // Deck extends positive, house at lower X
+                : intersectX > currentStartX; // Deck extends negative, house at higher X
+
+              if (shouldExtend) {
+                console.log(`[JOIST_LEDGER_EXT] Extending joist start from x=${currentStartX.toFixed(1)} to x=${intersectX.toFixed(1)}`);
+                modifiedJoist.p1 = { x: intersectX, y: intersectY };
+                modifiedJoist.lengthFeet = distance(modifiedJoist.p1, modifiedJoist.p2) / PIXELS_PER_FOOT;
+                joistModified = true;
+              }
+            }
+          }
+        }
+      }
+    }
+
+    modifiedJoists.push(modifiedJoist);
+  }
+
+  console.log(`[JOIST_LEDGER_EXT] Done processing ${modifiedJoists.length} joists`);
+  return modifiedJoists;
 }
 

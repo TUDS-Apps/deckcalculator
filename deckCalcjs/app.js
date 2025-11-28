@@ -318,7 +318,9 @@ function areWallsParallel(wallIndex1, wallIndex2, points) {
 }
 
 /**
- * Validates that all selected walls are parallel
+ * Validates selected walls
+ * Note: Parallel requirement removed to support bay window configurations
+ * where diagonal edges (following bay window shape) are also ledgers
  * @param {Array<number>} wallIndices - Array of selected wall indices
  * @param {Array<{x: number, y: number}>} points - Array of polygon points
  * @returns {{isValid: boolean, error?: string}} Validation result
@@ -327,22 +329,9 @@ function validateSelectedWalls(wallIndices, points) {
   if (wallIndices.length === 0) {
     return { isValid: false, error: "No walls selected" };
   }
-  
-  if (wallIndices.length === 1) {
-    return { isValid: true }; // Single wall is always valid
-  }
-  
-  // Check that all walls are parallel to the first one
-  const firstWallIndex = wallIndices[0];
-  for (let i = 1; i < wallIndices.length; i++) {
-    if (!areWallsParallel(firstWallIndex, wallIndices[i], points)) {
-      return { 
-        isValid: false, 
-        error: "All selected walls must be parallel to each other" 
-      };
-    }
-  }
-  
+
+  // Any combination of edges can be selected as ledgers
+  // First selected edge determines joist direction
   return { isValid: true };
 }
 
@@ -845,7 +834,7 @@ function handleGeneratePlan() {
       console.log("Using standard calculations for simple shape");
       appState.structuralComponents = deckCalculations.calculateStructure(
         appState.points,
-        appState.selectedWallIndices[0], // Use first selected wall for simple shapes
+        appState.selectedWallIndices, // Pass all selected ledger edges
         inputs,
         appState.deckDimensions
       );
