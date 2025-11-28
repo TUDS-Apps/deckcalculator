@@ -26,6 +26,18 @@ export const INITIAL_VIEW_WIDTH_FEET = 50;
 export const INITIAL_VIEW_HEIGHT_FEET = 40;
 
 export const SNAP_TOLERANCE_PIXELS = 10; // How close to snap (this is in SCREEN pixels)
+// Cantilever rules based on joist size (in feet)
+// 2x6: No cantilever allowed
+// 2x8: Up to 16 inches (1.33 ft)
+// 2x10+: Up to 24 inches (2 ft)
+export const CANTILEVER_BY_JOIST_SIZE = {
+  "2x6": 0,
+  "2x8": 16 / 12,  // 16 inches = 1.33 feet
+  "2x10": 24 / 12, // 24 inches = 2 feet
+  "2x12": 24 / 12  // 24 inches = 2 feet
+};
+
+// Default cantilever (used as fallback)
 export const BEAM_CANTILEVER_FEET = 1;
 export const POST_INSET_FEET = 1;
 export const MAX_POST_SPACING_FEET = 8;

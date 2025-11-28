@@ -1,18 +1,18 @@
 // app.js - Main Application Logic (v6 - Panning & Button Relocation)
 
 // --- Module Imports ---
-import * as config from "./config.js";
-import * as utils from "./utils.js";
-import * as dataManager from "./dataManager.js";
-import * as uiController from "./uiController.js";
-import * as deckCalculations from "./deckCalculations.js";
-import * as stairCalculations from "./stairCalculations.js";
-import * as canvasLogic from "./canvasLogic.js";
-import * as bomCalculations from "./bomCalculations.js";
-import * as shapeValidator from "./shapeValidator.js";
-import * as shapeDecomposer from "./shapeDecomposer.js";
+import * as config from "./config.js?v=8";
+import * as utils from "./utils.js?v=8";
+import * as dataManager from "./dataManager.js?v=8";
+import * as uiController from "./uiController.js?v=8";
+import * as deckCalculations from "./deckCalculations.js?v=8";
+import * as stairCalculations from "./stairCalculations.js?v=8";
+import * as canvasLogic from "./canvasLogic.js?v=8";
+import * as bomCalculations from "./bomCalculations.js?v=8";
+import * as shapeValidator from "./shapeValidator.js?v=8";
+import * as shapeDecomposer from "./shapeDecomposer.js?v=8";
 
-import * as multiSectionCalculations from "./multiSectionCalculations.js";
+import * as multiSectionCalculations from "./multiSectionCalculations.js?v=8";
 
 // --- Application State ---
 const appState = {
