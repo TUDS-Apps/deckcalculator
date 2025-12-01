@@ -14,6 +14,18 @@ import * as shapeDecomposer from "./shapeDecomposer.js?v=8";
 
 import * as multiSectionCalculations from "./multiSectionCalculations.js?v=8";
 
+// ================================================
+// WIZARD STEP CONFIGURATION
+// ================================================
+const WIZARD_STEPS = [
+  { id: 'draw', name: 'Draw Shape', shortName: 'Draw', icon: 'pencil' },
+  { id: 'structure', name: 'Structure', shortName: 'Structure', icon: 'grid' },
+  { id: 'stairs', name: 'Stairs', shortName: 'Stairs', icon: 'stairs' },
+  { id: 'decking', name: 'Decking', shortName: 'Decking', icon: 'boards', comingSoon: true },
+  { id: 'railing', name: 'Railing', shortName: 'Railing', icon: 'fence', comingSoon: true },
+  { id: 'review', name: 'Review & Save', shortName: 'Review', icon: 'clipboard' }
+];
+
 // --- Application State ---
 const appState = {
   points: [],
@@ -61,7 +73,7 @@ const appState = {
   // Blueprint mode state
   isBlueprintMode: false, // Toggle between simple lines and to-scale components
 
-  // Layer visibility state
+  // Layer visibility state (user preferences - can toggle on/off)
   layerVisibility: {
     outline: true,
     ledger: true,
@@ -73,8 +85,24 @@ const appState = {
     stairs: true
   },
 
-  // Contextual panel state
+  // Layer unlock state (progressive - unlocked by completing steps)
+  unlockedLayers: {
+    outline: true,      // Always visible
+    dimensions: true,   // Always visible
+    ledger: false,      // Unlocked by completing Structure step
+    joists: false,      // Unlocked by completing Structure step
+    beams: false,       // Unlocked by completing Structure step
+    posts: false,       // Unlocked by completing Structure step
+    blocking: false,    // Unlocked by completing Structure step
+    stairs: false       // Unlocked when first stair is placed
+  },
+
+  // Contextual panel state (legacy - being replaced by wizard)
   currentPanelMode: 'drawing', // 'drawing', 'wall-selection', 'specification', 'plan-generated', 'stair-config'
+
+  // Wizard state
+  wizardStep: 'draw', // Current wizard step ID
+  completedSteps: [], // Array of completed step IDs
 
   // Undo/Redo History
   history: [],
@@ -85,6 +113,1260 @@ const appState = {
 
 // Make appState available globally for section tab debugging
 window.appState = appState;
+
+// ================================================
+// PROJECT SAVE/LOAD FUNCTIONALITY
+// ================================================
+
+const PROJECTS_STORAGE_KEY = 'tuds_deck_projects';
+const STORE_CONFIG_KEY = 'tuds_store_config';
+const USER_PREFS_KEY = 'tuds_user_prefs';
+
+// Default store configuration
+const DEFAULT_STORE_CONFIG = {
+  stores: ['Regina', 'Saskatoon'],
+  salespeople: {
+    'Regina': ['Dale', 'Justin', 'Ricky Lee'],
+    'Saskatoon': ['Roberta', 'Megan']
+  }
+};
+
+// Store badge colors
+const STORE_COLORS = {
+  'Regina': { bg: '#3B82F6', text: '#ffffff' },      // Blue
+  'Saskatoon': { bg: '#10B981', text: '#ffffff' }    // Green
+};
+
+// Get store configuration from localStorage
+function getStoreConfig() {
+  try {
+    const data = localStorage.getItem(STORE_CONFIG_KEY);
+    return data ? JSON.parse(data) : { ...DEFAULT_STORE_CONFIG };
+  } catch (e) {
+    console.error('Error reading store config:', e);
+    return { ...DEFAULT_STORE_CONFIG };
+  }
+}
+
+// Save store configuration to localStorage
+function saveStoreConfig(config) {
+  try {
+    localStorage.setItem(STORE_CONFIG_KEY, JSON.stringify(config));
+    return true;
+  } catch (e) {
+    console.error('Error saving store config:', e);
+    return false;
+  }
+}
+
+// Get user preferences from localStorage
+function getUserPrefs() {
+  try {
+    const data = localStorage.getItem(USER_PREFS_KEY);
+    return data ? JSON.parse(data) : { lastStore: '', lastSalesperson: '' };
+  } catch (e) {
+    return { lastStore: '', lastSalesperson: '' };
+  }
+}
+
+// Save user preferences to localStorage
+function saveUserPrefs(prefs) {
+  try {
+    localStorage.setItem(USER_PREFS_KEY, JSON.stringify(prefs));
+  } catch (e) {
+    console.error('Error saving user prefs:', e);
+  }
+}
+
+// Get all saved projects from localStorage
+function getSavedProjects() {
+  try {
+    const data = localStorage.getItem(PROJECTS_STORAGE_KEY);
+    return data ? JSON.parse(data) : [];
+  } catch (e) {
+    console.error('Error reading saved projects:', e);
+    return [];
+  }
+}
+
+// Save projects array to localStorage
+function saveProjectsToStorage(projects) {
+  try {
+    localStorage.setItem(PROJECTS_STORAGE_KEY, JSON.stringify(projects));
+    return true;
+  } catch (e) {
+    console.error('Error saving projects:', e);
+    return false;
+  }
+}
+
+// Get current form inputs
+function getFormInputs() {
+  return {
+    deckHeightFeet: document.getElementById('deckHeightFeet')?.value || '4',
+    deckHeightInches: document.getElementById('deckHeightInchesInput')?.value || '0',
+    footingType: document.getElementById('footingType')?.value || 'gh_levellers',
+    postSize: document.getElementById('postSize')?.value || 'auto',
+    joistSpacing: document.getElementById('joistSpacing')?.value || '16',
+    attachmentType: document.getElementById('attachmentType')?.value || 'house_rim',
+    beamType: document.getElementById('beamType')?.value || 'drop',
+    pictureFrame: document.getElementById('pictureFrame')?.value || 'none',
+    joistProtection: document.getElementById('joistProtection')?.value || 'none',
+    fasteners: document.getElementById('fasteners')?.value || 'screws_3in'
+  };
+}
+
+// Restore form inputs from saved data
+function restoreFormInputs(inputs) {
+  if (!inputs) return;
+
+  // Helper to set select value and trigger visual selector update
+  const setSelectValue = (id, value) => {
+    const select = document.getElementById(id);
+    if (select && value !== undefined) {
+      select.value = value;
+      // Trigger change event for visual selectors
+      select.dispatchEvent(new Event('change', { bubbles: true }));
+    }
+  };
+
+  // Helper to update visual selector UI
+  const updateVisualSelector = (selectorName, value) => {
+    const container = document.querySelector(`[data-selector="${selectorName}"]`);
+    if (container) {
+      container.querySelectorAll('.visual-option').forEach(opt => {
+        opt.classList.toggle('selected', opt.dataset.value === value);
+      });
+    }
+  };
+
+  setSelectValue('deckHeightFeet', inputs.deckHeightFeet);
+  setSelectValue('deckHeightInchesInput', inputs.deckHeightInches);
+  setSelectValue('footingType', inputs.footingType);
+  setSelectValue('postSize', inputs.postSize);
+  setSelectValue('joistSpacing', inputs.joistSpacing);
+  setSelectValue('attachmentType', inputs.attachmentType);
+  setSelectValue('beamType', inputs.beamType);
+  setSelectValue('pictureFrame', inputs.pictureFrame);
+  setSelectValue('joistProtection', inputs.joistProtection);
+  setSelectValue('fasteners', inputs.fasteners);
+
+  // Update visual selectors
+  updateVisualSelector('footingType', inputs.footingType);
+  updateVisualSelector('postSize', inputs.postSize);
+  updateVisualSelector('joistSpacing', inputs.joistSpacing);
+  updateVisualSelector('attachmentType', inputs.attachmentType);
+  updateVisualSelector('beamType', inputs.beamType);
+  updateVisualSelector('pictureFrame', inputs.pictureFrame);
+  updateVisualSelector('joistProtection', inputs.joistProtection);
+  updateVisualSelector('fasteners', inputs.fasteners);
+}
+
+// Create project data object from current state
+function createProjectData(projectName, store, salesperson, customerInfo = null) {
+  return {
+    id: Date.now().toString(),
+    name: projectName,
+    store: store || 'Unknown',
+    salesperson: salesperson || 'Unknown',
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+    customerInfo: customerInfo,
+    deckData: {
+      points: [...appState.points],
+      selectedWallIndices: [...appState.selectedWallIndices],
+      stairs: JSON.parse(JSON.stringify(appState.stairs)),
+      isShapeClosed: appState.isShapeClosed,
+      deckDimensions: appState.deckDimensions ? { ...appState.deckDimensions } : null,
+      rectangularSections: appState.rectangularSections ? [...appState.rectangularSections] : []
+    },
+    formInputs: getFormInputs(),
+    viewport: {
+      scale: appState.viewportScale,
+      offsetX: appState.viewportOffsetX,
+      offsetY: appState.viewportOffsetY
+    }
+  };
+}
+
+// Save current project
+function saveProject(projectName, store, salesperson, customerInfo = null) {
+  if (!projectName || projectName.trim() === '') {
+    alert('Please enter a project name.');
+    return false;
+  }
+
+  if (!store || !salesperson) {
+    alert('Please select a store and salesperson.');
+    return false;
+  }
+
+  const projects = getSavedProjects();
+  const projectData = createProjectData(projectName.trim(), store, salesperson, customerInfo);
+
+  // Save user preferences for next time
+  saveUserPrefs({ lastStore: store, lastSalesperson: salesperson });
+
+  // Check if project with same name exists
+  const existingIndex = projects.findIndex(p => p.name.toLowerCase() === projectName.trim().toLowerCase());
+  if (existingIndex >= 0) {
+    if (confirm(`A project named "${projectName}" already exists. Do you want to overwrite it?`)) {
+      projectData.id = projects[existingIndex].id;
+      projectData.createdAt = projects[existingIndex].createdAt;
+      projects[existingIndex] = projectData;
+    } else {
+      return false;
+    }
+  } else {
+    projects.unshift(projectData); // Add to beginning
+  }
+
+  if (saveProjectsToStorage(projects)) {
+    uiController.updateCanvasStatus(`Project "${projectName}" saved successfully!`);
+    return true;
+  }
+  return false;
+}
+
+// Load a saved project
+function loadProject(projectId) {
+  const projects = getSavedProjects();
+  const project = projects.find(p => p.id === projectId);
+
+  if (!project) {
+    alert('Project not found.');
+    return false;
+  }
+
+  // Clear current state
+  clearCanvas();
+
+  // Restore deck data
+  if (project.deckData) {
+    appState.points = project.deckData.points || [];
+    appState.selectedWallIndices = project.deckData.selectedWallIndices || [];
+    appState.stairs = project.deckData.stairs || [];
+    appState.isShapeClosed = project.deckData.isShapeClosed || false;
+    appState.rectangularSections = project.deckData.rectangularSections || [];
+  }
+
+  // Restore viewport
+  if (project.viewport) {
+    appState.viewportScale = project.viewport.scale || 1.0;
+    appState.viewportOffsetX = project.viewport.offsetX || 0;
+    appState.viewportOffsetY = project.viewport.offsetY || 0;
+  }
+
+  // Restore form inputs
+  restoreFormInputs(project.formInputs);
+
+  // Redraw canvas
+  redrawApp();
+
+  // If shape was closed, regenerate the plan
+  if (appState.isShapeClosed && appState.points.length >= 3) {
+    // Trigger wall selection mode or generate plan
+    if (appState.selectedWallIndices.length > 0) {
+      generatePlan();
+    } else {
+      appState.wallSelectionMode = true;
+      setPanelMode('wall-selection');
+    }
+  }
+
+  uiController.updateCanvasStatus(`Project "${project.name}" loaded successfully!`);
+  closeProjectsModal();
+  return true;
+}
+
+// Delete a saved project
+function deleteProject(projectId) {
+  const projects = getSavedProjects();
+  const project = projects.find(p => p.id === projectId);
+
+  if (!project) return false;
+
+  if (confirm(`Are you sure you want to delete "${project.name}"?`)) {
+    const filtered = projects.filter(p => p.id !== projectId);
+    if (saveProjectsToStorage(filtered)) {
+      renderProjectsList();
+      uiController.updateCanvasStatus(`Project "${project.name}" deleted.`);
+      return true;
+    }
+  }
+  return false;
+}
+
+// Render the projects list in the modal
+// Get current filter values
+function getCurrentFilters() {
+  return {
+    store: document.getElementById('filterStore')?.value || 'all',
+    salesperson: document.getElementById('filterSalesperson')?.value || 'all',
+    year: document.getElementById('filterYear')?.value || 'all'
+  };
+}
+
+// Filter projects based on current filters
+function filterProjects(projects, filters) {
+  return projects.filter(p => {
+    if (filters.store && filters.store !== 'all' && p.store !== filters.store) return false;
+    if (filters.salesperson && filters.salesperson !== 'all' && p.salesperson !== filters.salesperson) return false;
+    if (filters.year && filters.year !== 'all') {
+      const projectYear = new Date(p.createdAt).getFullYear().toString();
+      if (projectYear !== filters.year) return false;
+    }
+    return true;
+  });
+}
+
+// Get unique years from projects
+function getProjectYears(projects) {
+  const years = new Set();
+  projects.forEach(p => {
+    if (p.createdAt) {
+      years.add(new Date(p.createdAt).getFullYear().toString());
+    }
+  });
+  return Array.from(years).sort().reverse();
+}
+
+// Get store badge HTML
+function getStoreBadgeHtml(store) {
+  const colors = STORE_COLORS[store] || { bg: '#6B7280', text: '#ffffff' };
+  return `<span class="store-badge" style="background-color: ${colors.bg}; color: ${colors.text}">${escapeHtml(store || 'Unknown')}</span>`;
+}
+
+function renderProjectsList() {
+  const listContainer = document.getElementById('projectsList');
+  const countSpan = document.getElementById('projectsCount');
+  if (!listContainer) return;
+
+  const allProjects = getSavedProjects();
+  const filters = getCurrentFilters();
+  const projects = filterProjects(allProjects, filters);
+
+  // Update count display
+  if (countSpan) {
+    if (allProjects.length === 0) {
+      countSpan.textContent = '';
+    } else if (projects.length === allProjects.length) {
+      countSpan.textContent = `(${allProjects.length})`;
+    } else {
+      countSpan.textContent = `(${projects.length} of ${allProjects.length})`;
+    }
+  }
+
+  if (allProjects.length === 0) {
+    listContainer.innerHTML = `
+      <div class="no-projects">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-12 h-12">
+          <path d="M2 4.75C2 3.784 2.784 3 3.75 3h4.836c.464 0 .909.184 1.237.513l1.414 1.414a.25.25 0 00.177.073h4.836c.966 0 1.75.784 1.75 1.75v8.5A1.75 1.75 0 0116.25 17H3.75A1.75 1.75 0 012 15.25V4.75z" />
+        </svg>
+        <p>No saved projects yet</p>
+        <span>Save your current design to access it later</span>
+      </div>
+    `;
+    return;
+  }
+
+  if (projects.length === 0) {
+    listContainer.innerHTML = `
+      <div class="no-projects">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-12 h-12">
+          <path fill-rule="evenodd" d="M9 3.5a5.5 5.5 0 100 11 5.5 5.5 0 000-11zM2 9a7 7 0 1112.452 4.391l3.328 3.329a.75.75 0 11-1.06 1.06l-3.329-3.328A7 7 0 012 9z" clip-rule="evenodd" />
+        </svg>
+        <p>No projects found</p>
+        <span>Try adjusting your filters</span>
+      </div>
+    `;
+    return;
+  }
+
+  listContainer.innerHTML = projects.map(project => {
+    const date = new Date(project.updatedAt).toLocaleDateString('en-US', {
+      month: 'short', day: 'numeric', year: 'numeric'
+    });
+    const customerInfo = project.customerInfo;
+    const hasCustomer = customerInfo && (customerInfo.name || customerInfo.phone || customerInfo.email);
+
+    // Build store/salesperson meta line
+    const storeBadge = getStoreBadgeHtml(project.store);
+    const salespersonName = project.salesperson || 'Unknown';
+    const metaHtml = `<div class="project-card-meta">${storeBadge}<span class="project-salesperson">${escapeHtml(salespersonName)}</span><span class="project-date">${date}</span></div>`;
+
+    // Build customer info section if available
+    let customerHtml = '';
+    if (hasCustomer) {
+      const parts = [];
+      if (customerInfo.name) parts.push(`<strong>${escapeHtml(customerInfo.name)}</strong>`);
+      if (customerInfo.phone) parts.push(escapeHtml(customerInfo.phone));
+      if (customerInfo.email) parts.push(escapeHtml(customerInfo.email));
+      if (customerInfo.address) parts.push(escapeHtml(customerInfo.address));
+      customerHtml = `<div class="project-card-customer">${parts.join(' • ')}</div>`;
+    }
+
+    return `
+      <div class="project-card" data-project-id="${project.id}">
+        <div class="project-card-header">
+          <div class="project-card-info">
+            <h4 class="project-card-name">${escapeHtml(project.name)}</h4>
+            ${metaHtml}
+          </div>
+          <div class="project-card-actions">
+            <button type="button" class="btn btn-primary btn-sm" onclick="loadProject('${project.id}')">
+              Load
+            </button>
+            <button type="button" class="btn btn-delete" onclick="deleteProject('${project.id}')" title="Delete project">
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+                <path fill-rule="evenodd" d="M8.75 1A2.75 2.75 0 006 3.75v.443c-.795.077-1.584.176-2.365.298a.75.75 0 10.23 1.482l.149-.022.841 10.518A2.75 2.75 0 007.596 19h4.807a2.75 2.75 0 002.742-2.53l.841-10.519.149.023a.75.75 0 00.23-1.482A41.03 41.03 0 0014 4.193V3.75A2.75 2.75 0 0011.25 1h-2.5zM10 4c.84 0 1.673.025 2.5.075V3.75c0-.69-.56-1.25-1.25-1.25h-2.5c-.69 0-1.25.56-1.25 1.25v.325C8.327 4.025 9.16 4 10 4zM8.58 7.72a.75.75 0 00-1.5.06l.3 7.5a.75.75 0 101.5-.06l-.3-7.5zm4.34.06a.75.75 0 10-1.5-.06l-.3 7.5a.75.75 0 101.5.06l.3-7.5z" clip-rule="evenodd" />
+              </svg>
+            </button>
+          </div>
+        </div>
+        ${customerHtml}
+      </div>
+    `;
+  }).join('');
+}
+
+// Helper to escape HTML
+function escapeHtml(text) {
+  const div = document.createElement('div');
+  div.textContent = text;
+  return div.innerHTML;
+}
+
+// Populate store dropdown for save form
+function populateSaveStoreDropdown() {
+  const storeSelect = document.getElementById('saveProjectStore');
+  if (!storeSelect) return;
+
+  const config = getStoreConfig();
+  const prefs = getUserPrefs();
+
+  storeSelect.innerHTML = '<option value="">Select Store...</option>' +
+    config.stores.map(store =>
+      `<option value="${escapeHtml(store)}"${store === prefs.lastStore ? ' selected' : ''}>${escapeHtml(store)}</option>`
+    ).join('');
+
+  // Trigger salesperson update if a store is pre-selected
+  if (prefs.lastStore && config.stores.includes(prefs.lastStore)) {
+    updateSalespersonDropdown();
+  }
+}
+
+// Update salesperson dropdown based on selected store (for save form)
+function updateSalespersonDropdown() {
+  const storeSelect = document.getElementById('saveProjectStore');
+  const salespersonSelect = document.getElementById('saveProjectSalesperson');
+  if (!storeSelect || !salespersonSelect) return;
+
+  const selectedStore = storeSelect.value;
+  const config = getStoreConfig();
+  const prefs = getUserPrefs();
+
+  if (!selectedStore) {
+    salespersonSelect.innerHTML = '<option value="">Select Person...</option>';
+    return;
+  }
+
+  const people = config.salespeople[selectedStore] || [];
+  salespersonSelect.innerHTML = '<option value="">Select Person...</option>' +
+    people.map(person =>
+      `<option value="${escapeHtml(person)}"${person === prefs.lastSalesperson ? ' selected' : ''}>${escapeHtml(person)}</option>`
+    ).join('');
+}
+
+// Populate filter dropdowns
+function populateFilterDropdowns() {
+  const config = getStoreConfig();
+  const projects = getSavedProjects();
+  const years = getProjectYears(projects);
+
+  // Store filter
+  const storeFilter = document.getElementById('filterStore');
+  if (storeFilter) {
+    const currentValue = storeFilter.value;
+    storeFilter.innerHTML = '<option value="all">All Stores</option>' +
+      config.stores.map(store =>
+        `<option value="${escapeHtml(store)}">${escapeHtml(store)}</option>`
+      ).join('');
+    if (currentValue && config.stores.includes(currentValue)) {
+      storeFilter.value = currentValue;
+    }
+  }
+
+  // Update salesperson filter based on store filter
+  updateSalespersonFilter();
+
+  // Year filter
+  const yearFilter = document.getElementById('filterYear');
+  if (yearFilter) {
+    const currentValue = yearFilter.value;
+    yearFilter.innerHTML = '<option value="all">All Years</option>' +
+      years.map(year =>
+        `<option value="${year}">${year}</option>`
+      ).join('');
+    if (currentValue && years.includes(currentValue)) {
+      yearFilter.value = currentValue;
+    }
+  }
+}
+
+// Update salesperson filter based on store filter selection
+function updateSalespersonFilter() {
+  const storeFilter = document.getElementById('filterStore');
+  const salespersonFilter = document.getElementById('filterSalesperson');
+  if (!salespersonFilter) return;
+
+  const config = getStoreConfig();
+  const selectedStore = storeFilter?.value;
+  const currentValue = salespersonFilter.value;
+
+  let people = [];
+  if (!selectedStore || selectedStore === 'all') {
+    // Show all salespeople from all stores
+    Object.values(config.salespeople).forEach(storePeople => {
+      people = people.concat(storePeople);
+    });
+    people = [...new Set(people)]; // Remove duplicates
+  } else {
+    people = config.salespeople[selectedStore] || [];
+  }
+
+  salespersonFilter.innerHTML = '<option value="all">All</option>' +
+    people.map(person =>
+      `<option value="${escapeHtml(person)}">${escapeHtml(person)}</option>`
+    ).join('');
+
+  if (currentValue && (currentValue === 'all' || people.includes(currentValue))) {
+    salespersonFilter.value = currentValue;
+  }
+}
+
+// Handle store filter change
+function onStoreFilterChange() {
+  updateSalespersonFilter();
+  renderProjectsList();
+}
+
+// Open projects modal
+function openProjectsModal() {
+  const modal = document.getElementById('projectsModal');
+  if (modal) {
+    modal.classList.remove('hidden');
+    populateSaveStoreDropdown();
+    populateFilterDropdowns();
+    renderProjectsList();
+    document.getElementById('saveProjectName')?.focus();
+  }
+}
+
+// Close projects modal
+function closeProjectsModal() {
+  const modal = document.getElementById('projectsModal');
+  if (modal) {
+    modal.classList.add('hidden');
+  }
+}
+
+// Handle save project form submission
+function handleSaveProject(e) {
+  if (e) e.preventDefault();
+  const nameInput = document.getElementById('saveProjectName');
+  const storeSelect = document.getElementById('saveProjectStore');
+  const salespersonSelect = document.getElementById('saveProjectSalesperson');
+
+  const name = nameInput?.value?.trim();
+  const store = storeSelect?.value;
+  const salesperson = salespersonSelect?.value;
+
+  if (!appState.points || appState.points.length < 3) {
+    alert('Please draw a deck shape first before saving.');
+    return;
+  }
+
+  if (!store) {
+    alert('Please select a store.');
+    storeSelect?.focus();
+    return;
+  }
+
+  if (!salesperson) {
+    alert('Please select a salesperson.');
+    salespersonSelect?.focus();
+    return;
+  }
+
+  // Collect customer info if checkbox is checked
+  let customerInfo = null;
+  const includeCustomer = document.getElementById('includeCustomerInfo')?.checked;
+  if (includeCustomer) {
+    customerInfo = {
+      name: document.getElementById('customerName')?.value?.trim() || '',
+      phone: document.getElementById('customerPhone')?.value?.trim() || '',
+      email: document.getElementById('customerEmail')?.value?.trim() || '',
+      address: document.getElementById('customerAddress')?.value?.trim() || ''
+    };
+    // Only include if at least one field is filled
+    if (!customerInfo.name && !customerInfo.phone && !customerInfo.email && !customerInfo.address) {
+      customerInfo = null;
+    }
+  }
+
+  if (saveProject(name, store, salesperson, customerInfo)) {
+    // Clear form fields
+    nameInput.value = '';
+    const customerNameInput = document.getElementById('customerName');
+    const customerPhoneInput = document.getElementById('customerPhone');
+    const customerEmailInput = document.getElementById('customerEmail');
+    const customerAddressInput = document.getElementById('customerAddress');
+    const includeCheckbox = document.getElementById('includeCustomerInfo');
+
+    if (customerNameInput) customerNameInput.value = '';
+    if (customerPhoneInput) customerPhoneInput.value = '';
+    if (customerEmailInput) customerEmailInput.value = '';
+    if (customerAddressInput) customerAddressInput.value = '';
+    if (includeCheckbox) includeCheckbox.checked = false;
+
+    toggleCustomerInfoFields();
+    renderProjectsList();
+  }
+}
+
+// Toggle customer info fields visibility
+function toggleCustomerInfoFields() {
+  const checkbox = document.getElementById('includeCustomerInfo');
+  const fields = document.getElementById('customerInfoFields');
+  if (checkbox && fields) {
+    fields.classList.toggle('hidden', !checkbox.checked);
+  }
+}
+
+// ================================================
+// Admin Login & Settings Modal Functions
+// ================================================
+
+// Admin password storage key and default
+const ADMIN_PASSWORD_KEY = 'tuds_admin_password';
+const DEFAULT_ADMIN_PASSWORD = 'tuds2025';
+
+// Get or initialize admin password
+function getAdminPassword() {
+  return localStorage.getItem(ADMIN_PASSWORD_KEY) || DEFAULT_ADMIN_PASSWORD;
+}
+
+// Set admin password
+function setAdminPassword(newPassword) {
+  localStorage.setItem(ADMIN_PASSWORD_KEY, newPassword);
+}
+
+// Open admin login prompt
+function openAdminLogin() {
+  const password = prompt('Enter Admin Password:');
+  if (password === null) return; // User cancelled
+
+  if (password === getAdminPassword()) {
+    openSettingsModal();
+  } else {
+    alert('Incorrect password. Access denied.');
+  }
+}
+
+// Open settings modal
+function openSettingsModal() {
+  const modal = document.getElementById('settingsModal');
+  if (modal) {
+    modal.classList.remove('hidden');
+    renderStoresList();
+  }
+}
+
+// Close settings modal
+function closeSettingsModal() {
+  const modal = document.getElementById('settingsModal');
+  if (modal) {
+    modal.classList.add('hidden');
+  }
+}
+
+// Render the stores list in the settings modal
+function renderStoresList() {
+  const container = document.getElementById('storesList');
+  if (!container) return;
+
+  const config = getStoreConfig();
+
+  if (config.stores.length === 0) {
+    container.innerHTML = '<p class="no-stores">No stores configured. Add a store to get started.</p>';
+    return;
+  }
+
+  container.innerHTML = config.stores.map(store => {
+    const people = config.salespeople[store] || [];
+    const colors = STORE_COLORS[store] || { bg: '#6B7280', text: '#ffffff' };
+
+    const peopleHtml = people.length === 0
+      ? '<p class="no-salespeople">No salespeople in this store</p>'
+      : people.map(person => `
+          <div class="salesperson-item">
+            <span class="salesperson-name">${escapeHtml(person)}</span>
+            <button type="button" class="btn-icon btn-delete-small" onclick="handleRemoveSalesperson('${escapeHtml(store)}', '${escapeHtml(person)}')" title="Remove ${escapeHtml(person)}">
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-4 h-4">
+                <path fill-rule="evenodd" d="M8.75 1A2.75 2.75 0 006 3.75v.443c-.795.077-1.584.176-2.365.298a.75.75 0 10.23 1.482l.149-.022.841 10.518A2.75 2.75 0 007.596 19h4.807a2.75 2.75 0 002.742-2.53l.841-10.519.149.023a.75.75 0 00.23-1.482A41.03 41.03 0 0014 4.193V3.75A2.75 2.75 0 0011.25 1h-2.5zM10 4c.84 0 1.673.025 2.5.075V3.75c0-.69-.56-1.25-1.25-1.25h-2.5c-.69 0-1.25.56-1.25 1.25v.325C8.327 4.025 9.16 4 10 4zM8.58 7.72a.75.75 0 00-1.5.06l.3 7.5a.75.75 0 101.5-.06l-.3-7.5zm4.34.06a.75.75 0 10-1.5-.06l-.3 7.5a.75.75 0 101.5.06l.3-7.5z" clip-rule="evenodd" />
+              </svg>
+            </button>
+          </div>
+        `).join('');
+
+    return `
+      <div class="store-item" data-store="${escapeHtml(store)}">
+        <div class="store-header">
+          <div class="store-title">
+            <span class="store-badge-large" style="background-color: ${colors.bg}; color: ${colors.text}">${escapeHtml(store)}</span>
+            <span class="store-count">(${people.length} ${people.length === 1 ? 'person' : 'people'})</span>
+          </div>
+          <button type="button" class="btn-icon btn-delete-small" onclick="handleRemoveStore('${escapeHtml(store)}')" title="Remove store">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-4 h-4">
+              <path fill-rule="evenodd" d="M8.75 1A2.75 2.75 0 006 3.75v.443c-.795.077-1.584.176-2.365.298a.75.75 0 10.23 1.482l.149-.022.841 10.518A2.75 2.75 0 007.596 19h4.807a2.75 2.75 0 002.742-2.53l.841-10.519.149.023a.75.75 0 00.23-1.482A41.03 41.03 0 0014 4.193V3.75A2.75 2.75 0 0011.25 1h-2.5zM10 4c.84 0 1.673.025 2.5.075V3.75c0-.69-.56-1.25-1.25-1.25h-2.5c-.69 0-1.25.56-1.25 1.25v.325C8.327 4.025 9.16 4 10 4zM8.58 7.72a.75.75 0 00-1.5.06l.3 7.5a.75.75 0 101.5-.06l-.3-7.5zm4.34.06a.75.75 0 10-1.5-.06l-.3 7.5a.75.75 0 101.5.06l.3-7.5z" clip-rule="evenodd" />
+            </svg>
+          </button>
+        </div>
+        <div class="salespeople-list">
+          ${peopleHtml}
+        </div>
+        <div class="add-salesperson-row">
+          <input type="text" class="add-salesperson-input" id="newSalesperson_${escapeHtml(store)}" placeholder="Add salesperson..." maxlength="50" onkeydown="if(event.key==='Enter'){handleAddSalesperson('${escapeHtml(store)}');event.preventDefault();}" />
+          <button type="button" class="btn btn-secondary btn-xs" onclick="handleAddSalesperson('${escapeHtml(store)}')">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-4 h-4">
+              <path d="M10.75 4.75a.75.75 0 00-1.5 0v4.5h-4.5a.75.75 0 000 1.5h4.5v4.5a.75.75 0 001.5 0v-4.5h4.5a.75.75 0 000-1.5h-4.5v-4.5z" />
+            </svg>
+            Add
+          </button>
+        </div>
+      </div>
+    `;
+  }).join('');
+}
+
+// Handle adding a new store
+function handleAddStore() {
+  const input = document.getElementById('newStoreName');
+  const storeName = input?.value?.trim();
+
+  if (!storeName) {
+    alert('Please enter a store name.');
+    input?.focus();
+    return;
+  }
+
+  const config = getStoreConfig();
+
+  // Check if store already exists
+  if (config.stores.some(s => s.toLowerCase() === storeName.toLowerCase())) {
+    alert(`A store named "${storeName}" already exists.`);
+    input?.focus();
+    return;
+  }
+
+  // Add the new store
+  config.stores.push(storeName);
+  config.salespeople[storeName] = [];
+
+  // Generate a color for the new store
+  const colors = ['#8B5CF6', '#EC4899', '#F59E0B', '#14B8A6', '#6366F1', '#EF4444'];
+  const usedColors = Object.values(STORE_COLORS).map(c => c.bg);
+  const availableColor = colors.find(c => !usedColors.includes(c)) || colors[config.stores.length % colors.length];
+  STORE_COLORS[storeName] = { bg: availableColor, text: '#ffffff' };
+
+  if (saveStoreConfig(config)) {
+    input.value = '';
+    renderStoresList();
+  }
+}
+
+// Handle adding a salesperson to a store
+function handleAddSalesperson(store) {
+  const input = document.getElementById(`newSalesperson_${store}`);
+  const personName = input?.value?.trim();
+
+  if (!personName) {
+    alert('Please enter a name.');
+    input?.focus();
+    return;
+  }
+
+  const config = getStoreConfig();
+
+  if (!config.salespeople[store]) {
+    config.salespeople[store] = [];
+  }
+
+  // Check if person already exists in this store
+  if (config.salespeople[store].some(p => p.toLowerCase() === personName.toLowerCase())) {
+    alert(`${personName} is already in ${store}.`);
+    input?.focus();
+    return;
+  }
+
+  config.salespeople[store].push(personName);
+
+  if (saveStoreConfig(config)) {
+    input.value = '';
+    renderStoresList();
+  }
+}
+
+// Handle removing a salesperson
+function handleRemoveSalesperson(store, person) {
+  if (!confirm(`Remove ${person} from ${store}?\n\nTheir existing projects will show as "Unknown" until reassigned.`)) {
+    return;
+  }
+
+  const config = getStoreConfig();
+
+  if (config.salespeople[store]) {
+    config.salespeople[store] = config.salespeople[store].filter(p => p !== person);
+  }
+
+  if (saveStoreConfig(config)) {
+    renderStoresList();
+  }
+}
+
+// Handle removing a store
+function handleRemoveStore(store) {
+  const config = getStoreConfig();
+  const peopleCount = (config.salespeople[store] || []).length;
+
+  let message = `Remove the ${store} store?`;
+  if (peopleCount > 0) {
+    message += `\n\nThis will also remove ${peopleCount} salesperson${peopleCount === 1 ? '' : 's'}.`;
+  }
+  message += '\n\nExisting projects will show as "Unknown" until reassigned.';
+
+  if (!confirm(message)) {
+    return;
+  }
+
+  config.stores = config.stores.filter(s => s !== store);
+  delete config.salespeople[store];
+  delete STORE_COLORS[store];
+
+  if (saveStoreConfig(config)) {
+    renderStoresList();
+  }
+}
+
+// Handle changing admin password
+function handleChangePassword() {
+  const newPassword = document.getElementById('newAdminPassword')?.value || '';
+  const confirmPassword = document.getElementById('confirmAdminPassword')?.value || '';
+
+  if (!newPassword || !confirmPassword) {
+    alert('Please enter and confirm your new password.');
+    return;
+  }
+
+  if (newPassword.length < 4) {
+    alert('Password must be at least 4 characters long.');
+    return;
+  }
+
+  if (newPassword !== confirmPassword) {
+    alert('Passwords do not match. Please try again.');
+    return;
+  }
+
+  setAdminPassword(newPassword);
+  alert('Admin password updated successfully.');
+
+  // Clear the password fields
+  document.getElementById('newAdminPassword').value = '';
+  document.getElementById('confirmAdminPassword').value = '';
+}
+
+// ================================================
+// PDF Export Functionality
+// ================================================
+async function exportToPDF() {
+  // Check if plan has been generated
+  if (!appState.points || appState.points.length < 3) {
+    alert('Please draw a deck and generate a plan before exporting to PDF.');
+    return;
+  }
+
+  // Check if jsPDF is loaded
+  if (typeof window.jspdf === 'undefined') {
+    alert('PDF library is still loading. Please try again in a moment.');
+    return;
+  }
+
+  const { jsPDF } = window.jspdf;
+
+  // Show loading indicator
+  const exportBtn = document.getElementById('exportPdfBtn');
+  const originalTitle = exportBtn?.title;
+  if (exportBtn) {
+    exportBtn.title = 'Generating PDF...';
+    exportBtn.disabled = true;
+    exportBtn.style.opacity = '0.6';
+  }
+
+  try {
+    // Create PDF document (Letter size, portrait)
+    const pdf = new jsPDF({
+      orientation: 'portrait',
+      unit: 'mm',
+      format: 'letter'
+    });
+
+    const pageWidth = 215.9; // Letter width in mm
+    const pageHeight = 279.4; // Letter height in mm
+    const margin = 15;
+    const contentWidth = pageWidth - (margin * 2);
+    let yPos = margin;
+
+    // ---- PAGE 1: Layout & Summary ----
+
+    // Header
+    pdf.setFillColor(19, 58, 82); // TUDS Navy
+    pdf.rect(0, 0, pageWidth, 25, 'F');
+    pdf.setTextColor(255, 255, 255);
+    pdf.setFontSize(18);
+    pdf.setFont('helvetica', 'bold');
+    pdf.text('TUDS Pro Deck Estimator', margin, 16);
+    pdf.setFontSize(10);
+    pdf.setFont('helvetica', 'normal');
+    pdf.text('The Ultimate Deck Shop', pageWidth - margin - 45, 16);
+
+    yPos = 35;
+
+    // Project Title & Date
+    pdf.setTextColor(19, 58, 82);
+    pdf.setFontSize(14);
+    pdf.setFont('helvetica', 'bold');
+    const projectName = document.getElementById('saveProjectName')?.value || 'Deck Design';
+    pdf.text('Deck Layout Design', margin, yPos);
+    pdf.setFontSize(9);
+    pdf.setFont('helvetica', 'normal');
+    pdf.setTextColor(100, 100, 100);
+    const dateStr = new Date().toLocaleDateString('en-US', {
+      year: 'numeric', month: 'long', day: 'numeric'
+    });
+    pdf.text(`Generated: ${dateStr}`, pageWidth - margin - 50, yPos);
+    yPos += 10;
+
+    // Capture canvas as image
+    const canvas = document.getElementById('deckCanvas');
+    if (canvas) {
+      // Create a temporary canvas for a clean export
+      const tempCanvas = document.createElement('canvas');
+      const tempCtx = tempCanvas.getContext('2d');
+      const scale = 2; // Higher resolution
+      tempCanvas.width = canvas.width * scale;
+      tempCanvas.height = canvas.height * scale;
+      tempCtx.scale(scale, scale);
+
+      // Draw white background
+      tempCtx.fillStyle = 'white';
+      tempCtx.fillRect(0, 0, canvas.width, canvas.height);
+
+      // Copy the original canvas
+      tempCtx.drawImage(canvas, 0, 0);
+
+      const canvasImg = tempCanvas.toDataURL('image/png', 1.0);
+
+      // Calculate image dimensions to fit width
+      const imgAspect = canvas.height / canvas.width;
+      const imgWidth = contentWidth;
+      const imgHeight = Math.min(imgWidth * imgAspect, 100); // Max 100mm height
+
+      // Add border around canvas image
+      pdf.setDrawColor(200, 200, 200);
+      pdf.setLineWidth(0.5);
+      pdf.rect(margin - 1, yPos - 1, imgWidth + 2, imgHeight + 2);
+
+      pdf.addImage(canvasImg, 'PNG', margin, yPos, imgWidth, imgHeight);
+      yPos += imgHeight + 10;
+    }
+
+    // Project Summary Section
+    pdf.setFillColor(245, 247, 250);
+    pdf.rect(margin, yPos, contentWidth, 45, 'F');
+    pdf.setDrawColor(200, 200, 200);
+    pdf.rect(margin, yPos, contentWidth, 45, 'S');
+
+    yPos += 6;
+    pdf.setTextColor(19, 58, 82);
+    pdf.setFontSize(11);
+    pdf.setFont('helvetica', 'bold');
+    pdf.text('Project Summary', margin + 5, yPos);
+    yPos += 6;
+
+    // Get summary data
+    pdf.setFontSize(9);
+    pdf.setFont('helvetica', 'normal');
+    pdf.setTextColor(60, 60, 60);
+
+    const summaryItems = [
+      { label: 'Dimensions', value: document.getElementById('summaryDimensions')?.textContent || '--' },
+      { label: 'Total Area', value: document.getElementById('summaryArea')?.textContent || '--' },
+      { label: 'Deck Height', value: document.getElementById('summaryHeight')?.textContent || '--' },
+      { label: 'Joist Size', value: document.getElementById('summaryJoistSize')?.textContent || '--' },
+      { label: 'Joist Spacing', value: document.getElementById('summaryJoistSpacing')?.textContent || '--' },
+      { label: 'Beam Configuration', value: document.getElementById('summaryBeamConfig')?.textContent || '--' },
+      { label: 'Post Size', value: document.getElementById('summaryPostSize')?.textContent || '--' },
+      { label: 'Footing Type', value: document.getElementById('summaryFootingType')?.textContent || '--' }
+    ];
+
+    // Two column layout
+    const col1X = margin + 5;
+    const col2X = margin + contentWidth / 2;
+    let summaryY = yPos;
+
+    summaryItems.forEach((item, idx) => {
+      const x = idx < 4 ? col1X : col2X;
+      const y = summaryY + (idx % 4) * 8;
+      pdf.setFont('helvetica', 'bold');
+      pdf.text(`${item.label}:`, x, y);
+      pdf.setFont('helvetica', 'normal');
+      pdf.text(item.value, x + 35, y);
+    });
+
+    yPos += 42;
+
+    // ---- PAGE 2: Bill of Materials ----
+    pdf.addPage();
+    yPos = margin;
+
+    // Header on page 2
+    pdf.setFillColor(19, 58, 82);
+    pdf.rect(0, 0, pageWidth, 20, 'F');
+    pdf.setTextColor(255, 255, 255);
+    pdf.setFontSize(14);
+    pdf.setFont('helvetica', 'bold');
+    pdf.text('Bill of Materials', margin, 13);
+    pdf.setFontSize(9);
+    pdf.setFont('helvetica', 'normal');
+    pdf.text(dateStr, pageWidth - margin - 35, 13);
+
+    yPos = 28;
+
+    // BOM Table Headers
+    pdf.setFillColor(45, 106, 106); // TUDS Teal
+    pdf.rect(margin, yPos, contentWidth, 8, 'F');
+    pdf.setTextColor(255, 255, 255);
+    pdf.setFontSize(8);
+    pdf.setFont('helvetica', 'bold');
+
+    const colWidths = [80, 25, 30, 30, 20]; // Description, Size, Length, Qty, Price
+    let colX = margin + 3;
+    ['Description', 'Size', 'Length', 'Qty', 'Price'].forEach((header, i) => {
+      pdf.text(header, colX, yPos + 5.5);
+      colX += colWidths[i];
+    });
+    yPos += 10;
+
+    // Get BOM data from the table
+    pdf.setTextColor(40, 40, 40);
+    pdf.setFont('helvetica', 'normal');
+    pdf.setFontSize(7.5);
+
+    const bomTable = document.getElementById('bomTable');
+    if (bomTable) {
+      const rows = bomTable.querySelectorAll('tbody tr');
+      let rowCount = 0;
+      let altRow = false;
+
+      rows.forEach(row => {
+        // Check if we need a new page
+        if (yPos > pageHeight - 30) {
+          pdf.addPage();
+          yPos = margin + 10;
+
+          // Add header on new page
+          pdf.setFillColor(45, 106, 106);
+          pdf.rect(margin, yPos, contentWidth, 8, 'F');
+          pdf.setTextColor(255, 255, 255);
+          pdf.setFontSize(8);
+          pdf.setFont('helvetica', 'bold');
+          colX = margin + 3;
+          ['Description', 'Size', 'Length', 'Qty', 'Price'].forEach((header, i) => {
+            pdf.text(header, colX, yPos + 5.5);
+            colX += colWidths[i];
+          });
+          yPos += 10;
+          pdf.setTextColor(40, 40, 40);
+          pdf.setFont('helvetica', 'normal');
+          pdf.setFontSize(7.5);
+        }
+
+        // Alternate row background
+        if (altRow) {
+          pdf.setFillColor(250, 250, 250);
+          pdf.rect(margin, yPos - 1, contentWidth, 7, 'F');
+        }
+        altRow = !altRow;
+
+        const cells = row.querySelectorAll('td');
+        if (cells.length >= 5) {
+          colX = margin + 3;
+
+          // Description (truncate if too long)
+          let desc = cells[0]?.textContent?.trim() || '';
+          if (desc.length > 45) desc = desc.substring(0, 42) + '...';
+          pdf.text(desc, colX, yPos + 4);
+          colX += colWidths[0];
+
+          // Size
+          pdf.text(cells[1]?.textContent?.trim() || '', colX, yPos + 4);
+          colX += colWidths[1];
+
+          // Length
+          pdf.text(cells[2]?.textContent?.trim() || '', colX, yPos + 4);
+          colX += colWidths[2];
+
+          // Qty
+          pdf.text(cells[3]?.textContent?.trim() || '', colX, yPos + 4);
+          colX += colWidths[3];
+
+          // Price
+          pdf.text(cells[4]?.textContent?.trim() || '', colX, yPos + 4);
+
+          yPos += 7;
+          rowCount++;
+        }
+      });
+
+      // Total row
+      if (rowCount > 0) {
+        yPos += 3;
+        pdf.setLineWidth(0.5);
+        pdf.setDrawColor(19, 58, 82);
+        pdf.line(margin, yPos, margin + contentWidth, yPos);
+        yPos += 6;
+
+        pdf.setFont('helvetica', 'bold');
+        pdf.setFontSize(10);
+        const totalEl = document.getElementById('bomTotal');
+        const totalText = totalEl?.textContent || 'Total: --';
+        pdf.text(totalText, pageWidth - margin - 50, yPos);
+      }
+    }
+
+    // Footer
+    yPos = pageHeight - 15;
+    pdf.setDrawColor(200, 200, 200);
+    pdf.line(margin, yPos, pageWidth - margin, yPos);
+    pdf.setFontSize(7);
+    pdf.setTextColor(120, 120, 120);
+    pdf.setFont('helvetica', 'italic');
+    pdf.text('Generated by TUDS Pro Deck Estimator - www.tuds.ca', margin, yPos + 5);
+    pdf.text('Prices and availability subject to change', pageWidth - margin - 55, yPos + 5);
+
+    // Save the PDF
+    const fileName = `deck-estimate-${new Date().toISOString().split('T')[0]}.pdf`;
+    pdf.save(fileName);
+
+    // Show success message
+    updateStatusMessage('PDF exported successfully!');
+
+  } catch (error) {
+    console.error('PDF Export Error:', error);
+    alert('Error generating PDF. Please try again.');
+  } finally {
+    // Restore button state
+    if (exportBtn) {
+      exportBtn.title = originalTitle || 'Export PDF';
+      exportBtn.disabled = false;
+      exportBtn.style.opacity = '1';
+    }
+  }
+}
+
+// Make functions globally available
+window.saveProject = saveProject;
+window.loadProject = loadProject;
+window.deleteProject = deleteProject;
+window.openProjectsModal = openProjectsModal;
+window.closeProjectsModal = closeProjectsModal;
+window.handleSaveProject = handleSaveProject;
+window.toggleCustomerInfoFields = toggleCustomerInfoFields;
+window.exportToPDF = exportToPDF;
+
+// Store/Salesperson dropdown functions
+window.updateSalespersonDropdown = updateSalespersonDropdown;
+window.onStoreFilterChange = onStoreFilterChange;
+window.renderProjectsList = renderProjectsList;
+
+// Admin login and settings modal functions
+window.openAdminLogin = openAdminLogin;
+window.openSettingsModal = openSettingsModal;
+window.closeSettingsModal = closeSettingsModal;
+window.handleAddStore = handleAddStore;
+window.handleAddSalesperson = handleAddSalesperson;
+window.handleRemoveSalesperson = handleRemoveSalesperson;
+window.handleRemoveStore = handleRemoveStore;
+window.handleChangePassword = handleChangePassword;
+
+// Wizard navigation functions
+window.setWizardStep = setWizardStep;
+window.goToNextStep = goToNextStep;
+window.goToPreviousStep = goToPreviousStep;
+window.handleWizardStepClick = handleWizardStepClick;
+window.initializeWizard = initializeWizard;
+window.renderWizardStepList = renderWizardStepList;
+window.triggerAutoCalculation = triggerAutoCalculation;
+
+// Structure sub-step navigation
+let currentStructureSubstep = 1;
+
+window.setStructureSubstep = function(substep) {
+  currentStructureSubstep = substep;
+  const structureStep = document.getElementById('wizard-step-structure');
+  if (!structureStep) return;
+
+  // Update data attribute for CSS
+  structureStep.setAttribute('data-substep', substep);
+
+  // Update sub-step content visibility
+  document.querySelectorAll('.structure-substep').forEach(el => {
+    el.classList.toggle('active', el.getAttribute('data-substep') === String(substep));
+  });
+
+  // Update indicator dots
+  document.querySelectorAll('.substep-dot').forEach(dot => {
+    const dotSubstep = parseInt(dot.getAttribute('data-substep'));
+    dot.classList.remove('active', 'complete');
+    if (dotSubstep === substep) {
+      dot.classList.add('active');
+    } else if (dotSubstep < substep) {
+      dot.classList.add('complete');
+    }
+  });
+
+  // Update connector colors
+  document.querySelectorAll('.substep-connector').forEach((conn, idx) => {
+    conn.style.background = idx < substep - 1 ? 'var(--tuds-green-dark)' : 'var(--gray-300)';
+  });
+};
+
+window.nextStructureSubstep = function() {
+  if (currentStructureSubstep < 3) {
+    setStructureSubstep(currentStructureSubstep + 1);
+  }
+};
+
+window.prevStructureSubstep = function() {
+  if (currentStructureSubstep > 1) {
+    setStructureSubstep(currentStructureSubstep - 1);
+  } else {
+    // If on first sub-step, go back to Draw step
+    goToPreviousStep();
+  }
+};
 
 // --- DOM Element References ---
 const generatePlanBtn = document.getElementById("generatePlanBtn");
@@ -148,7 +1430,381 @@ function initializeViewport() {
 }
 
 
-// --- Contextual Panel Management Functions ---
+// ================================================
+// WIZARD STEP MANAGEMENT FUNCTIONS
+// ================================================
+
+// Get step object by ID
+function getStepById(stepId) {
+  return WIZARD_STEPS.find(s => s.id === stepId);
+}
+
+// Get step index by ID
+function getStepIndex(stepId) {
+  return WIZARD_STEPS.findIndex(s => s.id === stepId);
+}
+
+// Check if a step is complete
+function isStepComplete(stepId) {
+  return appState.completedSteps.includes(stepId);
+}
+
+// Mark a step as complete
+function markStepComplete(stepId) {
+  if (!appState.completedSteps.includes(stepId)) {
+    appState.completedSteps.push(stepId);
+  }
+  renderWizardStepList();
+}
+
+// Mark a step as incomplete
+function markStepIncomplete(stepId) {
+  appState.completedSteps = appState.completedSteps.filter(s => s !== stepId);
+  renderWizardStepList();
+}
+
+// ================================================
+// PROGRESSIVE LAYER VISIBILITY
+// ================================================
+
+// Check if a layer is visible (must be both unlocked AND user preference on)
+function isLayerVisible(layerId) {
+  return appState.unlockedLayers[layerId] && appState.layerVisibility[layerId];
+}
+
+// Unlock layers when a step is completed
+function onStepComplete(stepId) {
+  console.log(`[onStepComplete] Step "${stepId}" completed, unlocking layers...`);
+
+  switch(stepId) {
+    case 'draw':
+      // No new layers (outline/dimensions always visible)
+      break;
+    case 'structure':
+      // Unlock all framing layers
+      appState.unlockedLayers.ledger = true;
+      appState.unlockedLayers.joists = true;
+      appState.unlockedLayers.beams = true;
+      appState.unlockedLayers.posts = true;
+      appState.unlockedLayers.blocking = true;
+      console.log('[onStepComplete] Framing layers unlocked');
+      break;
+    case 'stairs':
+      appState.unlockedLayers.stairs = true;
+      console.log('[onStepComplete] Stairs layer unlocked');
+      break;
+    // Future: decking, railing
+  }
+  redrawApp();
+}
+
+// Update BOM visibility based on current step
+function updateBOMVisibility(stepId) {
+  const bomSection = document.getElementById('bomSection');
+  const bomPlaceholder = document.getElementById('bomPlaceholder');
+
+  if (stepId === 'draw') {
+    // In Draw step: Hide BOM, show placeholder message
+    if (bomSection) {
+      bomSection.style.display = 'none';
+      bomSection.classList.add('hidden');
+    }
+    if (bomPlaceholder) {
+      bomPlaceholder.style.display = 'block';
+      bomPlaceholder.classList.remove('hidden');
+    }
+  } else {
+    // Past Draw step: Show BOM, hide placeholder
+    if (bomSection) {
+      bomSection.style.display = 'block';
+      bomSection.classList.remove('hidden');
+    }
+    if (bomPlaceholder) {
+      bomPlaceholder.style.display = 'none';
+      bomPlaceholder.classList.add('hidden');
+    }
+  }
+}
+
+// Check if a step is available (can be navigated to)
+function isStepAvailable(stepId) {
+  // Step 1 (draw) is always available
+  if (stepId === 'draw') return true;
+
+  // All other steps require Step 1 to be complete (shape closed)
+  return appState.isShapeClosed;
+}
+
+// Navigate to a specific step
+function setWizardStep(stepId) {
+  if (!isStepAvailable(stepId)) {
+    // Show tooltip or notification that step is not available
+    console.log(`Step "${stepId}" is not available. Complete the drawing first.`);
+    return false;
+  }
+
+  const previousStep = appState.wizardStep;
+  appState.wizardStep = stepId;
+  showWizardStepContent(stepId);
+  renderWizardStepList();
+
+  // Update BOM visibility based on step (PROGRESSIVE RENDERING)
+  updateBOMVisibility(stepId);
+
+  // Handle special behaviors for certain steps
+  handleStepEntry(stepId, previousStep);
+
+  return true;
+}
+
+// Handle special logic when entering a step
+function handleStepEntry(stepId, previousStep) {
+  switch(stepId) {
+    case 'draw':
+      // Reset to drawing mode if needed
+      break;
+    case 'structure':
+      // PROGRESSIVE RENDERING: Trigger calculation when entering Structure step
+      // This is when framing gets calculated and displayed
+      if (appState.isShapeClosed) {
+        // Unlock framing layers
+        onStepComplete('structure');
+        // Trigger calculation (will now run since we're past 'draw' step)
+        triggerAutoCalculation();
+      }
+
+      // Ensure wall selection UI shows if needed
+      if (appState.isShapeClosed && getAttachmentType() === 'house_rim' && appState.selectedWallIndices.length === 0) {
+        // Show wall selection prompt within structure step
+      }
+      break;
+    case 'stairs':
+      // Enable stair placement mode
+      appState.stairPlacementMode = true;
+      // Ensure structure is calculated if jumping directly here
+      if (!appState.structuralComponents && appState.isShapeClosed) {
+        onStepComplete('structure');
+        triggerAutoCalculation();
+      }
+      redrawApp();
+      break;
+    case 'decking':
+    case 'railing':
+      // Coming soon - just show placeholder
+      break;
+    case 'review':
+      // Trigger auto-calculation if not already done
+      triggerAutoCalculation();
+      break;
+  }
+}
+
+// Get the current attachment type from form
+function getAttachmentType() {
+  const select = document.getElementById('attachmentType');
+  return select ? select.value : 'house_rim';
+}
+
+// Go to the next step
+function goToNextStep() {
+  const currentIndex = getStepIndex(appState.wizardStep);
+  if (currentIndex < WIZARD_STEPS.length - 1) {
+    const nextStep = WIZARD_STEPS[currentIndex + 1];
+
+    // Mark current step as complete before advancing
+    markStepComplete(appState.wizardStep);
+
+    setWizardStep(nextStep.id);
+  }
+}
+
+// Go to the previous step
+function goToPreviousStep() {
+  const currentIndex = getStepIndex(appState.wizardStep);
+  if (currentIndex > 0) {
+    const prevStep = WIZARD_STEPS[currentIndex - 1];
+    setWizardStep(prevStep.id);
+  }
+}
+
+// Show content for a specific wizard step
+function showWizardStepContent(stepId) {
+  // Hide all step content panels
+  const stepPanels = document.querySelectorAll('.wizard-step-content');
+  stepPanels.forEach(panel => {
+    panel.classList.add('hidden');
+    panel.classList.remove('active');
+  });
+
+  // Show the target step content
+  const targetPanel = document.getElementById(`wizard-step-${stepId}`);
+  if (targetPanel) {
+    targetPanel.classList.remove('hidden');
+    setTimeout(() => {
+      targetPanel.classList.add('active');
+    }, 50);
+  }
+
+  // Update the Next button text based on current step
+  updateWizardNextButton(stepId);
+}
+
+// Update the Next button text/state
+function updateWizardNextButton(stepId) {
+  const nextBtn = document.getElementById('wizardNextBtn');
+  if (!nextBtn) return;
+
+  const currentIndex = getStepIndex(stepId);
+  const isLastStep = currentIndex === WIZARD_STEPS.length - 1;
+
+  if (isLastStep) {
+    nextBtn.style.display = 'none';
+  } else {
+    nextBtn.style.display = '';
+    const nextStep = WIZARD_STEPS[currentIndex + 1];
+    nextBtn.innerHTML = `
+      <span>Next: ${nextStep.shortName}</span>
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-4 h-4">
+        <path fill-rule="evenodd" d="M3 10a.75.75 0 01.75-.75h10.638L10.23 5.29a.75.75 0 111.04-1.08l5.5 5.25a.75.75 0 010 1.08l-5.5 5.25a.75.75 0 11-1.04-1.08l4.158-3.96H3.75A.75.75 0 013 10z" clip-rule="evenodd" />
+      </svg>
+    `;
+
+    // Disable if current step not complete (Step 1 has special requirements)
+    if (stepId === 'draw') {
+      const attachmentType = getAttachmentType();
+      const shapeComplete = appState.isShapeClosed;
+      // For house_rim (ledger) attachment, also require wall selection
+      const wallsComplete = attachmentType !== 'house_rim' || appState.selectedWallIndices.length > 0;
+
+      if (!shapeComplete || !wallsComplete) {
+        nextBtn.disabled = true;
+        nextBtn.classList.add('disabled');
+      } else {
+        nextBtn.disabled = false;
+        nextBtn.classList.remove('disabled');
+      }
+    } else {
+      nextBtn.disabled = false;
+      nextBtn.classList.remove('disabled');
+    }
+  }
+}
+
+// Render the wizard step list navigation
+function renderWizardStepList() {
+  const stepList = document.getElementById('wizardStepList');
+  if (!stepList) return;
+
+  stepList.innerHTML = WIZARD_STEPS.map((step, index) => {
+    const isActive = appState.wizardStep === step.id;
+    const isComplete = isStepComplete(step.id);
+    const isAvailable = isStepAvailable(step.id);
+
+    let statusClass = '';
+    if (isActive) statusClass = 'active';
+    else if (isComplete) statusClass = 'complete';
+    else if (!isAvailable) statusClass = 'unavailable';
+
+    const comingSoonBadge = step.comingSoon ? '<span class="step-coming-soon">Soon</span>' : '';
+
+    return `
+      <li class="wizard-step-item ${statusClass}"
+          data-step="${step.id}"
+          onclick="handleWizardStepClick('${step.id}')"
+          ${!isAvailable ? 'title="Complete drawing first"' : ''}>
+        <span class="step-number">
+          ${isComplete ? '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-4 h-4"><path fill-rule="evenodd" d="M16.704 4.153a.75.75 0 01.143 1.052l-8 10.5a.75.75 0 01-1.127.075l-4.5-4.5a.75.75 0 011.06-1.06l3.894 3.893 7.48-9.817a.75.75 0 011.05-.143z" clip-rule="evenodd" /></svg>' : (index + 1)}
+        </span>
+        <span class="step-name">${step.shortName}</span>
+        ${comingSoonBadge}
+      </li>
+    `;
+  }).join('');
+}
+
+// Handle click on wizard step item
+function handleWizardStepClick(stepId) {
+  if (isStepAvailable(stepId)) {
+    setWizardStep(stepId);
+  }
+}
+
+// Trigger auto-calculation of structural components and BOM
+function triggerAutoCalculation() {
+  // PROGRESSIVE RENDERING: Don't calculate if still in Draw step
+  // Framing should only be calculated once user advances to Structure step
+  if (appState.wizardStep === 'draw') {
+    console.log('[triggerAutoCalculation] Skipping - still in Draw step');
+    return;
+  }
+
+  // Only calculate if we have a closed shape
+  if (!appState.isShapeClosed || appState.points.length < 3) {
+    return;
+  }
+
+  // Get form inputs
+  const formInputs = uiController.getFormInputs();
+
+  // Calculate deck dimensions if not done
+  if (!appState.deckDimensions) {
+    calculateAndUpdateDeckDimensions();
+  }
+
+  // Check if we need walls for house_rim (ledger) attachment
+  if (formInputs.attachmentType === 'house_rim' && appState.selectedWallIndices.length === 0) {
+    // Can't calculate without wall selection
+    return;
+  }
+
+  // Perform structural calculation
+  try {
+    console.log('[triggerAutoCalculation] Starting calculation with inputs:', formInputs);
+    const result = calculateStructuralComponents(formInputs);
+    console.log('[triggerAutoCalculation] Result:', result ? 'Got result' : 'No result', 'Error:', result?.error);
+    if (result && !result.error) {
+      appState.structuralComponents = result;
+      recalculateAndUpdateBOM();
+      redrawApp();
+      console.log('[triggerAutoCalculation] Structure generated successfully');
+    } else if (result?.error) {
+      console.error('[triggerAutoCalculation] Calculation returned error:', result.error);
+    } else {
+      console.warn('[triggerAutoCalculation] Calculation returned no result');
+    }
+  } catch (error) {
+    console.error('[triggerAutoCalculation] Exception:', error);
+  }
+}
+
+// Calculate structural components (wrapper)
+function calculateStructuralComponents(formInputs) {
+  // Check if complex shape
+  if (appState.rectangularSections && appState.rectangularSections.length > 1) {
+    return multiSectionCalculations.calculateMultiSectionStructure(
+      appState.rectangularSections,
+      formInputs,
+      appState.selectedWallIndices,
+      appState.points
+    );
+  } else {
+    return deckCalculations.calculateStructure(
+      appState.points,              // shapePoints
+      appState.selectedWallIndices, // ledgerIndices
+      formInputs,                   // inputs
+      appState.deckDimensions       // deckDimensions
+    );
+  }
+}
+
+// Initialize wizard on page load
+function initializeWizard() {
+  renderWizardStepList();
+  showWizardStepContent('draw');
+  updateWizardNextButton('draw');
+}
+
+// --- Contextual Panel Management Functions (Legacy) ---
 function getCurrentPanelMode() {
   if (appState.stairPlacementMode) {
     return 'stair-config';
@@ -459,13 +2115,24 @@ function updateUIClasses() {
 function redrawApp() {
   // Update the blueprint mode UI elements
   updateBlueprintModeUI();
-  
+
   // Update UI classes based on current interaction mode
   updateUIClasses();
-  
-  // Pass the blueprint mode to canvas logic
-  canvasLogic.redrawCanvas({ 
-    ...appState, 
+
+  // Update Edit Shape panel visibility based on shape state
+  updateEditShapePanelVisibility();
+
+  // PROGRESSIVE RENDERING: Compute effective layer visibility
+  // A layer is only visible if it's both unlocked AND user preference is on
+  const effectiveLayerVisibility = {};
+  for (const layer of Object.keys(appState.layerVisibility)) {
+    effectiveLayerVisibility[layer] = isLayerVisible(layer);
+  }
+
+  // Pass the blueprint mode and effective visibility to canvas logic
+  canvasLogic.redrawCanvas({
+    ...appState,
+    layerVisibility: effectiveLayerVisibility, // Override with effective visibility
     deckCanvasElement: deckCanvas,
     isBlueprintMode: appState.isBlueprintMode
   });
@@ -558,7 +2225,18 @@ function resetAppState() {
   appState.stairs = [];
   appState.bom = [];
   appState.isPanning = false; // Reset panning state
-  
+
+  // Reset shape edit mode state
+  appState.shapeEditMode = false;
+  appState.editMode = null;
+  appState.hoveredVertexIndex = -1;
+  appState.hoveredEdgeIndex = -1;
+  appState.hoveredIconType = null;
+  appState.selectedVertexIndex = -1;
+  appState.draggedVertexIndex = -1;
+  appState.draggedEdgeIndex = -1;
+  appState.wasEditingOnMouseUp = false;
+
   // Reset decomposition state
   appState.rectangularSections = [];
   appState.showDecompositionShading = false;
@@ -954,7 +2632,35 @@ function handleKeyDown(event) {
     handleCancelStairs();
     return;
   }
-  
+
+  // Handle Delete key for vertex removal (only in Draw step when edit mode is active)
+  // Allow during wall selection - edit mode temporarily pauses wall selection
+  if ((event.key === "Delete" || event.key === "Backspace") &&
+      appState.selectedVertexIndex >= 0 &&
+      appState.isShapeClosed &&
+      appState.shapeEditMode &&
+      appState.wizardStep === 'draw') {
+    event.preventDefault();
+    const success = removeVertex(appState.selectedVertexIndex);
+    if (success) {
+      saveHistoryState('Remove vertex');
+      recalculateShapeAfterEdit();
+      uiController.updateCanvasStatus('Vertex removed.');
+      redrawApp();
+    }
+    return;
+  }
+
+  // Handle Escape key to deselect vertex
+  if (event.key === "Escape" &&
+      appState.selectedVertexIndex >= 0 &&
+      appState.wizardStep === 'draw') {
+    event.preventDefault();
+    appState.selectedVertexIndex = -1;
+    redrawApp();
+    return;
+  }
+
   // Start dimension input if user is typing numbers while drawing
   if (
     appState.isDrawing &&
@@ -1040,6 +2746,14 @@ function handleCanvasClick(viewMouseX, viewMouseY) {
     appState.wasPanningOnMouseUp = false; // Reset flag
     return;
   }
+
+  // If vertex/edge dragging was just completed, don't process a click
+  // This prevents accidental vertex removal after a drag
+  if (appState.wasEditingOnMouseUp) {
+    appState.wasEditingOnMouseUp = false; // Reset flag
+    return;
+  }
+
   const modelMouse = getModelMousePosition(viewMouseX, viewMouseY);
   appState.currentModelMousePos = modelMouse;
 
@@ -1054,9 +2768,50 @@ function handleCanvasClick(viewMouseX, viewMouseY) {
     handleStairPlacementClick(modelMouse.x, modelMouse.y);
     return;
   }
-  
+
+  // Handle icon clicks for add/remove vertices (unified edit mode)
+  if (appState.isShapeClosed &&
+      appState.shapeEditMode &&
+      appState.hoveredIconType &&
+      appState.wizardStep === 'draw') {
+
+    // Debounce: prevent rapid clicks from triggering multiple operations
+    const now = Date.now();
+    if (appState.lastVertexEditTime && (now - appState.lastVertexEditTime) < 200) {
+      return; // Ignore clicks within 200ms of the last edit
+    }
+    appState.lastVertexEditTime = now;
+
+    // Click on delete icon to REMOVE vertex
+    if (appState.hoveredIconType === 'delete' && appState.hoveredVertexIndex >= 0) {
+      const success = removeVertex(appState.hoveredVertexIndex);
+      if (success) {
+        saveHistoryState('Remove vertex');
+        recalculateShapeAfterEdit();
+        uiController.updateCanvasStatus('Point removed.');
+      }
+      appState.hoveredIconType = null; // Reset after action
+      redrawApp();
+      return;
+    }
+
+    // Click on add icon to ADD a vertex
+    if (appState.hoveredIconType === 'add' && appState.hoveredEdgeIndex >= 0) {
+      const success = insertVertexOnEdge(appState.hoveredEdgeIndex, modelMouse);
+      if (success) {
+        saveHistoryState('Add vertex');
+        recalculateShapeAfterEdit();
+        uiController.updateCanvasStatus('Point added.');
+      }
+      appState.hoveredIconType = null; // Reset after action
+      redrawApp();
+      return;
+    }
+  }
+
   // Delete button clicks are now handled through the UI panel, not canvas clicks
-  if (appState.wallSelectionMode) {
+  // Skip wall selection handling when in shape edit mode
+  if (appState.wallSelectionMode && !appState.shapeEditMode) {
     const clickedWallIndex = canvasLogic.findClickedWallIndex(
       modelMouse.x,
       modelMouse.y,
@@ -1095,13 +2850,19 @@ function handleCanvasClick(viewMouseX, viewMouseY) {
       // Update decomposition if we have at least one wall selected
       if (appState.selectedWallIndices.length > 0) {
         decomposeClosedShape();
+        // Trigger auto-calculation to generate framing plan
+        triggerAutoCalculation();
       } else {
         appState.rectangularSections = [];
       }
 
+      // Update the wizard Next button state
+      updateWizardNextButton(appState.wizardStep);
+
       // Only exit wall selection mode when Generate Plan is clicked
       // Keep wall selection mode active for multi-selection
       updateContextualPanel();
+      redrawApp();
     }
   } else if (
     !appState.isDrawing &&
@@ -1166,12 +2927,50 @@ function handleCanvasClick(viewMouseX, viewMouseY) {
   }
 
   if (!appState.isShapeClosed && !appState.wallSelectionMode) {
-    const snappedModelPos = canvasLogic.getSnappedPos(
-      modelMouse.x,
-      modelMouse.y,
-      appState.points,
-      appState.isShapeClosed
-    );
+    // Prevent concurrent click processing (for synthetic events)
+    if (appState.isProcessingClick) {
+      return;
+    }
+    appState.isProcessingClick = true;
+
+    // Debounce: prevent rapid clicks from triggering multiple point additions
+    const now = Date.now();
+    if (appState.lastPointAddTime && (now - appState.lastPointAddTime) < 100) {
+      appState.isProcessingClick = false;
+      return; // Ignore clicks within 100ms of the last point add
+    }
+    appState.lastPointAddTime = now;
+
+    // First, check if we're trying to close the shape by clicking near the first point
+    // We need to check this BEFORE orthogonal snapping, since the snapping might
+    // push the position away from the first point
+    const modelSnapTolerance =
+      config.SNAP_TOLERANCE_PIXELS / appState.viewportScale;
+
+    let snappedModelPos;
+    let isClosingClick = false;
+
+    // Check if clicking near first point to close shape (using raw mouse position)
+    if (appState.points.length >= 3) {
+      const distanceToFirstPoint = utils.distance(modelMouse, appState.points[0]);
+      // Use a generous tolerance for closing detection (3x the normal snap tolerance)
+      // This makes it easier for users to close shapes by clicking near the first point
+      if (distanceToFirstPoint < modelSnapTolerance * 3) {
+        // Snap directly to the first point for closing
+        snappedModelPos = { ...appState.points[0] };
+        isClosingClick = true;
+      }
+    }
+
+    // If not a closing click, use normal snapping
+    if (!isClosingClick) {
+      snappedModelPos = canvasLogic.getSnappedPos(
+        modelMouse.x,
+        modelMouse.y,
+        appState.points,
+        appState.isShapeClosed
+      );
+    }
 
     const modelLimitX = config.MODEL_WIDTH_FEET * config.PIXELS_PER_FOOT;
     const modelLimitY = config.MODEL_HEIGHT_FEET * config.PIXELS_PER_FOOT;
@@ -1189,92 +2988,128 @@ function handleCanvasClick(viewMouseX, viewMouseY) {
     }
 
     // Process new point or close shape
-    if (appState.points.length >= 3) {
-      const modelSnapTolerance =
-        config.SNAP_TOLERANCE_PIXELS / appState.viewportScale;
-      if (
-        utils.distance(snappedModelPos, appState.points[0]) < modelSnapTolerance
-      ) {
-        // Create a temporary shape for validation that includes corner point and closing
-        let tempPoints = [...appState.points];
-        
-        // Create orthogonal closing path if needed
-        const lastPoint = tempPoints[tempPoints.length - 1];
-        const startPoint = tempPoints[0];
-        
-        if (Math.abs(lastPoint.x - startPoint.x) > config.EPSILON && 
-            Math.abs(lastPoint.y - startPoint.y) > config.EPSILON) {
-          // We need to add a corner point to ensure 90-degree angles
-          const dx = Math.abs(lastPoint.x - startPoint.x);
-          const dy = Math.abs(lastPoint.y - startPoint.y);
-          
-          // Add the corner point - choose the direction based on the shorter distance
-          const cornerPoint = {...lastPoint}; // start with a copy of the last point
-          if (dx < dy) {
-            // Go horizontally first
-            cornerPoint.x = startPoint.x;
-          } else {
-            // Go vertically first
-            cornerPoint.y = startPoint.y;
-          }
-          
-          // Add the corner point to temp array
+    if (appState.points.length >= 3 && isClosingClick) {
+      // Closing click detected - close the shape
+      // Create a temporary shape for validation that includes corner point and closing
+      let tempPoints = [...appState.points];
+
+      // Create orthogonal closing path if needed
+      const lastPoint = tempPoints[tempPoints.length - 1];
+      const startPoint = tempPoints[0];
+
+      if (Math.abs(lastPoint.x - startPoint.x) > config.EPSILON &&
+          Math.abs(lastPoint.y - startPoint.y) > config.EPSILON) {
+        // We need to add a corner point to ensure 90-degree angles
+        const dx = Math.abs(lastPoint.x - startPoint.x);
+        const dy = Math.abs(lastPoint.y - startPoint.y);
+
+        // Calculate both possible corner points
+        const cornerOption1 = { x: startPoint.x, y: lastPoint.y }; // Go horizontal first
+        const cornerOption2 = { x: lastPoint.x, y: startPoint.y }; // Go vertical first
+
+        // Check if either corner option already exists in the points array
+        const option1Exists = tempPoints.some(p =>
+          Math.abs(p.x - cornerOption1.x) < config.EPSILON &&
+          Math.abs(p.y - cornerOption1.y) < config.EPSILON
+        );
+        const option2Exists = tempPoints.some(p =>
+          Math.abs(p.x - cornerOption2.x) < config.EPSILON &&
+          Math.abs(p.y - cornerOption2.y) < config.EPSILON
+        );
+
+        // Choose the corner point that doesn't already exist
+        // If both exist or neither exist, fall back to the shorter distance heuristic
+        let cornerPoint;
+        if (option1Exists && !option2Exists) {
+          cornerPoint = cornerOption2;
+        } else if (option2Exists && !option1Exists) {
+          cornerPoint = cornerOption1;
+        } else if (!option1Exists && !option2Exists) {
+          // Neither exists, use the shorter distance heuristic
+          cornerPoint = dx < dy ? cornerOption1 : cornerOption2;
+        } else {
+          // Both exist - this means we don't need a corner point
+          // (the shape can close directly through existing points)
+          cornerPoint = null;
+        }
+
+        // Add the corner point to temp array if needed
+        if (cornerPoint) {
           tempPoints.push(cornerPoint);
         }
-        
-        // Add closing point to temp array
-        tempPoints.push({ ...tempPoints[0] });
-        
-        // Validate the complete shape before accepting it
-        const validation = shapeValidator.validateShape(tempPoints);
-        if (!validation.isValid) {
-          uiController.updateCanvasStatus(`Shape validation failed: ${validation.error}`);
-          redrawApp();
-          return;
-        }
-        
-        // If validation passed, actually apply the changes
-        if (tempPoints.length > appState.points.length + 1) {
-          // Corner point was added
-          appState.points.push(tempPoints[tempPoints.length - 2]); // Add corner point
-          uiController.updateCanvasStatus(
-            "Added corner point to maintain 90-degree angles."
-          );
-        }
-        
-        // Now close the shape
-        appState.points.push({ ...appState.points[0] });
-        
-        appState.isShapeClosed = true;
-        appState.isDrawing = false;
-        appState.currentMousePos = null;
-        appState.currentModelMousePos = null;
-        
-        // Only simplify points if no manual dimensions are present
-        const hasManualDimensions = appState.points.some(p => p.isManualDimension === true);
-        if (!hasManualDimensions) {
-          appState.points = utils.simplifyPoints(appState.points);
-        } else {
-          console.log("IMPORTANT: Skipping simplification because manual dimensions are present");
-        }
-        
-        calculateAndUpdateDeckDimensions();
-        
-        // Reset decomposition since no wall is selected yet
-        appState.rectangularSections = [];
+      }
 
-        appState.wallSelectionMode = true;
+      // Add closing point to temp array
+      tempPoints.push({ ...tempPoints[0] });
 
-        saveHistoryState('Close shape');
-        updateContextualPanel();
+      // Validate the complete shape before accepting it
+      const validation = shapeValidator.validateShape(tempPoints);
+      if (!validation.isValid) {
+        uiController.updateCanvasStatus(`Shape validation failed: ${validation.error}`);
+        redrawApp();
+        return;
+      }
+
+      // If validation passed, actually apply the changes
+      if (tempPoints.length > appState.points.length + 1) {
+        // Corner point was added
+        appState.points.push(tempPoints[tempPoints.length - 2]); // Add corner point
+        uiController.updateCanvasStatus(
+          "Added corner point to maintain 90-degree angles."
+        );
+      }
+
+      // Now close the shape
+      appState.points.push({ ...appState.points[0] });
+
+      appState.isShapeClosed = true;
+      appState.isDrawing = false;
+      appState.currentMousePos = null;
+      appState.currentModelMousePos = null;
+
+      // Only simplify points if no manual dimensions are present
+      const hasManualDimensions = appState.points.some(p => p.isManualDimension === true);
+      if (!hasManualDimensions) {
+        appState.points = utils.simplifyPoints(appState.points);
       } else {
-        // Simply add the point - we'll let keyboard input activate dimension entry if needed
+        console.log("IMPORTANT: Skipping simplification because manual dimensions are present");
+      }
+
+      calculateAndUpdateDeckDimensions();
+
+      // Reset decomposition since no wall is selected yet
+      appState.rectangularSections = [];
+
+      // Check if we need wall selection based on attachment type
+      const currentAttachmentType = getAttachmentType();
+      if (currentAttachmentType === 'house_rim') {
+        // House rim (ledger) attachment requires wall selection
+        appState.wallSelectionMode = true;
+        uiController.updateCanvasStatus("Click wall edges to select for ledger attachment.");
+      } else {
+        // Non-ledger types (concrete, floating) don't need wall selection
+        appState.wallSelectionMode = false;
+        // Decompose shape with no walls (will use default orientation)
+        decomposeClosedShape();
+        // Trigger auto-calculation immediately
+        triggerAutoCalculation();
+      }
+
+      // Update the wizard Next button state
+      updateWizardNextButton(appState.wizardStep);
+
+      saveHistoryState('Close shape');
+      updateContextualPanel();
+    } else if (appState.points.length >= 3) {
+      // 3+ points but not a closing click - add another point
+      if (utils.distance(snappedModelPos, appState.points[appState.points.length - 1]) > config.EPSILON) {
         appState.points.push(snappedModelPos);
         appState.isDrawing = true;
         saveHistoryState('Add point');
         updateContextualPanel();
       }
     } else {
+      // First or second point
       if (
         appState.points.length === 0 ||
         utils.distance(
@@ -1282,13 +3117,15 @@ function handleCanvasClick(viewMouseX, viewMouseY) {
           appState.points[appState.points.length - 1]
         ) > config.EPSILON
       ) {
-        // Add the first or second point
         appState.points.push(snappedModelPos);
         appState.isDrawing = true;
         saveHistoryState('Add point');
         updateContextualPanel();
       }
     }
+
+    // Reset processing flag
+    appState.isProcessingClick = false;
   }
   redrawApp();
 }
@@ -1406,6 +3243,186 @@ function handleCanvasMouseMove(viewMouseX, viewMouseY) {
     }
   }
 
+  // Vertex dragging - update vertex position
+  if (appState.vertexEditMode === 'dragging' && appState.draggedVertexIndex >= 0) {
+    // Snap to 1-foot grid (simple grid snap, no angle constraints for vertex editing)
+    const footGridStep = config.PIXELS_PER_FOOT; // 24 pixels = 1 foot
+    const snappedX = Math.round(modelMouse.x / footGridStep) * footGridStep;
+    const snappedY = Math.round(modelMouse.y / footGridStep) * footGridStep;
+    const snappedPos = { x: snappedX, y: snappedY };
+    appState.points[appState.draggedVertexIndex] = snappedPos;
+
+    // Update closing point if dragging first vertex
+    if (appState.draggedVertexIndex === 0) {
+      appState.points[appState.points.length - 1] = { ...snappedPos };
+    }
+
+    redrawApp();
+    return;
+  }
+
+  // Edge dragging - move both connected vertices perpendicular to edge
+  if (appState.vertexEditMode === 'edge-dragging' && appState.draggedEdgeIndex >= 0) {
+    const edgeIdx = appState.draggedEdgeIndex;
+    const p1Idx = edgeIdx;
+    const p2Idx = (edgeIdx + 1) % (appState.points.length - 1);
+
+    // Get edge direction and perpendicular
+    const edgeDx = appState.edgeDragStartP2.x - appState.edgeDragStartP1.x;
+    const edgeDy = appState.edgeDragStartP2.y - appState.edgeDragStartP1.y;
+    const edgeLength = Math.sqrt(edgeDx * edgeDx + edgeDy * edgeDy);
+
+    if (edgeLength > config.EPSILON) {
+      // Perpendicular direction (normalized)
+      const perpX = -edgeDy / edgeLength;
+      const perpY = edgeDx / edgeLength;
+
+      // Calculate mouse movement along perpendicular
+      const mouseDx = modelMouse.x - appState.edgeDragStartMouse.x;
+      const mouseDy = modelMouse.y - appState.edgeDragStartMouse.y;
+      const perpDist = mouseDx * perpX + mouseDy * perpY;
+
+      // Move both vertices perpendicular to edge
+      const newP1 = {
+        x: appState.edgeDragStartP1.x + perpDist * perpX,
+        y: appState.edgeDragStartP1.y + perpDist * perpY
+      };
+      const newP2 = {
+        x: appState.edgeDragStartP2.x + perpDist * perpX,
+        y: appState.edgeDragStartP2.y + perpDist * perpY
+      };
+
+      // Snap to 1-foot grid (simple grid snap for edge editing)
+      const footGridStep = config.PIXELS_PER_FOOT;
+      const snappedP1 = {
+        x: Math.round(newP1.x / footGridStep) * footGridStep,
+        y: Math.round(newP1.y / footGridStep) * footGridStep
+      };
+      const snappedP2 = {
+        x: Math.round(newP2.x / footGridStep) * footGridStep,
+        y: Math.round(newP2.y / footGridStep) * footGridStep
+      };
+
+      appState.points[p1Idx] = snappedP1;
+      appState.points[p2Idx] = snappedP2;
+
+      // Update closing point if dragging edge that includes first vertex
+      if (p1Idx === 0) {
+        appState.points[appState.points.length - 1] = { ...snappedP1 };
+      }
+    }
+
+    redrawApp();
+    return;
+  }
+
+  // Vertex/edge hover detection (only when shape edit mode is active)
+  // Allow during wall selection - edit mode temporarily pauses wall selection
+  if (appState.isShapeClosed &&
+      appState.shapeEditMode &&
+      !appState.stairPlacementMode &&
+      !appState.isDraggingStairs &&
+      appState.wizardStep === 'draw') {
+
+    // Icon detection constants
+    const iconRadius = 9;
+    const iconHitRadius = iconRadius * 1.8; // Slightly larger hit area
+    const iconOffsetX = 14;
+    const iconOffsetY = -14;
+    const scale = appState.viewportScale;
+    const canDelete = appState.points.length > 5;
+
+    // Check icon hovers FIRST (icons have priority for clicks)
+    let newHoveredIconType = null;
+    let iconVertexIndex = -1;
+    let iconEdgeIndex = -1;
+
+    // Check delete icons near all vertices
+    if (canDelete) {
+      for (let i = 0; i < appState.points.length - 1; i++) {
+        const p = appState.points[i];
+        const vertexViewX = (p.x + appState.viewportOffsetX) * scale;
+        const vertexViewY = (p.y + appState.viewportOffsetY) * scale;
+        const iconX = vertexViewX + iconOffsetX;
+        const iconY = vertexViewY + iconOffsetY;
+        const dx = viewMouseX - iconX;
+        const dy = viewMouseY - iconY;
+        if (dx * dx + dy * dy <= iconHitRadius * iconHitRadius) {
+          newHoveredIconType = 'delete';
+          iconVertexIndex = i;
+          break;
+        }
+      }
+    }
+
+    // Check add icons at all edge midpoints (only if no delete icon hovered)
+    if (!newHoveredIconType) {
+      for (let i = 0; i < appState.points.length - 1; i++) {
+        const p1 = appState.points[i];
+        const p2 = appState.points[(i + 1) % (appState.points.length - 1)];
+        const midX = ((p1.x + p2.x) / 2 + appState.viewportOffsetX) * scale;
+        const midY = ((p1.y + p2.y) / 2 + appState.viewportOffsetY) * scale;
+        const iconX = midX + iconOffsetX;
+        const iconY = midY + iconOffsetY;
+        const dx = viewMouseX - iconX;
+        const dy = viewMouseY - iconY;
+        if (dx * dx + dy * dy <= iconHitRadius * iconHitRadius) {
+          newHoveredIconType = 'add';
+          iconEdgeIndex = i;
+          break;
+        }
+      }
+    }
+
+    // Determine vertex/edge hover based on icon or direct hover
+    let newHoveredVertex = -1;
+    let newHoveredEdge = -1;
+
+    if (newHoveredIconType === 'delete') {
+      newHoveredVertex = iconVertexIndex;
+    } else if (newHoveredIconType === 'add') {
+      newHoveredEdge = iconEdgeIndex;
+    } else {
+      // No icon hover - check vertex/edge directly
+      newHoveredVertex = findNearestVertex(modelMouse, 15);
+      newHoveredEdge = newHoveredVertex === -1 ? findNearestEdge(modelMouse, 10) : -1;
+    }
+
+    // Update state if changed
+    if (newHoveredVertex !== appState.hoveredVertexIndex ||
+        newHoveredEdge !== appState.hoveredEdgeIndex ||
+        newHoveredIconType !== appState.hoveredIconType) {
+      appState.hoveredVertexIndex = newHoveredVertex;
+      appState.hoveredEdgeIndex = newHoveredEdge;
+      appState.hoveredIconType = newHoveredIconType;
+
+      // Update cursor based on what's hovered
+      if (deckCanvas) {
+        if (newHoveredIconType === 'delete') {
+          deckCanvas.style.cursor = 'pointer';
+        } else if (newHoveredIconType === 'add') {
+          deckCanvas.style.cursor = 'cell';
+        } else if (newHoveredVertex >= 0) {
+          deckCanvas.style.cursor = 'grab';
+        } else if (newHoveredEdge >= 0) {
+          deckCanvas.style.cursor = 'move';
+        } else {
+          deckCanvas.style.cursor = 'default';
+        }
+      }
+
+      redrawApp();
+      return;
+    }
+  } else {
+    // Reset vertex hover state when not in Draw step
+    if (appState.hoveredVertexIndex !== -1 || appState.hoveredEdgeIndex !== -1 || appState.hoveredIconType !== null) {
+      appState.hoveredVertexIndex = -1;
+      appState.hoveredEdgeIndex = -1;
+      appState.hoveredIconType = null;
+    }
+  }
+
   // Update hovered stair index when not dragging
   if (!appState.isDraggingStairs && !appState.stairPlacementMode && appState.isShapeClosed) {
     let newHoveredIndex = -1;
@@ -1471,10 +3488,49 @@ function handleCanvasMouseDown(viewMouseX, viewMouseY, event) {
   if (
     appState.isDrawing ||
     appState.stairPlacementMode ||
-    appState.wallSelectionMode ||
     appState.isDraggingStairs
   )
     return;
+
+  // Skip other mousedown handling during wall selection (unless in edit mode)
+  if (appState.wallSelectionMode && !appState.shapeEditMode)
+    return;
+
+  // Start vertex dragging (only when not clicking on an icon)
+  if (appState.hoveredVertexIndex >= 0 &&
+      appState.isShapeClosed &&
+      appState.shapeEditMode &&
+      !appState.hoveredIconType &&
+      appState.wizardStep === 'draw') {
+    appState.vertexEditMode = 'dragging';
+    appState.draggedVertexIndex = appState.hoveredVertexIndex;
+    appState.selectedVertexIndex = appState.hoveredVertexIndex;
+    if (deckCanvas) deckCanvas.style.cursor = 'grabbing';
+    event.preventDefault();
+    redrawApp();
+    return;
+  }
+
+  // Start edge dragging (move both connected vertices perpendicular to edge)
+  if (appState.hoveredEdgeIndex >= 0 &&
+      appState.isShapeClosed &&
+      appState.shapeEditMode &&
+      !appState.hoveredIconType &&
+      appState.wizardStep === 'draw') {
+    appState.vertexEditMode = 'edge-dragging';
+    appState.draggedEdgeIndex = appState.hoveredEdgeIndex;
+    // Store initial positions for both vertices
+    const p1 = appState.points[appState.hoveredEdgeIndex];
+    const p2Idx = (appState.hoveredEdgeIndex + 1) % (appState.points.length - 1);
+    const p2 = appState.points[p2Idx];
+    appState.edgeDragStartP1 = { ...p1 };
+    appState.edgeDragStartP2 = { ...p2 };
+    appState.edgeDragStartMouse = { ...modelMouse };
+    if (deckCanvas) deckCanvas.style.cursor = 'move';
+    event.preventDefault();
+    redrawApp();
+    return;
+  }
 
   if (appState.isShapeClosed && appState.stairs.length > 0) {
     for (let i = 0; i < appState.stairs.length; i++) {
@@ -1506,11 +3562,48 @@ function handleCanvasMouseDown(viewMouseX, viewMouseY, event) {
 function handleCanvasMouseUp(event) {
   appState.wasPanningOnMouseUp = appState.isPanning; // Flag to prevent click after pan
 
+  // Flag to prevent click after vertex/edge drag
+  appState.wasEditingOnMouseUp = (appState.vertexEditMode === 'dragging' || appState.vertexEditMode === 'edge-dragging');
+
   if (appState.isPanning) {
     appState.isPanning = false;
     if (deckCanvas) deckCanvas.style.cursor = "default"; // Or "grab" if pannable mode is toggleable
     redrawApp(); // May not be needed if mousemove already redrew
   }
+
+  // Complete vertex dragging
+  if (appState.vertexEditMode === 'dragging') {
+    appState.vertexEditMode = null;
+    appState.draggedVertexIndex = -1;
+    if (deckCanvas) deckCanvas.style.cursor = appState.hoveredVertexIndex >= 0 ? 'grab' : 'default';
+
+    // Recalculate shape after edit
+    recalculateShapeAfterEdit();
+
+    // Save to history
+    saveHistoryState('Move vertex');
+
+    redrawApp();
+  }
+
+  // Complete edge dragging
+  if (appState.vertexEditMode === 'edge-dragging') {
+    appState.vertexEditMode = null;
+    appState.draggedEdgeIndex = -1;
+    appState.edgeDragStartP1 = null;
+    appState.edgeDragStartP2 = null;
+    appState.edgeDragStartMouse = null;
+    if (deckCanvas) deckCanvas.style.cursor = appState.hoveredEdgeIndex >= 0 ? 'ew-resize' : 'default';
+
+    // Recalculate shape after edit
+    recalculateShapeAfterEdit();
+
+    // Save to history
+    saveHistoryState('Move edge');
+
+    redrawApp();
+  }
+
   if (appState.isDraggingStairs) {
     appState.isDraggingStairs = false;
     if (deckCanvas) deckCanvas.style.cursor = "default";
@@ -2044,9 +4137,16 @@ document.addEventListener("DOMContentLoaded", () => {
   // Initialize visual selectors
   initializeVisualSelectors();
 
+  // Initialize wizard step navigation
+  initializeWizard();
+
   resetAppState();
-  updateContextualPanel(); // Initialize contextual panel
-  console.log("Deck Calculator App Initialized with Zoom/Pan features, Dimension Input, Blueprint mode, and Contextual Panels.");
+  updateContextualPanel(); // Initialize contextual panel (legacy - will be replaced by wizard)
+
+  // PROGRESSIVE RENDERING: Set initial BOM visibility based on wizard step
+  updateBOMVisibility(appState.wizardStep);
+
+  console.log("Deck Calculator App Initialized with Wizard-based workflow.");
 });
 
 // --- Global Utility Functions for HTML ---
@@ -2575,6 +4675,487 @@ const DECK_TEMPLATES = {
   }
 };
 
+// Track current draw input method
+// Note: drawInputMode removed - all input methods are now always visible
+
+// Vertex editing state
+appState.shapeEditMode = false;       // Whether shape edit mode is active (button-triggered)
+appState.vertexEditMode = null;       // 'dragging' | 'edge-dragging' | null
+appState.selectedVertexIndex = -1;    // Currently selected vertex
+appState.draggedEdgeIndex = -1;       // Index of edge being dragged
+appState.draggedVertexIndex = -1;     // Currently dragged vertex
+appState.hoveredVertexIndex = -1;     // Vertex under mouse
+appState.hoveredEdgeIndex = -1;       // Edge under mouse (for add vertex)
+appState.hoveredIconType = null;      // 'delete' | 'add' | null - which icon is being hovered
+
+// Note: selectDrawMethod removed - all input methods are now always visible
+
+// Create rectangle from dimension inputs
+window.createRectangleFromDimensions = function() {
+  const widthInput = document.getElementById('deckWidthInput');
+  const depthInput = document.getElementById('deckDepthInput');
+
+  const width = parseFloat(widthInput?.value) || 16;
+  const depth = parseFloat(depthInput?.value) || 12;
+
+  // Validate dimensions
+  if (width < 4 || depth < 4) {
+    uiController.updateCanvasStatus('Deck must be at least 4\' x 4\'');
+    return;
+  }
+
+  if (width > 100 || depth > 100) {
+    uiController.updateCanvasStatus('Deck dimensions cannot exceed 100\'');
+    return;
+  }
+
+  // Clear history for fresh start
+  clearHistory();
+
+  // Clear current state
+  appState.points = [];
+  appState.isDrawing = false;
+  appState.isShapeClosed = false;
+  appState.wallSelectionMode = false;
+  appState.selectedWallIndices = [];
+  appState.stairPlacementMode = false;
+  appState.selectedStairIndex = -1;
+  appState.deckDimensions = null;
+  appState.structuralComponents = null;
+  appState.stairs = [];
+  appState.bom = [];
+  appState.rectangularSections = [];
+  appState.showDecompositionShading = false;
+
+  // Create rectangle points (in feet, then convert to pixels)
+  const offsetX = 5; // 5 feet from left edge
+  const offsetY = 5; // 5 feet from top edge
+
+  const points = [
+    { x: 0, y: 0 },      // Top-left
+    { x: 0, y: depth },  // Bottom-left
+    { x: width, y: depth }, // Bottom-right
+    { x: width, y: 0 },  // Top-right
+  ];
+
+  points.forEach(pt => {
+    appState.points.push({
+      x: (pt.x + offsetX) * config.PIXELS_PER_FOOT,
+      y: (pt.y + offsetY) * config.PIXELS_PER_FOOT
+    });
+  });
+
+  // Close the shape by adding first point at end
+  appState.points.push({ ...appState.points[0] });
+  appState.isShapeClosed = true;
+  appState.isDrawing = false;
+
+  // Calculate deck dimensions
+  calculateAndUpdateDeckDimensions();
+
+  // Center and fit the shape in viewport
+  centerAndFitShape();
+
+  // Reset UI
+  uiController.resetUIOutputs();
+  uiController.toggleStairsInputSection(false);
+
+  // Check if we need wall selection based on attachment type
+  const currentAttachmentType = getAttachmentType();
+  if (currentAttachmentType === 'house_rim') {
+    appState.wallSelectionMode = true;
+    appState.currentPanelMode = 'wall-selection';
+    showContextualPanel('wall-selection');
+    uiController.updateCanvasStatus(
+      `${width}' x ${depth}' deck created. Click wall edge(s) to mark as ledger attachment.`
+    );
+  } else {
+    appState.wallSelectionMode = false;
+    decomposeClosedShape();
+    triggerAutoCalculation();
+    uiController.updateCanvasStatus(
+      `${width}' x ${depth}' deck created. Framing plan generated.`
+    );
+  }
+
+  // Update the wizard Next button state
+  updateWizardNextButton(appState.wizardStep);
+
+  // Save initial state for undo
+  saveHistoryState('Create deck from dimensions');
+
+  redrawApp();
+
+  console.log(`Rectangle ${width}' x ${depth}' created from dimension input`);
+};
+
+// ================================================
+// VERTEX EDITING FUNCTIONS
+// ================================================
+
+// Find nearest vertex to model position (within tolerance in pixels)
+function findNearestVertex(modelPos, tolerancePixels) {
+  if (!appState.isShapeClosed || appState.points.length < 4) return -1;
+
+  const tolerance = tolerancePixels / appState.viewportScale;
+
+  // Check all vertices except the closing duplicate
+  for (let i = 0; i < appState.points.length - 1; i++) {
+    const dx = modelPos.x - appState.points[i].x;
+    const dy = modelPos.y - appState.points[i].y;
+    const dist = Math.sqrt(dx * dx + dy * dy);
+    if (dist < tolerance) {
+      return i;
+    }
+  }
+  return -1;
+}
+
+// Find nearest edge to model position (within tolerance in pixels)
+function findNearestEdge(modelPos, tolerancePixels) {
+  if (!appState.isShapeClosed || appState.points.length < 4) return -1;
+
+  const tolerance = tolerancePixels / appState.viewportScale;
+
+  // Check all edges
+  for (let i = 0; i < appState.points.length - 1; i++) {
+    const p1 = appState.points[i];
+    const p2 = appState.points[(i + 1) % (appState.points.length - 1)];
+
+    // Calculate distance from point to line segment
+    const dist = pointToLineSegmentDistance(modelPos, p1, p2);
+    if (dist < tolerance && dist !== Infinity) {
+      return i;
+    }
+  }
+  return -1;
+}
+
+// Calculate distance from point to line segment
+function pointToLineSegmentDistance(point, lineStart, lineEnd) {
+  const dx = lineEnd.x - lineStart.x;
+  const dy = lineEnd.y - lineStart.y;
+  const lengthSq = dx * dx + dy * dy;
+
+  if (lengthSq < config.EPSILON) return Infinity;
+
+  // Project point onto line, clamped to segment
+  let t = ((point.x - lineStart.x) * dx + (point.y - lineStart.y) * dy) / lengthSq;
+  t = Math.max(0, Math.min(1, t));
+
+  // Find nearest point on segment
+  const nearestX = lineStart.x + t * dx;
+  const nearestY = lineStart.y + t * dy;
+
+  // Don't count if too close to endpoints (within 15% of edge)
+  if (t < 0.15 || t > 0.85) return Infinity;
+
+  // Return distance to nearest point
+  const distX = point.x - nearestX;
+  const distY = point.y - nearestY;
+  return Math.sqrt(distX * distX + distY * distY);
+}
+
+// Insert a new vertex on an edge
+function insertVertexOnEdge(edgeIndex, clickModelPos) {
+  const p1 = appState.points[edgeIndex];
+  const p2 = appState.points[(edgeIndex + 1) % (appState.points.length - 1)];
+
+  // Project click position onto edge
+  const dx = p2.x - p1.x;
+  const dy = p2.y - p1.y;
+  const lengthSq = dx * dx + dy * dy;
+
+  if (lengthSq < config.EPSILON) return false;
+
+  let t = ((clickModelPos.x - p1.x) * dx + (clickModelPos.y - p1.y) * dy) / lengthSq;
+  t = Math.max(0.1, Math.min(0.9, t)); // Keep away from endpoints
+
+  // Calculate new point position on the edge
+  const newX = p1.x + t * dx;
+  const newY = p1.y + t * dy;
+
+  // Snap to grid - for vertex insertion, just snap to 1-inch grid without angle constraints
+  const GSP = config.GRID_SPACING_PIXELS;
+  const snappedPoint = {
+    x: Math.round(newX / GSP) * GSP,
+    y: Math.round(newY / GSP) * GSP
+  };
+
+  // Insert new point after edgeIndex
+  appState.points.splice(edgeIndex + 1, 0, snappedPoint);
+
+  // Update closing point
+  appState.points[appState.points.length - 1] = { ...appState.points[0] };
+
+  return true;
+}
+
+// Remove a vertex from the shape
+function removeVertex(vertexIndex) {
+  // Minimum 4 unique vertices (5 with closing point)
+  if (appState.points.length <= 5) {
+    uiController.updateCanvasStatus('Cannot remove vertex: shape must have at least 4 vertices.');
+    return false;
+  }
+
+  // Remove the vertex
+  appState.points.splice(vertexIndex, 1);
+
+  // Update closing point
+  if (vertexIndex === 0) {
+    // If we removed the first point, update the closing point
+    appState.points[appState.points.length - 1] = { ...appState.points[0] };
+  }
+
+  // Reset selection state
+  appState.selectedVertexIndex = -1;
+  appState.hoveredVertexIndex = -1;
+
+  return true;
+}
+
+// Recalculate shape after vertex edit
+function recalculateShapeAfterEdit() {
+  // Update closing point to match first point
+  if (appState.points.length > 1) {
+    appState.points[appState.points.length - 1] = { ...appState.points[0] };
+  }
+
+  // Validate shape
+  const validation = shapeValidator.validateShape(appState.points);
+  if (!validation.isValid) {
+    uiController.updateCanvasStatus(`Warning: ${validation.error}`);
+  }
+
+  // Recalculate dimensions
+  calculateAndUpdateDeckDimensions();
+
+  // Clear selected walls after editing since edges have changed
+  // User needs to reselect ledger walls after shape modification
+  if (appState.selectedWallIndices.length > 0) {
+    appState.selectedWallIndices = [];
+    appState.rectangularSections = [];
+    uiController.updateCanvasStatus('Shape modified. Please reselect ledger walls.');
+  }
+
+  // Keep wall selection mode active if it was before
+  // (user still needs to select walls for ledger attachment)
+}
+
+// Reset vertex editing state
+function resetVertexEditState() {
+  appState.vertexEditMode = null;
+  appState.selectedVertexIndex = -1;
+  appState.draggedVertexIndex = -1;
+  appState.hoveredVertexIndex = -1;
+  appState.hoveredEdgeIndex = -1;
+  appState.hoveredIconType = null;
+  appState.draggedEdgeIndex = -1;
+  appState.edgeDragStartP1 = null;
+  appState.edgeDragStartP2 = null;
+  appState.edgeDragStartMouse = null;
+  appState.wasEditingOnMouseUp = false;
+}
+
+// Draw vertex edit handles on canvas
+function drawVertexEditHandles(ctx) {
+  if (!appState.isShapeClosed || appState.points.length < 4) return;
+  if (appState.stairPlacementMode) return;
+  if (appState.wizardStep !== 'draw') return; // Only show handles in Draw step
+  if (!appState.shapeEditMode) return; // Only show when edit mode is active
+
+  const scale = appState.viewportScale;
+  const canDelete = appState.points.length > 5; // Need at least 4 unique vertices (5 with closing point)
+
+  // Draw vertex handles
+  for (let i = 0; i < appState.points.length - 1; i++) {
+    const p = appState.points[i];
+    const viewX = (p.x + appState.viewportOffsetX) * scale;
+    const viewY = (p.y + appState.viewportOffsetY) * scale;
+
+    const isHovered = i === appState.hoveredVertexIndex;
+    const isSelected = i === appState.selectedVertexIndex;
+    const isDragging = i === appState.draggedVertexIndex;
+
+    // Outer glow for hovered/selected
+    if (isHovered || isSelected || isDragging) {
+      ctx.beginPath();
+      ctx.arc(viewX, viewY, 12, 0, Math.PI * 2);
+      ctx.fillStyle = 'rgba(45, 106, 106, 0.2)';
+      ctx.fill();
+    }
+
+    // Main handle circle
+    ctx.beginPath();
+    ctx.arc(viewX, viewY, isHovered ? 8 : 6, 0, Math.PI * 2);
+    ctx.fillStyle = isDragging ? '#1a5050' : '#2d6a6a';
+    ctx.fill();
+
+    // Border
+    ctx.strokeStyle = isSelected ? '#f59e0b' : '#ffffff';
+    ctx.lineWidth = 2;
+    ctx.stroke();
+
+    // Draw delete icon (×) offset from hovered vertex (only if we can delete)
+    if (isHovered && canDelete) {
+      const iconOffsetX = 14;
+      const iconOffsetY = -14;
+      const iconX = viewX + iconOffsetX;
+      const iconY = viewY + iconOffsetY;
+      const iconRadius = 9;
+      const isIconHovered = appState.hoveredIconType === 'delete';
+
+      // Icon background
+      ctx.beginPath();
+      ctx.arc(iconX, iconY, iconRadius, 0, Math.PI * 2);
+      ctx.fillStyle = isIconHovered ? '#dc2626' : '#ef4444';
+      ctx.fill();
+      ctx.strokeStyle = '#ffffff';
+      ctx.lineWidth = 2;
+      ctx.stroke();
+
+      // Draw × sign
+      ctx.beginPath();
+      ctx.strokeStyle = '#ffffff';
+      ctx.lineWidth = 2;
+      ctx.moveTo(iconX - 4, iconY - 4);
+      ctx.lineTo(iconX + 4, iconY + 4);
+      ctx.moveTo(iconX + 4, iconY - 4);
+      ctx.lineTo(iconX - 4, iconY + 4);
+      ctx.stroke();
+    }
+  }
+
+  // Draw edge highlight and plus icon
+  if (appState.hoveredEdgeIndex >= 0 && appState.hoveredVertexIndex === -1) {
+    const i = appState.hoveredEdgeIndex;
+    const p1 = appState.points[i];
+    const p2 = appState.points[(i + 1) % (appState.points.length - 1)];
+
+    const p1View = { x: (p1.x + appState.viewportOffsetX) * scale, y: (p1.y + appState.viewportOffsetY) * scale };
+    const p2View = { x: (p2.x + appState.viewportOffsetX) * scale, y: (p2.y + appState.viewportOffsetY) * scale };
+    const midX = (p1View.x + p2View.x) / 2;
+    const midY = (p1View.y + p2View.y) / 2;
+
+    // Highlight edge for dragging
+    ctx.beginPath();
+    ctx.moveTo(p1View.x, p1View.y);
+    ctx.lineTo(p2View.x, p2View.y);
+    ctx.strokeStyle = '#2d6a6a';
+    ctx.lineWidth = 4;
+    ctx.stroke();
+
+    // Draw move indicator at midpoint
+    ctx.beginPath();
+    ctx.arc(midX, midY, 6, 0, Math.PI * 2);
+    ctx.fillStyle = '#2d6a6a';
+    ctx.fill();
+    ctx.strokeStyle = '#ffffff';
+    ctx.lineWidth = 2;
+    ctx.stroke();
+
+    // Draw plus icon offset from edge midpoint for adding vertex
+    const iconOffsetX = 14;
+    const iconOffsetY = -14;
+    const iconX = midX + iconOffsetX;
+    const iconY = midY + iconOffsetY;
+    const iconRadius = 9;
+    const isIconHovered = appState.hoveredIconType === 'add';
+
+    // Icon background
+    ctx.beginPath();
+    ctx.arc(iconX, iconY, iconRadius, 0, Math.PI * 2);
+    ctx.fillStyle = isIconHovered ? '#059669' : '#10b981';
+    ctx.fill();
+    ctx.strokeStyle = '#ffffff';
+    ctx.lineWidth = 2;
+    ctx.stroke();
+
+    // Draw + sign
+    ctx.beginPath();
+    ctx.strokeStyle = '#ffffff';
+    ctx.lineWidth = 2;
+    ctx.moveTo(iconX - 4, iconY);
+    ctx.lineTo(iconX + 4, iconY);
+    ctx.moveTo(iconX, iconY - 4);
+    ctx.lineTo(iconX, iconY + 4);
+    ctx.stroke();
+  }
+}
+
+// Expose drawVertexEditHandles for canvasLogic
+window.drawVertexEditHandles = drawVertexEditHandles;
+
+// Toggle shape edit mode
+window.toggleShapeEditMode = function() {
+  appState.shapeEditMode = !appState.shapeEditMode;
+
+  // Update button appearance
+  const editBtn = document.getElementById('editShapeBtn');
+  const editHint = document.getElementById('editShapeHint');
+  const addRemoveBtn = document.getElementById('addRemoveBtn');
+
+  if (editBtn) {
+    editBtn.classList.toggle('active', appState.shapeEditMode);
+    editBtn.querySelector('span').textContent = appState.shapeEditMode ? 'Done Editing' : 'Edit Shape';
+  }
+
+  if (editHint) {
+    editHint.classList.toggle('hidden', !appState.shapeEditMode);
+  }
+
+  // Reset vertex edit state when exiting edit mode
+  if (!appState.shapeEditMode) {
+    resetVertexEditState();
+  }
+
+  // Update canvas status
+  if (appState.shapeEditMode) {
+    uiController.updateCanvasStatus('Edit mode: Drag to move, click icons to add/remove points.');
+  } else {
+    uiController.updateCanvasStatus('Shape editing complete.');
+  }
+
+  redrawApp();
+};
+
+// Show/hide draw step panels based on shape state
+function updateEditShapePanelVisibility() {
+  const editPanel = document.getElementById('editShapePanel');
+  const instructionsPanel = document.getElementById('drawInstructionsPanel');
+  const dimensionsPanel = document.getElementById('quickDimensionsPanel');
+  const templatePanel = document.getElementById('templatePanel');
+
+  // Hide input panels when shape is closed (regardless of wall selection mode)
+  const hasClosedShape = appState.isShapeClosed && appState.wizardStep === 'draw';
+
+  // Show edit panel when shape is closed and in Draw step
+  // (allow editing even during wall selection - edit mode will temporarily pause wall selection)
+  const canEditShape = hasClosedShape;
+
+  // Toggle visibility - show input panels when no shape, hide when shape exists
+  if (instructionsPanel) instructionsPanel.classList.toggle('hidden', hasClosedShape);
+  if (dimensionsPanel) dimensionsPanel.classList.toggle('hidden', hasClosedShape);
+  if (templatePanel) templatePanel.classList.toggle('hidden', hasClosedShape);
+
+  // Edit panel shows whenever shape is closed
+  if (editPanel) editPanel.classList.toggle('hidden', !canEditShape);
+
+  // Update the hint text based on mode
+  const editHint = document.getElementById('editShapeHint');
+  if (editHint && appState.shapeEditMode) {
+    // Note: Hint text is now set in HTML since we have unified edit mode
+    // Just add wall selection note if applicable
+    if (appState.wallSelectionMode) {
+      editHint.innerHTML = 'Editing pauses wall selection. Drag corners to move • Drag edges to resize • Click <span class="icon-hint">+</span> to add point • Click <span class="icon-hint">×</span> to remove';
+    }
+  }
+}
+
+// Expose for external use
+window.updateEditShapePanelVisibility = updateEditShapePanelVisibility;
+
 // Load a template shape onto the canvas
 window.loadTemplate = function(templateId) {
   const template = DECK_TEMPLATES[templateId];
@@ -2624,6 +5205,9 @@ window.loadTemplate = function(templateId) {
   appState.isShapeClosed = true;
   appState.isDrawing = false;
 
+  // Calculate deck dimensions
+  calculateAndUpdateDeckDimensions();
+
   // Center and fit the shape in viewport
   centerAndFitShape();
 
@@ -2631,14 +5215,28 @@ window.loadTemplate = function(templateId) {
   uiController.resetUIOutputs();
   uiController.toggleStairsInputSection(false);
 
-  // Switch to wall selection mode
-  appState.currentPanelMode = 'wall-selection';
-  showContextualPanel('wall-selection');
+  // Check if we need wall selection based on attachment type
+  const currentAttachmentType = getAttachmentType();
+  if (currentAttachmentType === 'house_rim') {
+    // House rim (ledger) attachment requires wall selection
+    appState.wallSelectionMode = true;
+    appState.currentPanelMode = 'wall-selection';
+    showContextualPanel('wall-selection');
+    uiController.updateCanvasStatus(
+      `Template "${template.name}" loaded. Click wall edge(s) to mark as ledger attachment.`
+    );
+  } else {
+    // Non-ledger types don't need wall selection
+    appState.wallSelectionMode = false;
+    decomposeClosedShape();
+    triggerAutoCalculation();
+    uiController.updateCanvasStatus(
+      `Template "${template.name}" loaded. Framing plan generated.`
+    );
+  }
 
-  // Update status
-  uiController.updateCanvasStatus(
-    `Template "${template.name}" loaded. Click wall edge(s) to mark as ledger attachment, then Generate Plan.`
-  );
+  // Update the wizard Next button state
+  updateWizardNextButton(appState.wizardStep);
 
   // Save initial state for undo
   saveHistoryState('Load template');

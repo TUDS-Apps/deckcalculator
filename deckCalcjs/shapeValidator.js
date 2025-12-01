@@ -1,8 +1,78 @@
 // shapeValidator.js - Shape validation for complex deck shapes
 // Validates deck shapes and ensures they can be decomposed into rectangles
 
-import { EPSILON } from "./config.js";
+import { EPSILON, PIXELS_PER_FOOT, MODEL_WIDTH_FEET } from "./config.js";
 import { distance } from "./utils.js";
+
+const MIN_DECK_DIM_FEET = 4; // Minimum 4 feet for both width and height
+const MIN_SEGMENT_LENGTH_FEET = 0.25; // Minimum 3 inches for any segment (allows auto-corner points)
+const MAX_SEGMENT_LENGTH_FEET = MODEL_WIDTH_FEET / 2; // Max segment length, e.g., half of model width
+
+/**
+ * Validates that the deck's bounding box meets minimum dimensions.
+ * @param {Array<{x: number, y: number}>} points - Array of points defining the shape
+ * @returns {{isValid: boolean, error: string | null}} Validation result
+ */
+function checkMinimumDeckDimensions(points) {
+  if (points.length < 2) {
+    return { isValid: true, error: null }; // Not enough points to form a dimension
+  }
+
+  let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
+  for (const p of points) {
+    minX = Math.min(minX, p.x);
+    maxX = Math.max(maxX, p.x);
+    minY = Math.min(minY, p.y);
+    maxY = Math.max(maxY, p.y);
+  }
+
+  const widthPixels = maxX - minX;
+  const heightPixels = maxY - minY;
+
+  const minDimPixels = MIN_DECK_DIM_FEET * PIXELS_PER_FOOT;
+
+  if (widthPixels < minDimPixels - EPSILON || heightPixels < minDimPixels - EPSILON) {
+    return {
+      isValid: false,
+      error: `Deck must be at least ${MIN_DECK_DIM_FEET}' x ${MIN_DECK_DIM_FEET}' (currently ${Math.round(widthPixels / PIXELS_PER_FOOT)}' x ${Math.round(heightPixels / PIXELS_PER_FOOT)}')`
+    };
+  }
+
+  return { isValid: true, error: null };
+}
+
+/**
+ * Validates that all segments are within minimum and maximum length constraints.
+ * @param {Array<{x: number, y: number}>} points - Array of points defining the shape (without duplicate closing point)
+ * @returns {{isValid: boolean, error: string | null}} Validation result
+ */
+function checkSegmentLengths(points) {
+  if (points.length < 2) {
+    return { isValid: true, error: null };
+  }
+
+  for (let i = 0; i < points.length; i++) {
+    const p1 = points[i];
+    const p2 = points[(i + 1) % points.length];
+    const segmentLengthPixels = distance(p1, p2);
+    const segmentLengthFeet = segmentLengthPixels / PIXELS_PER_FOOT;
+
+    if (segmentLengthFeet < MIN_SEGMENT_LENGTH_FEET - EPSILON) {
+      return {
+        isValid: false,
+        error: `Segment ${i + 1} is too short (min 3" required).`
+      };
+    }
+    if (segmentLengthFeet > MAX_SEGMENT_LENGTH_FEET + EPSILON) {
+      return {
+        isValid: false,
+        error: `Segment ${i + 1} is too long (max ${MAX_SEGMENT_LENGTH_FEET}' recommended).`
+      };
+    }
+  }
+
+  return { isValid: true, error: null };
+}
 
 /**
  * Validates a deck shape to ensure it can be decomposed into rectangles
@@ -44,6 +114,18 @@ export function validateShape(points) {
   const rightAngleCheck = hasOnlyRightAngles(shapePoints);
   if (!rightAngleCheck.isValid) {
     return rightAngleCheck;
+  }
+
+  // Minimum Deck Dimensions Check
+  const minDimCheck = checkMinimumDeckDimensions(shapePoints);
+  if (!minDimCheck.isValid) {
+    return minDimCheck;
+  }
+
+  // Segment Lengths Check
+  const segmentLengthCheck = checkSegmentLengths(shapePoints);
+  if (!segmentLengthCheck.isValid) {
+    return segmentLengthCheck;
   }
 
   // Check if shape can be decomposed into rectangles

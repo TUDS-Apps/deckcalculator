@@ -260,6 +260,29 @@ function drawDeckContent(currentCtx, state) {
       currentCtx.arc(p.x, p.y, pointRadiusModel, 0, Math.PI * 2);
       currentCtx.fill();
     });
+
+    // Draw "close zone" indicator around first point when drawing with 3+ points
+    // This helps users know where to click to close the shape
+    if (isDrawing && !isShapeClosed && points.length >= 3) {
+      const firstPoint = points[0];
+      // Close zone radius: 3x snap tolerance (30 screen pixels converted to model coords)
+      const closeZoneRadius = (config.SNAP_TOLERANCE_PIXELS * 3) / effectiveScale;
+
+      // Draw a pulsing circle around the first point
+      currentCtx.beginPath();
+      currentCtx.arc(firstPoint.x, firstPoint.y, closeZoneRadius, 0, Math.PI * 2);
+      currentCtx.strokeStyle = '#10b981'; // Green color for "close here"
+      currentCtx.lineWidth = 2 / effectiveScale;
+      currentCtx.setLineDash([5 / effectiveScale, 5 / effectiveScale]);
+      currentCtx.stroke();
+      currentCtx.setLineDash([]);
+
+      // Draw a filled circle at first point to make it more prominent
+      currentCtx.beginPath();
+      currentCtx.arc(firstPoint.x, firstPoint.y, pointRadiusModel * 1.5, 0, Math.PI * 2);
+      currentCtx.fillStyle = '#10b981';
+      currentCtx.fill();
+    }
   }
 
   // Draw decomposition shading (behind structural elements but above grid)
@@ -536,6 +559,11 @@ export function redrawCanvas(state) {
       isBlueprintMode: blueprintMode
     });
     ctx.restore();
+
+    // Draw vertex edit handles (only in interactive mode, Draw step)
+    if (window.drawVertexEditHandles && state.wizardStep === 'draw') {
+      window.drawVertexEditHandles(ctx);
+    }
   }
 }
 
