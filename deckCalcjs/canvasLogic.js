@@ -558,6 +558,18 @@ export function redrawCanvas(state) {
       ...state,
       isBlueprintMode: blueprintMode
     });
+
+    // Draw measurement overlay (only in measure mode)
+    if (state.isMeasureMode && (state.measurePoint1 || state.measurePoint2)) {
+      drawMeasurementOverlay(
+        ctx,
+        state.measurePoint1,
+        state.measurePoint2,
+        state.currentModelMousePos,
+        state.viewportScale
+      );
+    }
+
     ctx.restore();
 
     // Draw vertex edit handles (only in interactive mode, Draw step)
@@ -1818,4 +1830,118 @@ export function isPointInStairBounds(
     if (intersect) inside = !inside;
   }
   return inside;
+}
+
+// --- Measurement Tool Drawing ---
+export function drawMeasurementOverlay(currentCtx, measurePoint1, measurePoint2, currentMousePos, scale) {
+  if (!currentCtx || scale === 0) return;
+  if (!measurePoint1) return; // No measurement to draw
+
+  const scaledLineWidth = (width) => Math.max(0.5 / scale, width / scale);
+
+  // Draw the first point marker
+  currentCtx.save();
+
+  // Draw first point (always visible when measuring)
+  currentCtx.fillStyle = '#EF4444'; // Red
+  currentCtx.beginPath();
+  currentCtx.arc(measurePoint1.x, measurePoint1.y, Math.max(6 / scale, 4 / scale), 0, Math.PI * 2);
+  currentCtx.fill();
+
+  // Draw crosshair at first point
+  const crosshairSize = Math.max(12 / scale, 8 / scale);
+  currentCtx.strokeStyle = '#EF4444';
+  currentCtx.lineWidth = scaledLineWidth(2);
+  currentCtx.beginPath();
+  currentCtx.moveTo(measurePoint1.x - crosshairSize, measurePoint1.y);
+  currentCtx.lineTo(measurePoint1.x + crosshairSize, measurePoint1.y);
+  currentCtx.moveTo(measurePoint1.x, measurePoint1.y - crosshairSize);
+  currentCtx.lineTo(measurePoint1.x, measurePoint1.y + crosshairSize);
+  currentCtx.stroke();
+
+  // Determine the end point (either second point or current mouse position)
+  let endPoint = measurePoint2;
+  const isPreview = !measurePoint2 && currentMousePos;
+
+  if (isPreview && currentMousePos) {
+    // Snap mouse position to grid for preview
+    endPoint = getSnappedPos(currentMousePos.x, currentMousePos.y, [], false, false, false);
+  }
+
+  if (endPoint) {
+    // Draw measurement line
+    currentCtx.strokeStyle = isPreview ? 'rgba(239, 68, 68, 0.6)' : '#EF4444';
+    currentCtx.lineWidth = scaledLineWidth(isPreview ? 1.5 : 2);
+    currentCtx.setLineDash(isPreview ? [scaledLineWidth(6), scaledLineWidth(4)] : []);
+    currentCtx.beginPath();
+    currentCtx.moveTo(measurePoint1.x, measurePoint1.y);
+    currentCtx.lineTo(endPoint.x, endPoint.y);
+    currentCtx.stroke();
+    currentCtx.setLineDash([]);
+
+    // Draw second point marker
+    currentCtx.fillStyle = isPreview ? 'rgba(239, 68, 68, 0.6)' : '#EF4444';
+    currentCtx.beginPath();
+    currentCtx.arc(endPoint.x, endPoint.y, Math.max(6 / scale, 4 / scale), 0, Math.PI * 2);
+    currentCtx.fill();
+
+    // Calculate distance
+    const dx = endPoint.x - measurePoint1.x;
+    const dy = endPoint.y - measurePoint1.y;
+    const distancePixels = Math.sqrt(dx * dx + dy * dy);
+    const distanceFeet = distancePixels / config.PIXELS_PER_FOOT;
+
+    // Format the distance
+    const formattedDistance = utils.formatFeetInches(distanceFeet);
+
+    // Draw measurement label at midpoint
+    const midX = (measurePoint1.x + endPoint.x) / 2;
+    const midY = (measurePoint1.y + endPoint.y) / 2;
+
+    // Calculate perpendicular offset for label
+    const angle = Math.atan2(dy, dx);
+    const perpX = -Math.sin(angle);
+    const perpY = Math.cos(angle);
+    const labelOffset = Math.max(25 / scale, 18 / scale);
+
+    const labelX = midX + perpX * labelOffset;
+    const labelY = midY + perpY * labelOffset;
+
+    // Draw label background
+    const fontSize = Math.max(14, 14 / scale);
+    currentCtx.font = `bold ${fontSize}px Arial`;
+    const textMetrics = currentCtx.measureText(formattedDistance);
+    const padding = Math.max(6 / scale, 4 / scale);
+    const bgWidth = textMetrics.width + padding * 2;
+    const bgHeight = fontSize + padding * 2;
+
+    currentCtx.save();
+    currentCtx.translate(labelX, labelY);
+
+    // Rotate to align with the line
+    let textAngle = angle;
+    if (textAngle > Math.PI / 2 || textAngle < -Math.PI / 2) {
+      textAngle += Math.PI;
+    }
+    currentCtx.rotate(textAngle);
+
+    // Draw background
+    currentCtx.fillStyle = isPreview ? 'rgba(255, 255, 255, 0.9)' : 'white';
+    currentCtx.strokeStyle = isPreview ? 'rgba(239, 68, 68, 0.6)' : '#EF4444';
+    currentCtx.lineWidth = scaledLineWidth(1.5);
+    currentCtx.beginPath();
+    currentCtx.roundRect(-bgWidth / 2, -bgHeight / 2, bgWidth, bgHeight, Math.max(4 / scale, 2 / scale));
+    currentCtx.fill();
+    currentCtx.stroke();
+
+    // Draw text
+    currentCtx.fillStyle = isPreview ? 'rgba(239, 68, 68, 0.8)' : '#EF4444';
+    currentCtx.textAlign = 'center';
+    currentCtx.textBaseline = 'middle';
+    currentCtx.fillText(formattedDistance, 0, 0);
+
+    currentCtx.restore();
+  }
+
+  currentCtx.restore();
 }

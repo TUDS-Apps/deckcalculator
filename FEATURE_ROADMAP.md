@@ -1,7 +1,7 @@
 # TUDS Pro Deck Estimator - Feature Roadmap
 
 **Created:** November 27, 2025
-**Last Updated:** November 27, 2025
+**Last Updated:** December 1, 2025
 
 ---
 
@@ -12,10 +12,10 @@
 
 | Feature | Description | Impact | Effort | Status |
 |---------|-------------|--------|--------|--------|
-| **Save/Load Projects** | Save designs locally or to cloud, reload for follow-up calls | Critical | Medium | Planned |
-| **PDF Export** | Generate professional PDF with layout diagram, structural specs, and BOM | Critical | Medium | Planned |
+| **Save/Load Projects** | Save designs locally or to cloud, reload for follow-up calls | Critical | Medium | ✅ Complete |
+| **PDF Export** | Generate professional PDF with layout diagram, structural specs, and BOM | Critical | Medium | ✅ Complete |
 | **Shopify Integration** | Connect to live TUDS inventory, real-time pricing, "Add to Cart" | Critical | High | Planned |
-| **Customer Info Capture** | Attach customer name, address, phone, email to projects | High | Low | Planned |
+| **Customer Info Capture** | Attach customer name, address, phone, email to projects | High | Low | ✅ Complete |
 | **Quote Sharing** | Generate shareable link or email quote to customer | High | Medium | Planned |
 
 ### Tier 2: Design Enhancement (Competitive Advantage)
@@ -36,7 +36,7 @@
 |---------|-------------|--------|--------|--------|
 | **Code Compliance Checker** | Ontario Building Code validation with warnings/errors | High | High | Planned |
 | **Permit Document Generator** | Auto-generate permit application documents | High | Medium | Planned |
-| **Measurement Tool** | Point-to-point distance measurement on canvas | Medium | Low | Planned |
+| **Measurement Tool** | Point-to-point distance measurement on canvas | Medium | Low | ✅ Complete |
 | **Railing Tab Implementation** | Railing style selection, post spacing, materials | Medium | High | Planned |
 | **Annotation Mode** | Add notes and callouts to designs | Low | Low | Planned |
 
@@ -96,6 +96,10 @@
 | Blueprint Mode | Complete |
 | Print Optimization | Complete |
 | Visual Selector UI Consistency | November 2025 |
+| Save/Load Projects | November 2025 |
+| PDF Export | November 2025 |
+| Customer Info Capture | November 2025 |
+| Measurement Tool | December 2025 |
 
 ---
 

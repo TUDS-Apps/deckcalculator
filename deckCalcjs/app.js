@@ -73,6 +73,11 @@ const appState = {
   // Blueprint mode state
   isBlueprintMode: false, // Toggle between simple lines and to-scale components
 
+  // Measurement tool state
+  isMeasureMode: false, // Whether measurement mode is active
+  measurePoint1: null, // First measurement point {x, y}
+  measurePoint2: null, // Second measurement point {x, y}
+
   // Layer visibility state (user preferences - can toggle on/off)
   layerVisibility: {
     outline: true,
@@ -2248,7 +2253,18 @@ function resetAppState() {
 
   // Always start with blueprint mode off - user can enable it via the button if needed
   appState.isBlueprintMode = false;
-  
+
+  // Reset measurement tool state
+  appState.isMeasureMode = false;
+  appState.measurePoint1 = null;
+  appState.measurePoint2 = null;
+  // Reset measure tool button appearance
+  const measureToolBtn = document.getElementById('measureToolBtn');
+  if (measureToolBtn) {
+    measureToolBtn.classList.add('btn-secondary');
+    measureToolBtn.classList.remove('btn-primary');
+  }
+
   // Force contextual panel to drawing mode
   appState.currentPanelMode = 'drawing';
   showContextualPanel('drawing'); // Directly show drawing panel
@@ -2633,6 +2649,13 @@ function handleKeyDown(event) {
     return;
   }
 
+  // Handle Escape key for measurement mode
+  if (event.key === "Escape" && appState.isMeasureMode) {
+    event.preventDefault();
+    handleMeasureToolToggle(); // Turn off measurement mode
+    return;
+  }
+
   // Handle Delete key for vertex removal (only in Draw step when edit mode is active)
   // Allow during wall selection - edit mode temporarily pauses wall selection
   if ((event.key === "Delete" || event.key === "Backspace") &&
@@ -2762,6 +2785,13 @@ function handleCanvasClick(viewMouseX, viewMouseY) {
   if (appState.isDimensionInputActive) {
     handleDimensionInputCancel();
     return; // Skip placing a point on this click
+  }
+
+  // Handle measurement tool clicks
+  if (appState.isMeasureMode) {
+    if (handleMeasureClick(modelMouse.x, modelMouse.y)) {
+      return; // Measurement handled the click
+    }
   }
 
   if (appState.stairPlacementMode) {
@@ -3456,7 +3486,8 @@ function handleCanvasMouseMove(viewMouseX, viewMouseY) {
     appState.isDraggingStairs ||
     appState.stairPlacementMode ||
     appState.selectedStairIndex !== -1 ||
-    appState.hoveredStairIndex !== -1
+    appState.hoveredStairIndex !== -1 ||
+    (appState.isMeasureMode && appState.measurePoint1 && !appState.measurePoint2) // Preview measurement line
   ) {
     redrawApp();
   }
@@ -3932,7 +3963,7 @@ function handleBlueprintToggle() {
 // --- Decomposition Visualization Toggle ---
 function handleToggleDecomposition() {
   appState.showDecompositionShading = !appState.showDecompositionShading;
-  
+
   // Update button appearance
   if (appState.showDecompositionShading) {
     toggleDecompositionBtn.classList.add('btn-primary');
@@ -3943,8 +3974,75 @@ function handleToggleDecomposition() {
     toggleDecompositionBtn.classList.remove('btn-primary');
     uiController.updateCanvasStatus("Standard view: Rectangle decomposition hidden");
   }
-  
+
   redrawApp();
+}
+
+// --- Measurement Tool Toggle ---
+function handleMeasureToolToggle() {
+  const btn = document.getElementById('measureToolBtn');
+
+  // Toggle measurement mode
+  appState.isMeasureMode = !appState.isMeasureMode;
+
+  // Clear any existing measurement points when toggling
+  appState.measurePoint1 = null;
+  appState.measurePoint2 = null;
+
+  // Update button appearance
+  if (appState.isMeasureMode) {
+    btn.classList.add('btn-primary');
+    btn.classList.remove('btn-secondary');
+    uiController.updateCanvasStatus("Measure mode: Click two points to measure distance");
+
+    // Change cursor to crosshair
+    const canvas = document.getElementById('deckCanvas');
+    if (canvas) canvas.style.cursor = 'crosshair';
+  } else {
+    btn.classList.add('btn-secondary');
+    btn.classList.remove('btn-primary');
+    uiController.updateCanvasStatus("Measure mode disabled");
+
+    // Reset cursor
+    const canvas = document.getElementById('deckCanvas');
+    if (canvas) canvas.style.cursor = '';
+  }
+
+  redrawApp();
+}
+
+// --- Measurement Tool Click Handler ---
+function handleMeasureClick(modelX, modelY) {
+  if (!appState.isMeasureMode) return false;
+
+  // Snap to grid for precise measurement
+  const snappedPos = canvasLogic.getSnappedPos(modelX, modelY, [], false, false, false);
+
+  if (!appState.measurePoint1) {
+    // Set first point
+    appState.measurePoint1 = { x: snappedPos.x, y: snappedPos.y };
+    uiController.updateCanvasStatus("Measure mode: Click second point");
+  } else if (!appState.measurePoint2) {
+    // Set second point and calculate distance
+    appState.measurePoint2 = { x: snappedPos.x, y: snappedPos.y };
+
+    // Calculate and display the distance
+    const dx = appState.measurePoint2.x - appState.measurePoint1.x;
+    const dy = appState.measurePoint2.y - appState.measurePoint1.y;
+    const distancePixels = Math.sqrt(dx * dx + dy * dy);
+    const distanceFeet = distancePixels / config.PIXELS_PER_FOOT;
+    const formattedDistance = utils.formatFeetInches(distanceFeet);
+
+    uiController.updateCanvasStatus(`Distance: ${formattedDistance} - Click to start new measurement`);
+  } else {
+    // Clear and start new measurement
+    appState.measurePoint1 = { x: snappedPos.x, y: snappedPos.y };
+    appState.measurePoint2 = null;
+    uiController.updateCanvasStatus("Measure mode: Click second point");
+  }
+
+  redrawApp();
+  return true; // Indicate we handled the click
 }
 
 // --- Form Reset Function ---
@@ -4124,6 +4222,8 @@ document.addEventListener("DOMContentLoaded", () => {
   if (zoomOutBtn) zoomOutBtn.addEventListener("click", () => handleZoom(false));
   if (centerFitBtn) centerFitBtn.addEventListener("click", handleCenterFit);
   if (blueprintToggleBtn) blueprintToggleBtn.addEventListener("click", handleBlueprintToggle);
+  const measureToolBtn = document.getElementById("measureToolBtn");
+  if (measureToolBtn) measureToolBtn.addEventListener("click", handleMeasureToolToggle);
   if (toggleDecompositionBtn) toggleDecompositionBtn.addEventListener("click", handleToggleDecomposition);
 
   // Add dimension input button event listeners
