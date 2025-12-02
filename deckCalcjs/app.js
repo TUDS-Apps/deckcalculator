@@ -114,11 +114,207 @@ const appState = {
   history: [],
   historyIndex: -1,
   maxHistorySize: 50,
-  isUndoRedoAction: false // Flag to prevent saving during undo/redo
+  isUndoRedoAction: false, // Flag to prevent saving during undo/redo
+
+  // ================================================
+  // MULTI-TIER DECK STATE
+  // ================================================
+  tiersEnabled: false,           // Feature flag for bi-level mode
+  activeTierId: 'main',          // Currently active tier for editing
+  tiers: {
+    main: {
+      id: 'main',
+      name: 'Main Deck',
+      heightFeet: 4,
+      heightInches: 0,
+      points: [],
+      selectedWallIndices: [],
+      structuralComponents: null,
+      rectangularSections: [],
+      deckDimensions: null,
+      color: '#4A90E2',          // Blue for main tier
+      zOrder: 1                   // Rendered on top
+    },
+    lower: {
+      id: 'lower',
+      name: 'Lower Walkout',
+      heightFeet: 1,
+      heightInches: 6,
+      points: [],
+      selectedWallIndices: [],
+      structuralComponents: null,
+      rectangularSections: [],
+      deckDimensions: null,
+      color: '#10B981',          // Green for lower tier
+      zOrder: 0                   // Rendered below
+    }
+  }
 };
 
 // Make appState available globally for section tab debugging
 window.appState = appState;
+
+// ================================================
+// MULTI-TIER SYNC FUNCTIONS
+// ================================================
+
+/**
+ * Syncs the active tier's data to legacy appState fields.
+ * This allows existing calculation code to work unchanged.
+ */
+function syncActiveTierToLegacy() {
+  if (!appState.tiersEnabled) return;
+
+  const tier = appState.tiers[appState.activeTierId];
+  if (!tier) return;
+
+  appState.points = tier.points;
+  appState.selectedWallIndices = tier.selectedWallIndices;
+  appState.structuralComponents = tier.structuralComponents;
+  appState.rectangularSections = tier.rectangularSections;
+  appState.deckDimensions = tier.deckDimensions;
+
+  console.log(`[TIER SYNC] Synced tier '${tier.name}' to legacy state`);
+}
+
+/**
+ * Syncs legacy appState fields back to the active tier.
+ * Called after calculations or edits modify the legacy fields.
+ */
+function syncLegacyToActiveTier() {
+  if (!appState.tiersEnabled) return;
+
+  const tier = appState.tiers[appState.activeTierId];
+  if (!tier) return;
+
+  tier.points = appState.points;
+  tier.selectedWallIndices = appState.selectedWallIndices;
+  tier.structuralComponents = appState.structuralComponents;
+  tier.rectangularSections = appState.rectangularSections;
+  tier.deckDimensions = appState.deckDimensions;
+
+  console.log(`[TIER SYNC] Synced legacy state back to tier '${tier.name}'`);
+}
+
+/**
+ * Switches the active tier and syncs data.
+ * @param {string} tierId - The tier ID to switch to ('main' or 'lower')
+ */
+function switchActiveTier(tierId) {
+  if (!appState.tiersEnabled) return;
+  if (!appState.tiers[tierId]) {
+    console.error(`[TIER] Invalid tier ID: ${tierId}`);
+    return;
+  }
+
+  // Save current tier's state before switching
+  syncLegacyToActiveTier();
+
+  // Switch to new tier
+  appState.activeTierId = tierId;
+
+  // Load new tier's state into legacy fields
+  syncActiveTierToLegacy();
+
+  // Update UI to reflect tier change
+  updateTierUI();
+  redrawApp();
+
+  console.log(`[TIER] Switched to tier: ${appState.tiers[tierId].name}`);
+}
+
+/**
+ * Enables multi-tier mode and initializes tier data from current state.
+ */
+function enableMultiTierMode() {
+  if (appState.tiersEnabled) return;
+
+  // Copy current deck data to main tier
+  appState.tiers.main.points = [...appState.points];
+  appState.tiers.main.selectedWallIndices = [...appState.selectedWallIndices];
+  appState.tiers.main.structuralComponents = appState.structuralComponents;
+  appState.tiers.main.rectangularSections = [...appState.rectangularSections];
+  appState.tiers.main.deckDimensions = appState.deckDimensions ? { ...appState.deckDimensions } : null;
+
+  // Get current deck height from form inputs
+  const inputs = uiController.getFormInputs();
+  if (inputs.deckHeight) {
+    appState.tiers.main.heightFeet = Math.floor(inputs.deckHeight);
+    appState.tiers.main.heightInches = Math.round((inputs.deckHeight % 1) * 12);
+  }
+
+  // Clear lower tier
+  appState.tiers.lower.points = [];
+  appState.tiers.lower.selectedWallIndices = [];
+  appState.tiers.lower.structuralComponents = null;
+  appState.tiers.lower.rectangularSections = [];
+  appState.tiers.lower.deckDimensions = null;
+
+  appState.tiersEnabled = true;
+  appState.activeTierId = 'main';
+
+  updateTierUI();
+  redrawApp();
+
+  console.log('[TIER] Multi-tier mode enabled');
+}
+
+/**
+ * Disables multi-tier mode and keeps the main tier data.
+ */
+function disableMultiTierMode() {
+  if (!appState.tiersEnabled) return;
+
+  // Ensure main tier has the latest data
+  if (appState.activeTierId !== 'main') {
+    switchActiveTier('main');
+  }
+  syncLegacyToActiveTier();
+
+  // Copy main tier data to legacy fields
+  const mainTier = appState.tiers.main;
+  appState.points = mainTier.points;
+  appState.selectedWallIndices = mainTier.selectedWallIndices;
+  appState.structuralComponents = mainTier.structuralComponents;
+  appState.rectangularSections = mainTier.rectangularSections;
+  appState.deckDimensions = mainTier.deckDimensions;
+
+  appState.tiersEnabled = false;
+  appState.activeTierId = 'main';
+
+  updateTierUI();
+  redrawApp();
+
+  console.log('[TIER] Multi-tier mode disabled');
+}
+
+/**
+ * Updates the tier UI elements to reflect current state.
+ */
+function updateTierUI() {
+  const tierToggle = document.getElementById('tierToggle');
+  const tierControls = document.getElementById('tierControls');
+  const mainTierTab = document.getElementById('mainTierTab');
+  const lowerTierTab = document.getElementById('lowerTierTab');
+
+  if (tierToggle) {
+    tierToggle.checked = appState.tiersEnabled;
+  }
+
+  if (tierControls) {
+    tierControls.classList.toggle('hidden', !appState.tiersEnabled);
+  }
+
+  if (mainTierTab && lowerTierTab) {
+    mainTierTab.classList.toggle('active', appState.activeTierId === 'main');
+    lowerTierTab.classList.toggle('active', appState.activeTierId === 'lower');
+  }
+}
+
+// Make tier functions available globally
+window.switchActiveTier = switchActiveTier;
+window.enableMultiTierMode = enableMultiTierMode;
+window.disableMultiTierMode = disableMultiTierMode;
 
 // ================================================
 // PROJECT SAVE/LOAD FUNCTIONALITY

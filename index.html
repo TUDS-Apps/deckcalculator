@@ -256,6 +256,33 @@
 
                     <!-- Sub-step 1: Foundation -->
                     <div id="structure-substep-1" class="structure-substep active" data-substep="1">
+
+                    <!-- Multi-Tier Toggle -->
+                    <div class="tier-toggle-container">
+                      <label class="tier-toggle-label">
+                        <input type="checkbox" id="tierToggle" onchange="appState.tiersEnabled ? disableMultiTierMode() : enableMultiTierMode()">
+                        <span class="tier-toggle-text">Bi-Level Deck</span>
+                        <span class="tier-toggle-hint">(Main + Lower Walkout)</span>
+                      </label>
+                    </div>
+
+                    <!-- Tier Selection Tabs (shown when bi-level enabled) -->
+                    <div id="tierControls" class="tier-controls hidden">
+                      <div class="tier-tabs">
+                        <button type="button" id="mainTierTab" class="tier-tab active" onclick="switchActiveTier('main')">
+                          <span class="tier-tab-dot" style="background: #4A90E2"></span>
+                          Main Deck
+                        </button>
+                        <button type="button" id="lowerTierTab" class="tier-tab" onclick="switchActiveTier('lower')">
+                          <span class="tier-tab-dot" style="background: #10B981"></span>
+                          Lower Walkout
+                        </button>
+                      </div>
+                      <div class="tier-info">
+                        <span id="activeTierLabel">Editing: Main Deck</span>
+                      </div>
+                    </div>
+
                     <!-- Deck Height Input -->
                     <div class="deck-height-input">
                       <div class="visual-selector-label">

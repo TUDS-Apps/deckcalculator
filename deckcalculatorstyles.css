@@ -3491,6 +3491,109 @@ canvas.mode-transition {
 }
 
 /* ================================================
+   MULTI-TIER DECK CONTROLS
+   ================================================ */
+
+.tier-toggle-container {
+  margin-bottom: 1rem;
+  padding: 0.75rem 1rem;
+  background: linear-gradient(135deg, rgba(74, 144, 226, 0.08), rgba(16, 185, 129, 0.08));
+  border-radius: 0.5rem;
+  border: 1px solid rgba(74, 144, 226, 0.2);
+}
+
+.tier-toggle-label {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  cursor: pointer;
+  user-select: none;
+}
+
+.tier-toggle-label input[type="checkbox"] {
+  width: 1.25rem;
+  height: 1.25rem;
+  accent-color: var(--tuds-green-dark);
+  cursor: pointer;
+}
+
+.tier-toggle-text {
+  font-size: 0.9375rem;
+  font-weight: 600;
+  color: var(--tuds-navy);
+}
+
+.tier-toggle-hint {
+  font-size: 0.8125rem;
+  color: #6b7280;
+  font-weight: 400;
+}
+
+.tier-controls {
+  margin-bottom: 1rem;
+  padding: 0.75rem;
+  background: #f8fafc;
+  border-radius: 0.5rem;
+  border: 1px solid #e2e8f0;
+}
+
+.tier-controls.hidden {
+  display: none;
+}
+
+.tier-tabs {
+  display: flex;
+  gap: 0.5rem;
+  margin-bottom: 0.5rem;
+}
+
+.tier-tab {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  padding: 0.625rem 1rem;
+  background: #fff;
+  border: 2px solid #e2e8f0;
+  border-radius: 0.5rem;
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: #64748b;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.tier-tab:hover {
+  border-color: #94a3b8;
+  color: var(--tuds-navy);
+}
+
+.tier-tab.active {
+  background: var(--tuds-navy);
+  border-color: var(--tuds-navy);
+  color: #fff;
+}
+
+.tier-tab-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.tier-tab.active .tier-tab-dot {
+  box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.5);
+}
+
+.tier-info {
+  text-align: center;
+  font-size: 0.75rem;
+  color: #64748b;
+  padding-top: 0.25rem;
+}
+
+/* ================================================
    STRUCTURAL SPECIFICATIONS SECTION
    ================================================ */
 
