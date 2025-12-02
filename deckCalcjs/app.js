@@ -1084,17 +1084,33 @@ async function exportToPDF() {
 
       const canvasImg = tempCanvas.toDataURL('image/png', 1.0);
 
-      // Calculate image dimensions to fit width
-      const imgAspect = canvas.height / canvas.width;
-      const imgWidth = contentWidth;
-      const imgHeight = Math.min(imgWidth * imgAspect, 100); // Max 100mm height
+      // Calculate image dimensions preserving aspect ratio
+      const canvasAspect = canvas.width / canvas.height;
+      const maxImgHeight = 100; // Max 100mm height for the image
+      const maxImgWidth = contentWidth;
+
+      let imgWidth, imgHeight;
+
+      // Calculate dimensions that fit within bounds while preserving aspect ratio
+      if (maxImgWidth / canvasAspect <= maxImgHeight) {
+        // Width is the constraining dimension
+        imgWidth = maxImgWidth;
+        imgHeight = maxImgWidth / canvasAspect;
+      } else {
+        // Height is the constraining dimension
+        imgHeight = maxImgHeight;
+        imgWidth = maxImgHeight * canvasAspect;
+      }
+
+      // Center the image horizontally if it doesn't fill the width
+      const imgX = margin + (contentWidth - imgWidth) / 2;
 
       // Add border around canvas image
       pdf.setDrawColor(200, 200, 200);
       pdf.setLineWidth(0.5);
-      pdf.rect(margin - 1, yPos - 1, imgWidth + 2, imgHeight + 2);
+      pdf.rect(imgX - 1, yPos - 1, imgWidth + 2, imgHeight + 2);
 
-      pdf.addImage(canvasImg, 'PNG', margin, yPos, imgWidth, imgHeight);
+      pdf.addImage(canvasImg, 'PNG', imgX, yPos, imgWidth, imgHeight);
       yPos += imgHeight + 10;
     }
 
@@ -2180,6 +2196,7 @@ function redrawApp() {
 function updateBlueprintModeUI() {
   // Get the canvas container for blueprint styling
   const canvasWrapper = document.getElementById('canvasContainerWrapper');
+  const htmlScaleIndicator = document.querySelector('.grid-scale-indicator');
 
   if (appState.isBlueprintMode) {
     // Update button state
@@ -2191,6 +2208,9 @@ function updateBlueprintModeUI() {
     // Add blueprint mode class to container for CSS styling
     if (canvasWrapper) canvasWrapper.classList.add('blueprint-mode');
     document.body.classList.add('blueprint-enabled');
+
+    // Hide HTML scale indicator - blueprint mode draws its own on canvas
+    if (htmlScaleIndicator) htmlScaleIndicator.style.display = 'none';
 
     // Don't show legends in blueprint mode as requested (if they exist)
     if (blueprintLegend) blueprintLegend.classList.add('hidden');
@@ -2205,6 +2225,9 @@ function updateBlueprintModeUI() {
     // Remove blueprint mode class
     if (canvasWrapper) canvasWrapper.classList.remove('blueprint-mode');
     document.body.classList.remove('blueprint-enabled');
+
+    // Show HTML scale indicator when not in blueprint mode
+    if (htmlScaleIndicator) htmlScaleIndicator.style.display = '';
 
     // Keep legends hidden (if they exist)
     if (blueprintLegend) blueprintLegend.classList.add('hidden');
@@ -3917,7 +3940,7 @@ function beforePrintHandler() {
 // --- Print Button Handler with Project Name Prompt ---
 function handlePrintPage() {
   // Check if there's a plan generated with summary data
-  const summaryList = document.getElementById('summaryList');
+  const summaryList = document.getElementById('reviewSummaryList');
   if (!summaryList || summaryList.children.length === 0) {
     alert("Please generate a deck plan first before printing.");
     return;
