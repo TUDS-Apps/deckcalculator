@@ -335,6 +335,84 @@ function drawDeckContent(currentCtx, state) {
   }
 }
 
+// Draw blueprint scale indicator in screen coordinates (bottom-left corner)
+function drawBlueprintScaleIndicator(currentCtx, canvasWidth, canvasHeight, viewportScale) {
+  const padding = 20;
+  const boxWidth = 140;
+  const boxHeight = 50;
+  const x = padding;
+  const y = canvasHeight - padding - boxHeight;
+
+  // Draw background box
+  currentCtx.fillStyle = 'rgba(255, 255, 255, 0.95)';
+  currentCtx.strokeStyle = config.BLUEPRINT_LINE_MEDIUM;
+  currentCtx.lineWidth = 1;
+  currentCtx.beginPath();
+  currentCtx.rect(x, y, boxWidth, boxHeight);
+  currentCtx.fill();
+  currentCtx.stroke();
+
+  // Calculate current scale
+  // At viewportScale = 1, 24 pixels = 1 foot, which is roughly 1/4" = 1'
+  // We'll show an approximate architectural scale
+  const pixelsPerInch = config.PIXELS_PER_FOOT / 12;
+  const screenPixelsPerFoot = config.PIXELS_PER_FOOT * viewportScale;
+
+  // Determine scale text based on viewport scale
+  let scaleText;
+  if (viewportScale >= 2) {
+    scaleText = '1/2" = 1\'-0"';
+  } else if (viewportScale >= 1) {
+    scaleText = '1/4" = 1\'-0"';
+  } else if (viewportScale >= 0.5) {
+    scaleText = '1/8" = 1\'-0"';
+  } else if (viewportScale >= 0.25) {
+    scaleText = '1/16" = 1\'-0"';
+  } else {
+    scaleText = 'NTS'; // Not to scale
+  }
+
+  // Draw scale text
+  currentCtx.font = 'bold 11px Arial';
+  currentCtx.fillStyle = config.BLUEPRINT_TEXT;
+  currentCtx.textAlign = 'left';
+  currentCtx.textBaseline = 'top';
+  currentCtx.fillText(`SCALE: ${scaleText}`, x + 8, y + 6);
+
+  // Draw graphic scale bar
+  const barY = y + 28;
+  const barStartX = x + 8;
+  const feetToShow = viewportScale >= 0.5 ? 4 : 8; // Show 4' or 8' depending on zoom
+  const barLength = feetToShow * config.PIXELS_PER_FOOT * viewportScale;
+  const maxBarLength = boxWidth - 16;
+  const actualBarLength = Math.min(barLength, maxBarLength);
+  const feetPerSegment = feetToShow / 4;
+  const segmentLength = actualBarLength / 4;
+
+  // Draw alternating segments
+  for (let i = 0; i < 4; i++) {
+    currentCtx.fillStyle = i % 2 === 0 ? config.BLUEPRINT_LINE_HEAVY : '#ffffff';
+    currentCtx.strokeStyle = config.BLUEPRINT_LINE_HEAVY;
+    currentCtx.lineWidth = 1;
+    currentCtx.beginPath();
+    currentCtx.rect(barStartX + i * segmentLength, barY, segmentLength, 6);
+    currentCtx.fill();
+    currentCtx.stroke();
+  }
+
+  // Draw tick labels
+  currentCtx.font = '9px Arial';
+  currentCtx.fillStyle = config.BLUEPRINT_TEXT;
+  currentCtx.textAlign = 'center';
+  currentCtx.textBaseline = 'top';
+
+  for (let i = 0; i <= 4; i++) {
+    const labelX = barStartX + i * segmentLength;
+    const feet = i * feetPerSegment;
+    currentCtx.fillText(`${feet}'`, labelX, barY + 8);
+  }
+}
+
 export function redrawCanvas(state) {
   if (!ctx || !canvasElement) {
     console.error("Canvas context or element not available for redraw.");
@@ -571,6 +649,11 @@ export function redrawCanvas(state) {
     }
 
     ctx.restore();
+
+    // Draw blueprint scale indicator (in screen coordinates, after restore)
+    if (blueprintMode && state.structuralComponents && !state.structuralComponents.error) {
+      drawBlueprintScaleIndicator(ctx, canvasWidth, canvasHeight, state.viewportScale);
+    }
 
     // Draw vertex edit handles (only in interactive mode, Draw step)
     if (window.drawVertexEditHandles && state.wizardStep === 'draw') {
@@ -1010,9 +1093,56 @@ function drawStructuralComponentsInternal(
   const LUMBER_THICKNESS_INCHES = 1.5;
   const LUMBER_THICKNESS_FEET = LUMBER_THICKNESS_INCHES / 12;
   const LUMBER_THICKNESS_PIXELS = LUMBER_THICKNESS_FEET * config.PIXELS_PER_FOOT;
-  
+
+  // Blueprint styling helper - returns element-specific styling for CAD-style rendering
+  function getBlueprintStyles(elementType) {
+    const styles = {
+      deckOutline: {
+        weight: config.BLUEPRINT_LINE_WEIGHT_HEAVY,
+        color: config.BLUEPRINT_LINE_HEAVY,
+        dash: []
+      },
+      ledger: {
+        weight: config.BLUEPRINT_LINE_WEIGHT_HEAVY,
+        color: config.BLUEPRINT_LINE_HEAVY,
+        dash: []
+      },
+      beam: {
+        weight: config.BLUEPRINT_LINE_WEIGHT_MEDIUM,
+        color: config.BLUEPRINT_LINE_HEAVY,
+        dash: []
+      },
+      rimJoist: {
+        weight: config.BLUEPRINT_LINE_WEIGHT_MEDIUM,
+        color: config.BLUEPRINT_LINE_MEDIUM,
+        dash: []
+      },
+      joist: {
+        weight: config.BLUEPRINT_LINE_WEIGHT_LIGHT,
+        color: config.BLUEPRINT_LINE_MEDIUM,
+        dash: []
+      },
+      blocking: {
+        weight: config.BLUEPRINT_LINE_WEIGHT_LIGHT,
+        color: config.BLUEPRINT_LINE_LIGHT,
+        dash: config.BLUEPRINT_DASH_BLOCKING
+      },
+      post: {
+        weight: config.BLUEPRINT_LINE_WEIGHT_MEDIUM,
+        color: config.BLUEPRINT_LINE_HEAVY,
+        fill: '#ffffff'
+      },
+      footing: {
+        weight: config.BLUEPRINT_LINE_WEIGHT_LIGHT,
+        color: config.BLUEPRINT_LINE_HIDDEN,
+        dash: config.BLUEPRINT_DASH_HIDDEN
+      }
+    };
+    return styles[elementType] || styles.joist;
+  }
+
   // Draw to-scale components based on their actual dimensions
-  function drawToScaleLine(p1, p2, width, color, isDashed = false, lineWidthMultiplier = 1.0) {
+  function drawToScaleLine(p1, p2, width, color, isDashed = false, lineWidthMultiplier = 1.0, elementType = null) {
     if (!p1 || !p2) return;
     
     // Calculate perpendicular unit vector for thickness
@@ -1037,20 +1167,29 @@ function drawStructuralComponentsInternal(
       { x: p1.x - perpX * halfWidth, y: p1.y - perpY * halfWidth }
     ];
     
-    // In blueprint mode, draw hollow to-scale components; otherwise draw simple lines
+    // In blueprint mode, draw hollow to-scale components with CAD-style rendering
     if (blueprintMode) {
+      // Get blueprint-specific styling if element type provided
+      const bpStyle = elementType ? getBlueprintStyles(elementType) : null;
+      const strokeColor = bpStyle ? bpStyle.color : color;
+      const lineWeight = bpStyle ? bpStyle.weight : 1;
+      const dashPattern = bpStyle ? bpStyle.dash : (isDashed ? [4, 4] : []);
+
       // Draw outline only (no fill) - to-scale width components
-      currentCtx.strokeStyle = color;
-      currentCtx.lineWidth = Math.max(0.5 / scale, (1 * lineWidthMultiplier) / scale);
+      currentCtx.strokeStyle = strokeColor;
+      currentCtx.lineWidth = Math.max(0.5 / scale, (lineWeight * lineWidthMultiplier) / scale);
       currentCtx.beginPath();
       currentCtx.moveTo(corners[0].x, corners[0].y);
       currentCtx.lineTo(corners[1].x, corners[1].y);
       currentCtx.lineTo(corners[2].x, corners[2].y);
       currentCtx.lineTo(corners[3].x, corners[3].y);
       currentCtx.closePath();
-      
-      if (isDashed) {
-        currentCtx.setLineDash([scaledLineWidth(4), scaledLineWidth(4)]);
+
+      if (isDashed || (dashPattern && dashPattern.length > 0)) {
+        const scaledDash = (dashPattern && dashPattern.length > 0)
+          ? dashPattern.map(d => scaledLineWidth(d))
+          : [scaledLineWidth(4), scaledLineWidth(4)];
+        currentCtx.setLineDash(scaledDash);
       } else {
         currentCtx.setLineDash([]);
       }
@@ -1076,20 +1215,20 @@ function drawStructuralComponentsInternal(
   }
   
   // Draw multiple boards side by side (for multi-ply beams)
-  function drawMultiplyBoard(p1, p2, plyCount, color, isMerged = false) {
+  function drawMultiplyBoard(p1, p2, plyCount, color, isMerged = false, elementType = 'beam') {
     if (!p1 || !p2 || plyCount < 1) return;
-    
+
     // Direction vector along the board
     const dx = p2.x - p1.x;
     const dy = p2.y - p1.y;
     const length = Math.sqrt(dx * dx + dy * dy);
-    
+
     if (length < config.EPSILON) return;
-    
+
     // Normalized perpendicular vector
     const perpX = -dy / length;
     const perpY = dx / length;
-    
+
     // Draw each ply
     for (let i = 0; i < plyCount; i++) {
       // Offset each board by its thickness
@@ -1102,27 +1241,27 @@ function drawStructuralComponentsInternal(
         x: p2.x + perpX * offset,
         y: p2.y + perpY * offset
       };
-      
+
       // Draw individual board with enhanced styling for merged beams
       if (isMerged && i === 0) {
         // Draw first ply of merged beam with slightly thicker line to indicate merging
-        drawToScaleLine(offsetP1, offsetP2, LUMBER_THICKNESS_PIXELS, color, false, 1.5);
+        drawToScaleLine(offsetP1, offsetP2, LUMBER_THICKNESS_PIXELS, color, false, 1.5, elementType);
       } else {
-        drawToScaleLine(offsetP1, offsetP2, LUMBER_THICKNESS_PIXELS, color);
+        drawToScaleLine(offsetP1, offsetP2, LUMBER_THICKNESS_PIXELS, color, false, 1.0, elementType);
       }
     }
   }
 
   // Draw ledger (typically a single 2x board against the house)
   if (ledger && layerVisibility.ledger) {
-    drawToScaleLine(ledger.p1, ledger.p2, LUMBER_THICKNESS_PIXELS, config.LEDGER_COLOR);
+    drawToScaleLine(ledger.p1, ledger.p2, LUMBER_THICKNESS_PIXELS, config.LEDGER_COLOR, false, 1.0, 'ledger');
   }
 
   // Draw diagonal ledgers (for bay window configurations where diagonals attach to house)
   if (diagonalLedgers.length > 0 && layerVisibility.ledger) {
     diagonalLedgers.forEach((diagLedger) => {
       if (diagLedger.p1 && diagLedger.p2) {
-        drawToScaleLine(diagLedger.p1, diagLedger.p2, LUMBER_THICKNESS_PIXELS, config.LEDGER_COLOR);
+        drawToScaleLine(diagLedger.p1, diagLedger.p2, LUMBER_THICKNESS_PIXELS, config.LEDGER_COLOR, false, 1.0, 'ledger');
       }
     });
   }
@@ -1157,9 +1296,9 @@ function drawStructuralComponentsInternal(
       // Draw joist with appropriate styling
       if (joist.spansSections) {
         // Draw spanning joists with slightly thicker line to indicate continuity
-        drawToScaleLine(joist.p1, joist.p2, LUMBER_THICKNESS_PIXELS, config.JOIST_RIM_COLOR, false, 1.2);
+        drawToScaleLine(joist.p1, joist.p2, LUMBER_THICKNESS_PIXELS, config.JOIST_RIM_COLOR, false, 1.2, 'joist');
       } else {
-        drawToScaleLine(joist.p1, joist.p2, LUMBER_THICKNESS_PIXELS, config.JOIST_RIM_COLOR);
+        drawToScaleLine(joist.p1, joist.p2, LUMBER_THICKNESS_PIXELS, config.JOIST_RIM_COLOR, false, 1.0, 'joist');
       }
     });
 
@@ -1168,9 +1307,9 @@ function drawStructuralComponentsInternal(
     rimJoists.forEach((rim) => {
       if (rim.isMerged) {
         // Draw merged rim joists with enhanced styling to show continuity
-        drawToScaleLine(rim.p1, rim.p2, LUMBER_THICKNESS_PIXELS, config.JOIST_RIM_COLOR, false, 1.3);
+        drawToScaleLine(rim.p1, rim.p2, LUMBER_THICKNESS_PIXELS, config.JOIST_RIM_COLOR, false, 1.3, 'rimJoist');
       } else {
-        drawToScaleLine(rim.p1, rim.p2, LUMBER_THICKNESS_PIXELS, config.JOIST_RIM_COLOR);
+        drawToScaleLine(rim.p1, rim.p2, LUMBER_THICKNESS_PIXELS, config.JOIST_RIM_COLOR, false, 1.0, 'rimJoist');
       }
     });
   }
@@ -1178,12 +1317,12 @@ function drawStructuralComponentsInternal(
   // Draw blocking (typically single 2x boards between joists)
   if (layerVisibility.blocking) {
     midSpanBlocking.forEach((block) => {
-      drawToScaleLine(block.p1, block.p2, LUMBER_THICKNESS_PIXELS, config.BLOCKING_COLOR, true);
+      drawToScaleLine(block.p1, block.p2, LUMBER_THICKNESS_PIXELS, config.BLOCKING_COLOR, true, 1.0, 'blocking');
     });
 
     // Draw picture frame blocking
     pictureFrameBlocking.forEach((block) => {
-      drawToScaleLine(block.p1, block.p2, LUMBER_THICKNESS_PIXELS, config.BLOCKING_COLOR, true);
+      drawToScaleLine(block.p1, block.p2, LUMBER_THICKNESS_PIXELS, config.BLOCKING_COLOR, true, 1.0, 'blocking');
     });
   }
 
@@ -1192,21 +1331,29 @@ function drawStructuralComponentsInternal(
   if (layerVisibility.posts) {
     const footingScreenRadius = isScaledForPrint ? 7 : 8;
     const footingModelRadius = footingScreenRadius / scale;
+    const footingStyle = getBlueprintStyles('footing');
+    const postStyle = getBlueprintStyles('post');
+
     footings.forEach((f) => {
       currentCtx.beginPath();
 
       if (blueprintMode) {
-        // In blueprint mode, draw a circle representing the footing
+        // In blueprint mode, draw a circle with CAD-style dashed line (below grade)
         currentCtx.arc(f.x, f.y, footingModelRadius, 0, Math.PI * 2);
-        currentCtx.strokeStyle = config.FOOTING_STROKE_COLOR;
-        currentCtx.lineWidth = Math.max(0.5 / scale, (f.isShared ? 1.5 : 1) / scale);
+        currentCtx.strokeStyle = footingStyle.color;
+        const weight = f.isShared ? footingStyle.weight * 1.5 : footingStyle.weight;
+        currentCtx.lineWidth = Math.max(0.5 / scale, weight / scale);
+        // Use dashed line for footings (below grade indication)
+        const dashPattern = footingStyle.dash.map(d => Math.max(d / scale, 1));
+        currentCtx.setLineDash(dashPattern);
         currentCtx.stroke();
+        currentCtx.setLineDash([]);
 
         // Add visual indicator for shared footings
         if (f.isShared) {
           currentCtx.beginPath();
           currentCtx.arc(f.x, f.y, footingModelRadius * 1.2, 0, Math.PI * 2);
-          currentCtx.strokeStyle = config.FOOTING_STROKE_COLOR;
+          currentCtx.strokeStyle = footingStyle.color;
           currentCtx.lineWidth = Math.max(0.3 / scale, 0.5 / scale);
           currentCtx.setLineDash([Math.max(2 / scale, 1), Math.max(2 / scale, 1)]);
           currentCtx.stroke();
@@ -1237,7 +1384,7 @@ function drawStructuralComponentsInternal(
       const postSizePixels = postSizeFeet * config.PIXELS_PER_FOOT;
 
       if (blueprintMode) {
-        // In blueprint mode, draw an outline square representing actual post dimensions
+        // In blueprint mode, draw an outline square with white fill (solid, above grade)
         currentCtx.beginPath();
         currentCtx.rect(
           p.x - postSizePixels / 2,
@@ -1245,8 +1392,13 @@ function drawStructuralComponentsInternal(
           postSizePixels,
           postSizePixels
         );
-        currentCtx.strokeStyle = config.POST_STROKE_COLOR;
-        currentCtx.lineWidth = Math.max(0.5 / scale, (p.isShared ? 1.5 : 1) / scale);
+        // Fill with white first
+        currentCtx.fillStyle = postStyle.fill;
+        currentCtx.fill();
+        // Then stroke with CAD-style line
+        currentCtx.strokeStyle = postStyle.color;
+        const weight = p.isShared ? postStyle.weight * 1.5 : postStyle.weight;
+        currentCtx.lineWidth = Math.max(0.5 / scale, weight / scale);
         currentCtx.stroke();
 
         // Add visual indicator for shared posts (from multiple sections)
@@ -1258,7 +1410,7 @@ function drawStructuralComponentsInternal(
             postSizePixels * 1.1,
             postSizePixels * 1.1
           );
-          currentCtx.strokeStyle = config.POST_STROKE_COLOR;
+          currentCtx.strokeStyle = postStyle.color;
           currentCtx.lineWidth = Math.max(0.3 / scale, 0.5 / scale);
           currentCtx.setLineDash([Math.max(2 / scale, 1), Math.max(2 / scale, 1)]);
           currentCtx.stroke();
@@ -1280,6 +1432,278 @@ function drawStructuralComponentsInternal(
         currentCtx.stroke();
       }
     });
+  }
+
+  // ==================== BLUEPRINT MODE ANNOTATIONS & DIMENSIONS ====================
+
+  // Helper: Format dimension in architectural format (12'-6", 3'-0", 10½")
+  function formatArchitecturalDimension(feet) {
+    const totalInches = Math.round(feet * 12);
+    const ft = Math.floor(totalInches / 12);
+    const inches = totalInches % 12;
+
+    if (ft === 0) {
+      return `${inches}"`;
+    } else if (inches === 0) {
+      return `${ft}'-0"`;
+    } else {
+      return `${ft}'-${inches}"`;
+    }
+  }
+
+  // Draw a dimension line with tick terminators (architectural style)
+  function drawDimensionLine(x1, y1, x2, y2, offset, labelText, side = 'top') {
+    const dx = x2 - x1;
+    const dy = y2 - y1;
+    const length = Math.sqrt(dx * dx + dy * dy);
+
+    if (length < config.EPSILON) return;
+
+    // Normalized direction and perpendicular
+    const dirX = dx / length;
+    const dirY = dy / length;
+    const perpX = -dirY;
+    const perpY = dirX;
+
+    // Offset multiplier based on side
+    const offsetMult = (side === 'bottom' || side === 'right') ? 1 : -1;
+    const offsetDist = offset / scale;
+
+    // Dimension line endpoints (offset from the object)
+    const dimX1 = x1 + perpX * offsetDist * offsetMult;
+    const dimY1 = y1 + perpY * offsetDist * offsetMult;
+    const dimX2 = x2 + perpX * offsetDist * offsetMult;
+    const dimY2 = y2 + perpY * offsetDist * offsetMult;
+
+    // Extension line gap and overshoot
+    const gapDist = 3 / scale;      // Gap from object
+    const overshoot = 4 / scale;    // Overshoot past dimension line
+
+    // Draw extension lines
+    currentCtx.strokeStyle = config.BLUEPRINT_DIMENSION;
+    currentCtx.lineWidth = Math.max(0.5 / scale, config.BLUEPRINT_LINE_WEIGHT_HAIRLINE / scale);
+    currentCtx.setLineDash([]);
+
+    // Extension line 1
+    const ext1StartX = x1 + perpX * gapDist * offsetMult;
+    const ext1StartY = y1 + perpY * gapDist * offsetMult;
+    const ext1EndX = dimX1 + perpX * overshoot * offsetMult;
+    const ext1EndY = dimY1 + perpY * overshoot * offsetMult;
+
+    currentCtx.beginPath();
+    currentCtx.moveTo(ext1StartX, ext1StartY);
+    currentCtx.lineTo(ext1EndX, ext1EndY);
+    currentCtx.stroke();
+
+    // Extension line 2
+    const ext2StartX = x2 + perpX * gapDist * offsetMult;
+    const ext2StartY = y2 + perpY * gapDist * offsetMult;
+    const ext2EndX = dimX2 + perpX * overshoot * offsetMult;
+    const ext2EndY = dimY2 + perpY * overshoot * offsetMult;
+
+    currentCtx.beginPath();
+    currentCtx.moveTo(ext2StartX, ext2StartY);
+    currentCtx.lineTo(ext2EndX, ext2EndY);
+    currentCtx.stroke();
+
+    // Draw dimension line
+    currentCtx.beginPath();
+    currentCtx.moveTo(dimX1, dimY1);
+    currentCtx.lineTo(dimX2, dimY2);
+    currentCtx.stroke();
+
+    // Draw tick marks at ends (architectural style - 45° slashes)
+    const tickSize = 4 / scale;
+    const tickAngle = Math.PI / 4; // 45 degrees
+
+    // Tick 1
+    currentCtx.beginPath();
+    currentCtx.moveTo(dimX1 - tickSize * Math.cos(tickAngle + Math.atan2(dirY, dirX)),
+                      dimY1 - tickSize * Math.sin(tickAngle + Math.atan2(dirY, dirX)));
+    currentCtx.lineTo(dimX1 + tickSize * Math.cos(tickAngle + Math.atan2(dirY, dirX)),
+                      dimY1 + tickSize * Math.sin(tickAngle + Math.atan2(dirY, dirX)));
+    currentCtx.stroke();
+
+    // Tick 2
+    currentCtx.beginPath();
+    currentCtx.moveTo(dimX2 - tickSize * Math.cos(tickAngle + Math.atan2(dirY, dirX)),
+                      dimY2 - tickSize * Math.sin(tickAngle + Math.atan2(dirY, dirX)));
+    currentCtx.lineTo(dimX2 + tickSize * Math.cos(tickAngle + Math.atan2(dirY, dirX)),
+                      dimY2 + tickSize * Math.sin(tickAngle + Math.atan2(dirY, dirX)));
+    currentCtx.stroke();
+
+    // Draw dimension text
+    const midX = (dimX1 + dimX2) / 2;
+    const midY = (dimY1 + dimY2) / 2;
+
+    const fontSize = Math.max(8, 10 / scale);
+    currentCtx.font = `${fontSize}px Arial`;
+    currentCtx.fillStyle = config.BLUEPRINT_TEXT;
+    currentCtx.textAlign = 'center';
+    currentCtx.textBaseline = 'middle';
+
+    // Offset text slightly from the line
+    const textOffset = 8 / scale;
+    const textX = midX + perpX * textOffset * offsetMult;
+    const textY = midY + perpY * textOffset * offsetMult;
+
+    // Save context for rotation
+    currentCtx.save();
+    currentCtx.translate(textX, textY);
+
+    // Rotate text to align with dimension line (keep readable)
+    let angle = Math.atan2(dirY, dirX);
+    if (angle > Math.PI / 2 || angle < -Math.PI / 2) {
+      angle += Math.PI;
+    }
+    currentCtx.rotate(angle);
+    currentCtx.fillText(labelText, 0, 0);
+    currentCtx.restore();
+  }
+
+  // Draw annotation label for lumber/structural element
+  function drawBlueprintAnnotation(x, y, text, angle = 0) {
+    const fontSize = Math.max(7, 9 / scale);
+    currentCtx.font = `bold ${fontSize}px Arial`;
+    currentCtx.fillStyle = config.BLUEPRINT_TEXT;
+    currentCtx.textAlign = 'center';
+    currentCtx.textBaseline = 'middle';
+
+    currentCtx.save();
+    currentCtx.translate(x, y);
+    currentCtx.rotate(angle);
+    currentCtx.fillText(text, 0, 0);
+    currentCtx.restore();
+  }
+
+  // ==================== BLUEPRINT MODE RENDERING ====================
+
+  if (blueprintMode) {
+    // Draw structural annotations
+    // Ledger annotation
+    if (ledger && layerVisibility.ledger) {
+      const midX = (ledger.p1.x + ledger.p2.x) / 2;
+      const midY = (ledger.p1.y + ledger.p2.y) / 2;
+      const angle = Math.atan2(ledger.p2.y - ledger.p1.y, ledger.p2.x - ledger.p1.x);
+      // Offset label slightly toward house (up/left based on angle)
+      const offsetDist = 15 / scale;
+      const perpX = -Math.sin(angle);
+      const perpY = Math.cos(angle);
+      // Position toward house (negative perpendicular)
+      const labelX = midX - perpX * offsetDist;
+      const labelY = midY - perpY * offsetDist;
+      drawBlueprintAnnotation(labelX, labelY, '2x10 LEDGER', angle);
+    }
+
+    // Beam annotations
+    if (layerVisibility.beams) {
+      beams.forEach((beam, idx) => {
+        const midX = (beam.p1.x + beam.p2.x) / 2;
+        const midY = (beam.p1.y + beam.p2.y) / 2;
+        const angle = Math.atan2(beam.p2.y - beam.p1.y, beam.p2.x - beam.p1.x);
+        const plyCount = beam.ply || 2;
+        const plyText = plyCount > 1 ? ` (${plyCount}-PLY)` : '';
+        // Offset label below beam
+        const offsetDist = 12 / scale;
+        const perpX = -Math.sin(angle);
+        const perpY = Math.cos(angle);
+        const labelX = midX + perpX * offsetDist;
+        const labelY = midY + perpY * offsetDist;
+        // Only label first beam, then use "TYP." for others
+        if (idx === 0) {
+          drawBlueprintAnnotation(labelX, labelY, `2x10 BEAM${plyText}`, angle);
+        }
+      });
+    }
+
+    // Joist annotation (just one with "TYP.")
+    if (layerVisibility.joists && joists.length > 0) {
+      // Find a joist in the middle of the array
+      const midJoistIdx = Math.floor(joists.length / 2);
+      const joist = joists[midJoistIdx];
+      if (joist) {
+        const midX = (joist.p1.x + joist.p2.x) / 2;
+        const midY = (joist.p1.y + joist.p2.y) / 2;
+        const angle = Math.atan2(joist.p2.y - joist.p1.y, joist.p2.x - joist.p1.x);
+        // Offset label to side
+        const offsetDist = 18 / scale;
+        const perpX = -Math.sin(angle);
+        const perpY = Math.cos(angle);
+        const labelX = midX + perpX * offsetDist;
+        const labelY = midY + perpY * offsetDist;
+        drawBlueprintAnnotation(labelX, labelY, '2x8 JOISTS @ 16" O.C. (TYP.)', angle);
+      }
+    }
+
+    // Rim joist annotation
+    if (layerVisibility.joists && rimJoists.length > 0) {
+      // Label just one rim joist
+      const rim = rimJoists[0];
+      if (rim) {
+        const midX = (rim.p1.x + rim.p2.x) / 2;
+        const midY = (rim.p1.y + rim.p2.y) / 2;
+        const angle = Math.atan2(rim.p2.y - rim.p1.y, rim.p2.x - rim.p1.x);
+        const offsetDist = 12 / scale;
+        const perpX = -Math.sin(angle);
+        const perpY = Math.cos(angle);
+        const labelX = midX + perpX * offsetDist;
+        const labelY = midY + perpY * offsetDist;
+        drawBlueprintAnnotation(labelX, labelY, '2x8 RIM', angle);
+      }
+    }
+
+    // Post annotations (just label one)
+    if (layerVisibility.posts && posts.length > 0) {
+      const post = posts[0];
+      const postSize = post.size || '4x4';
+      const labelX = post.x;
+      const labelY = post.y + 12 / scale;
+      drawBlueprintAnnotation(labelX, labelY, `${postSize.toUpperCase()} POST`, 0);
+    }
+
+    // Draw overall dimensions if we have valid structural data
+    // Get deck bounds from ledger and beams
+    if (ledger) {
+      const ledgerLength = Math.sqrt(
+        Math.pow(ledger.p2.x - ledger.p1.x, 2) +
+        Math.pow(ledger.p2.y - ledger.p1.y, 2)
+      );
+      const ledgerFeet = ledgerLength / config.PIXELS_PER_FOOT;
+
+      // Draw ledger dimension
+      drawDimensionLine(
+        ledger.p1.x, ledger.p1.y,
+        ledger.p2.x, ledger.p2.y,
+        25,
+        formatArchitecturalDimension(ledgerFeet),
+        'top'
+      );
+
+      // Draw depth dimension (from ledger to first beam)
+      if (beams.length > 0) {
+        const beam = beams[0];
+        // Calculate perpendicular distance from ledger to beam
+        const ledgerMidX = (ledger.p1.x + ledger.p2.x) / 2;
+        const ledgerMidY = (ledger.p1.y + ledger.p2.y) / 2;
+        const beamMidX = (beam.p1.x + beam.p2.x) / 2;
+        const beamMidY = (beam.p1.y + beam.p2.y) / 2;
+
+        const depthPixels = Math.sqrt(
+          Math.pow(beamMidX - ledgerMidX, 2) +
+          Math.pow(beamMidY - ledgerMidY, 2)
+        );
+        const depthFeet = depthPixels / config.PIXELS_PER_FOOT;
+
+        // Draw dimension on the left side
+        drawDimensionLine(
+          ledger.p1.x, ledger.p1.y,
+          beam.p1.x, beam.p1.y,
+          25,
+          formatArchitecturalDimension(depthFeet),
+          'left'
+        );
+      }
+    }
   }
 }
 

@@ -64,3 +64,23 @@ export const BLOCKING_COLOR = "#8B5CF6";
 export const STAIR_STRINGER_COLOR = "#8D6E63";
 export const STAIR_TREAD_COLOR = "#A1887F";
 export const STAIR_SELECTED_COLOR = "#4A90E2";
+
+// Blueprint Mode Colors (Modern CAD Style)
+export const BLUEPRINT_BG = '#ffffff';
+export const BLUEPRINT_LINE_HEAVY = '#000000';      // Primary structural lines (deck outline, ledger)
+export const BLUEPRINT_LINE_MEDIUM = '#333333';     // Secondary elements (beams, rim joists)
+export const BLUEPRINT_LINE_LIGHT = '#666666';      // Joists, blocking
+export const BLUEPRINT_LINE_HIDDEN = '#999999';     // Below grade (footings, dashed)
+export const BLUEPRINT_TEXT = '#000000';            // Annotation text
+export const BLUEPRINT_DIMENSION = '#333333';       // Dimension lines
+
+// Blueprint Line Weights (in pixels at scale 1)
+export const BLUEPRINT_LINE_WEIGHT_HEAVY = 2.0;     // Deck outline, ledger
+export const BLUEPRINT_LINE_WEIGHT_MEDIUM = 1.5;    // Beams, rim joists
+export const BLUEPRINT_LINE_WEIGHT_LIGHT = 1.0;     // Joists, blocking
+export const BLUEPRINT_LINE_WEIGHT_HAIRLINE = 0.5;  // Dimensions, grid
+
+// Blueprint Dash Patterns
+export const BLUEPRINT_DASH_HIDDEN = [8, 4];        // Hidden/below grade
+export const BLUEPRINT_DASH_CENTER = [12, 3, 3, 3]; // Center lines
+export const BLUEPRINT_DASH_BLOCKING = [4, 4];      // Blocking lines
