@@ -96,18 +96,21 @@ function calculateBeamAndPostsInternal(
       y: beamAxisP1.y + unitVecY * (beamLengthPixels / 2),
       size: postSize,
       heightFeet: deckHeightInches / 12,
+      usage: usageLabel,
     });
   } else if (beamLengthPixels >= POST_INSET_FEET * PIXELS_PER_FOOT * 2) {
     beamPosts.push({
       ...post1Pos,
       size: postSize,
       heightFeet: deckHeightInches / 12,
+      usage: usageLabel,
     });
     if (distance(post1Pos, post2Pos) > EPSILON)
       beamPosts.push({
         ...post2Pos,
         size: postSize,
         heightFeet: deckHeightInches / 12,
+        usage: usageLabel,
       });
     if (beamPosts.length === 2) {
       const postSpanPixels = distance(beamPosts[0], beamPosts[1]);
@@ -123,6 +126,7 @@ function calculateBeamAndPostsInternal(
             y: beamPosts[0].y + unitVecY * intermediateSpacingPixels * i,
             size: postSize,
             heightFeet: deckHeightInches / 12,
+            usage: usageLabel,
           });
         }
         beamPosts.sort((a, b) => (isWallHorizontal ? a.x - b.x : a.y - b.y));
@@ -149,6 +153,7 @@ function calculateBeamAndPostsInternal(
     x: post.x,
     y: post.y,
     type: footingType,
+    usage: usageLabel,
   }));
 
   return {

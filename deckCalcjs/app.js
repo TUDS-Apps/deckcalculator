@@ -1567,7 +1567,9 @@ function setWizardStep(stepId) {
 function handleStepEntry(stepId, previousStep) {
   switch(stepId) {
     case 'draw':
-      // Reset to drawing mode if needed
+      // Ensure edit shape panel visibility is updated when returning to draw step
+      // This fixes the edit button not appearing after navigating away and back
+      redrawApp();
       break;
     case 'structure':
       // PROGRESSIVE RENDERING: Trigger calculation when entering Structure step
