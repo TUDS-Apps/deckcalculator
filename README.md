@@ -1,16 +1,30 @@
-# Deck Calculator
+# TUDS Pro Deck Estimator
 
-A professional web-based deck design and material estimation application. Draw deck outlines interactively, configure specifications, and generate comprehensive structural plans with accurate Bills of Materials (BOM).
+A professional web-based deck design and material estimation application for The Ultimate Deck Shop. Draw deck outlines interactively, configure specifications, and generate comprehensive structural plans with accurate Bills of Materials (BOM).
 
 ## Features
 
 ### Drawing & Design
 - **Interactive Canvas** - Click-to-place drawing with real-time preview
-- **Complex Shapes** - Support for L-shapes, U-shapes, and other 90-degree polygon configurations
+- **Complex Shapes** - Support for L-shapes, U-shapes, T-shapes, notched corners, and chamfered (45°) corners
+- **Shape Templates** - Quick-start templates for common deck configurations
 - **Manual Dimension Input** - Type exact measurements while drawing
 - **Snap-to-Grid** - 1" grid with automatic snapping
+- **Vertex Editing** - Add/remove points, drag to resize after shape is closed
 - **Viewport Controls** - Zoom, pan, and center/fit functions
 - **Blueprint Mode** - Toggle between simple lines and to-scale lumber rendering
+- **Measurement Tool** - Point-to-point distance measurement on canvas
+
+### Project Management
+- **Save/Load Projects** - Save designs to browser storage, reload for follow-up
+- **PDF Export** - Generate professional PDF with layout diagram and BOM
+- **Customer Info** - Attach customer name, address, phone, email to projects
+- **Print Optimization** - Clean print layout for documentation
+
+### Shopify Integration
+- **Live Pricing** - Real-time prices from TUDS Shopify store
+- **Add to Cart** - Create Shopify checkout directly from BOM
+- **SKU Matching** - Automatic product matching via system IDs
 
 ### Structural Calculations
 - **Automatic Joist Sizing** - Based on span tables (2x6 through 2x12)
@@ -36,7 +50,7 @@ A professional web-based deck design and material estimation application. Draw d
 
 - **Frontend**: HTML5, Tailwind CSS, Vanilla JavaScript (ES6 modules)
 - **Canvas**: HTML5 Canvas API for 2D rendering
-- **Architecture**: 12 modular ES6 modules
+- **Architecture**: 14 modular ES6 modules
 
 ## Project Structure
 
@@ -51,9 +65,11 @@ deckCalcjs/
 ├── deckCalculations.js       - Core structural calculations
 ├── stairCalculations.js      - Stair geometry and materials
 ├── bomCalculations.js        - Material optimization
-├── shapeValidator.js         - Shape validation (90° corners)
+├── shapeValidator.js         - Shape validation (supports 45° and 90° corners)
 ├── shapeDecomposer.js        - Polygon decomposition
-└── multiSectionCalculations.js - Multi-section beam merging
+├── multiSectionCalculations.js - Multi-section beam merging
+├── shopifyConfig.js          - Shopify API configuration
+└── shopifyService.js         - Shopify Storefront API integration
 ```
 
 ## Usage
