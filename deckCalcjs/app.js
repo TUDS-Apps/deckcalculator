@@ -4988,6 +4988,22 @@ const DECK_TEMPLATES = {
       { x: 4, y: 0 },      // Top-left (after diagonal)
       { x: 0, y: 4 },      // Left side (before diagonal) - true 45° line (dx=4, dy=4)
     ]
+  },
+  'bay-window': {
+    name: 'Bay Window Bump-out',
+    description: 'Rectangle with 45° bay window on ledger side',
+    // 16ft wide x 12ft deep with a 4ft wide bay that bumps out 2ft
+    // Bay is centered on ledger, with 45° angles (dx=dy=2)
+    points: [
+      { x: 0, y: 0 },      // Top-left (ledger start)
+      { x: 6, y: 0 },      // Before bay (left side)
+      { x: 4, y: -2 },     // Bay corner left (45° out, dx=2, dy=2)
+      { x: 12, y: -2 },    // Bay flat section
+      { x: 10, y: 0 },     // Bay corner right (45° back)
+      { x: 16, y: 0 },     // After bay (ledger end)
+      { x: 16, y: 12 },    // Bottom-right
+      { x: 0, y: 12 },     // Bottom-left
+    ]
   }
 };
 
