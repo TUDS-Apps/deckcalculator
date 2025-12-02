@@ -646,9 +646,9 @@ canvas.mode-transition {
   cursor: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="%233b82f6" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg>') 12 12, crosshair;
 }
 
-/* Cursor for wall selection mode */
+/* Cursor for wall selection mode - pointer with wall indicator */
 .wall-selection-mode #canvasContainer {
-  cursor: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="%23FFD700" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3" fill="%23FFD700"/><path d="M12 1v6m0 6v6m11-7h-6m-6 0H1"/></svg>') 12 12, crosshair;
+  cursor: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none"><path d="M5 3 L5 21" stroke="%232D6A6A" stroke-width="3" stroke-linecap="round"/><path d="M9 9 L14 12 L9 15 L9 9" fill="%232D6A6A"/></svg>') 5 12, pointer;
 }
 
 /* Cursor for stair placement mode */
@@ -804,22 +804,20 @@ canvas.mode-transition {
   padding-right: 0.25rem;
 }
 
-/* Hide pricing columns and total row in all views */
-.price-col,
-.bom-table th:nth-child(4),
-.bom-table th:nth-child(5),
-.bom-table td:nth-child(4),
-.bom-table td:nth-child(5),
-.bom-table tr.font-semibold {
-  display: none;
+/* Style pricing columns */
+.price-col {
+  text-align: right;
+  white-space: nowrap;
 }
 
 /* Make the total row stand out */
-.bom-table tr.font-semibold td {
+.bom-table tr.bom-total-row td {
   background-color: #f0f9ff;
   color: #0c4a6e;
   font-weight: 600;
-  border-top: 2px solid #e5e7eb;
+  border-top: 2px solid #0c4a6e;
+  padding-top: 0.75rem;
+  padding-bottom: 0.75rem;
 }
 .summary-list dt {
   font-weight: 500;
@@ -4505,9 +4503,15 @@ canvas.mode-transition {
   position: fixed;
   inset: 0;
   z-index: 10000;
-  background: rgba(0, 0, 0, 0.6);
+  /* Background is transparent - spotlight box-shadow creates the dark overlay */
+  background: transparent;
   opacity: 1;
   transition: opacity 0.3s ease;
+}
+
+/* When no spotlight is active (welcome step), show dark background */
+.help-wizard-overlay:not(:has(.wizard-spotlight.active)) {
+  background: rgba(0, 0, 0, 0.6);
 }
 
 .help-wizard-overlay.hidden {
@@ -4515,19 +4519,22 @@ canvas.mode-transition {
   pointer-events: none;
 }
 
-/* Spotlight effect */
+/* Spotlight effect - creates cutout by darkening everything except the target */
 .wizard-spotlight {
   position: absolute;
   border-radius: 0.5rem;
-  box-shadow: 0 0 0 9999px rgba(0, 0, 0, 0.6);
+  box-shadow: none;
   transition: all 0.4s ease;
   pointer-events: none;
+  /* Make the spotlight area transparent/clickable */
+  background: transparent;
 }
 
 .wizard-spotlight.active {
-  box-shadow: 0 0 0 9999px rgba(0, 0, 0, 0.6),
+  /* The massive box-shadow creates the dark overlay with a cutout */
+  box-shadow: 0 0 0 9999px rgba(0, 0, 0, 0.75),
               0 0 0 4px var(--tuds-green),
-              0 0 20px rgba(139, 195, 74, 0.4);
+              0 0 30px rgba(139, 195, 74, 0.5);
 }
 
 /* Tooltip container */
@@ -6105,6 +6112,69 @@ canvas.mode-transition {
   min-width: 0;
 }
 
+/* Mobile responsive layout for main app */
+@media (max-width: 768px) {
+  .main-layout-with-sidebar {
+    flex-direction: column;
+    gap: var(--space-3);
+  }
+
+  /* Hide vertical step sidebar on mobile - use wizard navigation in panel instead */
+  .step-sidebar {
+    display: none;
+  }
+
+  /* Full width panels on mobile */
+  .main-layout-with-sidebar #input-panel {
+    width: 100%;
+    order: 2; /* Move input panel below canvas on mobile */
+  }
+
+  .main-layout-with-sidebar #content-panel {
+    width: 100%;
+    order: 1; /* Canvas first on mobile */
+  }
+
+  /* Ensure canvas container has proper height on mobile */
+  #content-panel .info-card {
+    min-height: 350px;
+  }
+
+  /* Make canvas fill available space */
+  #content-panel canvas {
+    width: 100% !important;
+    height: 300px !important;
+    max-height: 50vh;
+  }
+}
+
+/* Extra small mobile (< 480px) - even more compact */
+@media (max-width: 480px) {
+  .main-layout-with-sidebar {
+    gap: var(--space-2);
+  }
+
+  /* Compact canvas on very small screens */
+  #content-panel .info-card {
+    min-height: 280px;
+    padding: var(--space-2);
+  }
+
+  #content-panel canvas {
+    height: 250px !important;
+  }
+
+  /* Compact input panel */
+  .main-layout-with-sidebar #input-panel .info-card {
+    padding: var(--space-3);
+  }
+
+  /* Adjust wizard title sizing */
+  .wizard-step-title {
+    font-size: var(--text-lg);
+  }
+}
+
 /* ============================================
    END SKINNY VERTICAL STEP SIDEBAR
    ============================================ */
@@ -6568,6 +6638,46 @@ canvas.mode-transition {
   padding: 0;
   background: transparent;
   border: none;
+}
+
+.wall-selection-inline .instruction-box-highlight {
+  animation: pulse-highlight 2s ease-in-out infinite;
+}
+
+@keyframes pulse-highlight {
+  0%, 100% {
+    box-shadow: 0 0 0 0 rgba(37, 99, 235, 0);
+  }
+  50% {
+    box-shadow: 0 0 0 4px rgba(37, 99, 235, 0.2);
+  }
+}
+
+.wall-selection-inline .instruction-header {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin-bottom: var(--space-2);
+}
+
+.wall-selection-inline .instruction-icon {
+  width: 20px;
+  height: 20px;
+  color: var(--tuds-blue-accent);
+  flex-shrink: 0;
+}
+
+.wall-selection-inline .instruction-title {
+  font-weight: 600;
+  color: var(--tuds-dark-green);
+  font-size: var(--text-sm);
+}
+
+.wall-selection-inline p {
+  margin: 0;
+  color: var(--gray-700);
+  font-size: var(--text-sm);
+  line-height: 1.5;
 }
 
 /* Mobile Responsive Wizard */

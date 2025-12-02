@@ -11,6 +11,7 @@ import * as canvasLogic from "./canvasLogic.js?v=8";
 import * as bomCalculations from "./bomCalculations.js?v=8";
 import * as shapeValidator from "./shapeValidator.js?v=8";
 import * as shapeDecomposer from "./shapeDecomposer.js?v=8";
+import * as shopifyService from "./shopifyService.js?v=8";
 
 import * as multiSectionCalculations from "./multiSectionCalculations.js?v=8";
 
@@ -2468,7 +2469,10 @@ function recalculateAndUpdateBOM() {
       console.error("BOM Calculation Error:", bomResult.error);
       uiController.populateBOMTable(null, bomResult.error);
     } else {
-      appState.bom = bomResult;
+      // Enrich BOM with live Shopify prices if available
+      appState.bom = shopifyService.isLoaded()
+        ? shopifyService.enrichBomWithShopifyData(bomResult)
+        : bomResult;
       uiController.populateBOMTable(appState.bom);
     }
     uiController.populateSummaryCard(
@@ -3027,15 +3031,38 @@ function handleCanvasClick(viewMouseX, viewMouseY) {
       const lastPoint = tempPoints[tempPoints.length - 1];
       const startPoint = tempPoints[0];
 
-      if (Math.abs(lastPoint.x - startPoint.x) > config.EPSILON &&
-          Math.abs(lastPoint.y - startPoint.y) > config.EPSILON) {
+      // Minimum segment length in pixels (3 inches = 0.25 feet)
+      // Used to auto-correct small misalignments that would create invalid short segments
+      const minSegmentPixels = 0.25 * config.PIXELS_PER_FOOT;
+
+      let dx = Math.abs(lastPoint.x - startPoint.x);
+      let dy = Math.abs(lastPoint.y - startPoint.y);
+
+      // Auto-correct small misalignments to prevent creating invalid short segments
+      // If the x/y difference is smaller than minimum segment length, snap to alignment
+      if (dx > config.EPSILON && dx < minSegmentPixels) {
+        // Small x misalignment - snap last point's x to start point's x
+        console.log(`[CLOSE] Auto-correcting small X misalignment (${dx.toFixed(2)}px < ${minSegmentPixels.toFixed(2)}px min)`);
+        tempPoints[tempPoints.length - 1] = { ...lastPoint, x: startPoint.x };
+        dx = 0;
+      }
+      if (dy > config.EPSILON && dy < minSegmentPixels) {
+        // Small y misalignment - snap last point's y to start point's y
+        console.log(`[CLOSE] Auto-correcting small Y misalignment (${dy.toFixed(2)}px < ${minSegmentPixels.toFixed(2)}px min)`);
+        tempPoints[tempPoints.length - 1] = { ...tempPoints[tempPoints.length - 1], y: startPoint.y };
+        dy = 0;
+      }
+
+      if (dx > config.EPSILON && dy > config.EPSILON) {
         // We need to add a corner point to ensure 90-degree angles
-        const dx = Math.abs(lastPoint.x - startPoint.x);
-        const dy = Math.abs(lastPoint.y - startPoint.y);
+        // (only if both dx and dy are significant after auto-correction)
+
+        // Get the potentially updated last point (may have been auto-corrected above)
+        const updatedLastPoint = tempPoints[tempPoints.length - 1];
 
         // Calculate both possible corner points
-        const cornerOption1 = { x: startPoint.x, y: lastPoint.y }; // Go horizontal first
-        const cornerOption2 = { x: lastPoint.x, y: startPoint.y }; // Go vertical first
+        const cornerOption1 = { x: startPoint.x, y: updatedLastPoint.y }; // Go horizontal first
+        const cornerOption2 = { x: updatedLastPoint.x, y: startPoint.y }; // Go vertical first
 
         // Check if either corner option already exists in the points array
         const option1Exists = tempPoints.some(p =>
@@ -3081,9 +3108,19 @@ function handleCanvasClick(viewMouseX, viewMouseY) {
       }
 
       // If validation passed, actually apply the changes
+      // First, apply any auto-corrections to the last point
+      const originalLastIndex = appState.points.length - 1;
+      const correctedLastPoint = tempPoints[originalLastIndex];
+      if (correctedLastPoint.x !== appState.points[originalLastIndex].x ||
+          correctedLastPoint.y !== appState.points[originalLastIndex].y) {
+        // Last point was auto-corrected for small misalignment
+        appState.points[originalLastIndex] = correctedLastPoint;
+      }
+
+      // Add corner point if one was added
       if (tempPoints.length > appState.points.length + 1) {
-        // Corner point was added
-        appState.points.push(tempPoints[tempPoints.length - 2]); // Add corner point
+        // Corner point was added (it's the second-to-last point before closing)
+        appState.points.push(tempPoints[tempPoints.length - 2]);
         uiController.updateCanvasStatus(
           "Added corner point to maintain 90-degree angles."
         );
@@ -3907,6 +3944,60 @@ function handlePrintPage() {
   }
 }
 
+// --- Add to Cart Handler (Shopify Integration) ---
+async function handleAddToCart() {
+  if (!shopifyService.isLoaded()) {
+    alert("Shopify is not available. Please try again in a moment.");
+    return;
+  }
+
+  if (!appState.bom || appState.bom.length === 0) {
+    alert("No materials to add. Please generate a deck plan first.");
+    return;
+  }
+
+  const addToCartBtn = document.getElementById("addToCartBtn");
+
+  // Show loading state
+  const originalText = addToCartBtn.innerHTML;
+  addToCartBtn.innerHTML = `
+    <svg class="animate-spin w-4 h-4 inline-block mr-1" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+      <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+      <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+    </svg>
+    Creating Cart...
+  `;
+  addToCartBtn.disabled = true;
+
+  try {
+    // Filter items that have Shopify variant IDs
+    const shopifyItems = appState.bom.filter(item =>
+      item.shopifyVariantId && item.shopifyStatus === 'available' && item.qty > 0
+    );
+
+    if (shopifyItems.length === 0) {
+      alert("No items in the BOM are available in Shopify. Please ensure your Shopify products have matching SKUs (system_id values).");
+      return;
+    }
+
+    // Create checkout
+    const checkout = await shopifyService.createCheckout(shopifyItems);
+
+    // Open checkout in new tab
+    window.open(checkout.webUrl, '_blank');
+
+    uiController.updateCanvasStatus(`Cart created with ${shopifyItems.length} items. Opening checkout...`);
+
+  } catch (error) {
+    console.error("Error creating checkout:", error);
+    alert(`Error creating cart: ${error.message}`);
+  } finally {
+    // Restore button state
+    addToCartBtn.innerHTML = originalText;
+    addToCartBtn.disabled = false;
+  }
+}
+
 function afterPrintHandler() {
   appState.isPrinting = false;
   
@@ -4191,6 +4282,26 @@ window.updateVisualSelector = function(selectorName, value) {
 // --- Initialization ---
 document.addEventListener("DOMContentLoaded", () => {
   dataManager.loadAndParseData();
+
+  // Initialize Shopify integration (async, non-blocking)
+  shopifyService.initializeShopify().then(result => {
+    if (result.success) {
+      console.log(`Shopify loaded: ${result.productCount} products`);
+
+      // Show the Add to Cart button when Shopify is available
+      const addToCartBtn = document.getElementById("addToCartBtn");
+      if (addToCartBtn) addToCartBtn.classList.remove("hidden");
+
+      // If BOM is already displayed, refresh it with Shopify prices
+      if (appState.bom && appState.bom.length > 0) {
+        appState.bom = shopifyService.enrichBomWithShopifyData(appState.bom);
+        uiController.populateBOMTable(appState.bom);
+      }
+    } else {
+      console.warn('Shopify integration not available:', result.reason || result.error);
+    }
+  });
+
   if (deckCanvas && canvasContainer) {
     canvasLogic.initializeCanvas(
       deckCanvas,
@@ -4217,6 +4328,10 @@ document.addEventListener("DOMContentLoaded", () => {
   if (clearCanvasBtn)
     clearCanvasBtn.addEventListener("click", handleClearCanvas);
   if (printBomBtn) printBomBtn.addEventListener("click", handlePrintPage);
+
+  // Add to Cart button (Shopify integration)
+  const addToCartBtn = document.getElementById("addToCartBtn");
+  if (addToCartBtn) addToCartBtn.addEventListener("click", handleAddToCart);
 
   if (zoomInBtn) zoomInBtn.addEventListener("click", () => handleZoom(true));
   if (zoomOutBtn) zoomOutBtn.addEventListener("click", () => handleZoom(false));
@@ -5066,13 +5181,23 @@ function drawVertexEditHandles(ctx) {
   if (!appState.shapeEditMode) return; // Only show when edit mode is active
 
   const scale = appState.viewportScale;
+  const offsetX = appState.viewportOffsetX;
+  const offsetY = appState.viewportOffsetY;
   const canDelete = appState.points.length > 5; // Need at least 4 unique vertices (5 with closing point)
+
+  // Helper to convert model coords to screen coords
+  // Canvas transform: translate(offset) then scale, so screenPos = modelPos * scale + offset
+  const toScreen = (x, y) => ({
+    x: x * scale + offsetX,
+    y: y * scale + offsetY
+  });
 
   // Draw vertex handles
   for (let i = 0; i < appState.points.length - 1; i++) {
     const p = appState.points[i];
-    const viewX = (p.x + appState.viewportOffsetX) * scale;
-    const viewY = (p.y + appState.viewportOffsetY) * scale;
+    const screenPos = toScreen(p.x, p.y);
+    const viewX = screenPos.x;
+    const viewY = screenPos.y;
 
     const isHovered = i === appState.hoveredVertexIndex;
     const isSelected = i === appState.selectedVertexIndex;
@@ -5133,8 +5258,8 @@ function drawVertexEditHandles(ctx) {
     const p1 = appState.points[i];
     const p2 = appState.points[(i + 1) % (appState.points.length - 1)];
 
-    const p1View = { x: (p1.x + appState.viewportOffsetX) * scale, y: (p1.y + appState.viewportOffsetY) * scale };
-    const p2View = { x: (p2.x + appState.viewportOffsetX) * scale, y: (p2.y + appState.viewportOffsetY) * scale };
+    const p1View = toScreen(p1.x, p1.y);
+    const p2View = toScreen(p2.x, p2.y);
     const midX = (p1View.x + p2View.x) / 2;
     const midY = (p1View.y + p2View.y) / 2;
 
@@ -5226,6 +5351,7 @@ function updateEditShapePanelVisibility() {
   const instructionsPanel = document.getElementById('drawInstructionsPanel');
   const dimensionsPanel = document.getElementById('quickDimensionsPanel');
   const templatePanel = document.getElementById('templatePanel');
+  const wallSelectionPanel = document.getElementById('drawStepWallSelection');
 
   // Hide input panels when shape is closed (regardless of wall selection mode)
   const hasClosedShape = appState.isShapeClosed && appState.wizardStep === 'draw';
@@ -5234,6 +5360,9 @@ function updateEditShapePanelVisibility() {
   // (allow editing even during wall selection - edit mode will temporarily pause wall selection)
   const canEditShape = hasClosedShape;
 
+  // Wall selection mode is active when shape is closed and we need wall selection
+  const showWallSelection = hasClosedShape && appState.wallSelectionMode && !appState.shapeEditMode;
+
   // Toggle visibility - show input panels when no shape, hide when shape exists
   if (instructionsPanel) instructionsPanel.classList.toggle('hidden', hasClosedShape);
   if (dimensionsPanel) dimensionsPanel.classList.toggle('hidden', hasClosedShape);
@@ -5241,6 +5370,25 @@ function updateEditShapePanelVisibility() {
 
   // Edit panel shows whenever shape is closed
   if (editPanel) editPanel.classList.toggle('hidden', !canEditShape);
+
+  // Wall selection panel shows when we need to select walls
+  if (wallSelectionPanel) {
+    wallSelectionPanel.classList.toggle('hidden', !showWallSelection);
+
+    // Update wall selection instructions based on attachment type
+    if (showWallSelection) {
+      const attachmentType = getAttachmentType();
+      const instructionBox = wallSelectionPanel.querySelector('.instruction-box p');
+      if (instructionBox) {
+        if (attachmentType === 'house_rim') {
+          instructionBox.textContent = 'Click the wall edge(s) that will be attached to your house with a ledger board. You can select multiple parallel walls.';
+        } else {
+          // Floating deck or other type - select for joist orientation
+          instructionBox.textContent = 'Click a wall edge to set the primary joist direction. Joists will run perpendicular to the selected wall.';
+        }
+      }
+    }
+  }
 
   // Update the hint text based on mode
   const editHint = document.getElementById('editShapeHint');
@@ -5424,10 +5572,41 @@ window.toggleAllLayers = function(visible) {
 // UNDO/REDO SYSTEM
 // ============================================
 
+// Debounce tracking for history saves
+let lastHistorySaveTime = 0;
+let lastHistoryStateHash = '';
+const HISTORY_DEBOUNCE_MS = 100; // Minimum ms between saves
+
+// Helper to create a simple hash of current state for duplicate detection
+function getStateHash() {
+  return JSON.stringify({
+    points: appState.points.map(p => `${Math.round(p.x)},${Math.round(p.y)}`).join('|'),
+    closed: appState.isShapeClosed,
+    walls: appState.selectedWallIndices.join(','),
+    stairs: appState.stairs.length
+  });
+}
+
 // Save current state to history
 window.saveHistoryState = function(actionName = 'action') {
   // Don't save during undo/redo operations
   if (appState.isUndoRedoAction) return;
+
+  // Debounce: prevent rapid-fire saves (fixes infinite loop issue)
+  const now = Date.now();
+  if (now - lastHistorySaveTime < HISTORY_DEBOUNCE_MS) {
+    return; // Skip this save, too soon after last one
+  }
+
+  // Duplicate detection: don't save if state hasn't changed
+  const currentHash = getStateHash();
+  if (currentHash === lastHistoryStateHash && appState.history.length > 0) {
+    return; // Skip this save, state is identical
+  }
+
+  // Update tracking
+  lastHistorySaveTime = now;
+  lastHistoryStateHash = currentHash;
 
   // Create a snapshot of the relevant state
   const snapshot = {
@@ -5437,7 +5616,7 @@ window.saveHistoryState = function(actionName = 'action') {
     stairs: JSON.parse(JSON.stringify(appState.stairs)),
     currentPanelMode: appState.currentPanelMode,
     actionName: actionName,
-    timestamp: Date.now()
+    timestamp: now
   };
 
   // If we're not at the end of history, remove future states
@@ -5566,6 +5745,9 @@ function updateUndoRedoButtons() {
 window.clearHistory = function() {
   appState.history = [];
   appState.historyIndex = -1;
+  // Reset debounce tracking
+  lastHistorySaveTime = 0;
+  lastHistoryStateHash = '';
   updateUndoRedoButtons();
   console.log('[History] Cleared');
 };
@@ -5901,22 +6083,28 @@ const wizardStepDefinitions = [
     isWelcome: true
   },
   {
-    target: '#templateGalleryBtn',
+    target: '#templatePanel',
     title: "Quick Start Templates",
     description: "Choose from pre-built deck shapes like Rectangle, L-Shape, or Wrap-Around to quickly start your design. Perfect for common deck layouts.",
-    position: 'bottom'
+    position: 'right'
   },
   {
-    target: '#deckCanvas',
+    target: '#quickDimensionsPanel',
+    title: "Quick Rectangle",
+    description: "Enter width and depth to instantly create a rectangular deck. Great for simple deck designs when you know your dimensions.",
+    position: 'right'
+  },
+  {
+    target: '#canvasContainer',
     title: "Drawing Canvas",
     description: "This is where your deck takes shape. Click to place points and create your deck outline. The grid helps you align dimensions precisely.",
-    position: 'top'
+    position: 'left'
   },
   {
-    target: '#generatePlanBtn',
-    title: "Generate Plan",
-    description: "Once you've drawn your deck shape, click this button to generate the complete framing plan with joists, beams, and structural details.",
-    position: 'left'
+    target: '#wizardStepList',
+    title: "Workflow Steps",
+    description: "Follow these steps from Draw to Materials. Each step guides you through the deck planning process, from shape design to final cost estimate.",
+    position: 'right'
   },
   {
     target: '#floatingLegend',
@@ -5925,28 +6113,28 @@ const wizardStepDefinitions = [
     position: 'left'
   },
   {
-    target: '#framingSpecsCard',
-    title: "Framing Specifications",
-    description: "Configure your joist size, spacing, beam specifications, and post options. These settings determine your structural requirements.",
-    position: 'right'
-  },
-  {
     target: '#blueprintToggleBtn',
     title: "Blueprint View",
     description: "Switch to a professional blueprint-style view for a cleaner look. Great for sharing plans with contractors or for permit applications.",
-    position: 'left'
+    position: 'bottom'
   },
   {
     target: '#cutListModeBtn',
     title: "Cut List",
     description: "Generate a detailed cut list showing every piece of lumber needed with labels. Essential for accurate material purchasing and construction.",
-    position: 'left'
+    position: 'bottom'
   },
   {
-    target: '#bom-results',
-    title: "Bill of Materials",
-    description: "View your complete materials list with quantities and costs. The BOM updates automatically as you modify your deck design.",
-    position: 'left'
+    target: '#projectsBtn',
+    title: "Save & Load Projects",
+    description: "Save your deck designs to work on later, or load previously saved projects. Your projects are stored locally in your browser.",
+    position: 'bottom'
+  },
+  {
+    target: '#exportPdfBtn',
+    title: "Export to PDF",
+    description: "Generate a professional PDF of your deck plan including the framing layout, cut list, and bill of materials.",
+    position: 'bottom'
   },
   {
     target: '#helpWizardBtn',

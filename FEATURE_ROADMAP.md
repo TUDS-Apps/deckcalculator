@@ -14,7 +14,7 @@
 |---------|-------------|--------|--------|--------|
 | **Save/Load Projects** | Save designs locally or to cloud, reload for follow-up calls | Critical | Medium | ✅ Complete |
 | **PDF Export** | Generate professional PDF with layout diagram, structural specs, and BOM | Critical | Medium | ✅ Complete |
-| **Shopify Integration** | Connect to live TUDS inventory, real-time pricing, "Add to Cart" | Critical | High | Planned |
+| **Shopify Integration** | Connect to live TUDS inventory, real-time pricing, "Add to Cart" | Critical | High | ✅ Complete |
 | **Customer Info Capture** | Attach customer name, address, phone, email to projects | High | Low | ✅ Complete |
 | **Quote Sharing** | Generate shareable link or email quote to customer | High | Medium | Planned |
 
@@ -100,6 +100,7 @@
 | PDF Export | November 2025 |
 | Customer Info Capture | November 2025 |
 | Measurement Tool | December 2025 |
+| Shopify Integration | December 2025 |
 
 ---
 

@@ -22,8 +22,8 @@ const landingTypeSelect = document.getElementById("landingType");
 
 const bomSection = document.getElementById("bomSection");
 const bomTableBody = document.getElementById("bomTableBody");
-const summarySection = document.getElementById("summarySection");
-const summaryList = document.getElementById("summaryList");
+const summarySection = document.getElementById("reviewSummarySection");
+const summaryList = document.getElementById("reviewSummaryList");
 
 // --- BOM Interactive Functions ---
 function createQuantityControls(item, globalIndex) {
@@ -229,8 +229,6 @@ export function populateBOMTable(bomData, errorMessage = null) {
       const cellQty = row.insertCell();
       const cellItem = row.insertCell();
       const cellDesc = row.insertCell();
-      
-      // We'll still create these cells but they'll be hidden by CSS
       const cellUnitPrice = row.insertCell();
       const cellTotalPrice = row.insertCell();
 
@@ -239,7 +237,8 @@ export function populateBOMTable(bomData, errorMessage = null) {
         item.originalQty = item.qty || 0;
       }
 
-      const unitPrice = item.unitPrice || 0;
+      // Use Shopify price if available, fallback to local unitPrice
+      const unitPrice = item.shopifyPrice || item.unitPrice || 0;
       const lineTotal = (item.qty || 0) * unitPrice;
       totalCost += lineTotal;
 
@@ -247,10 +246,10 @@ export function populateBOMTable(bomData, errorMessage = null) {
       const quantityHTML = createQuantityControls(item, item.globalIndex);
       cellQty.innerHTML = quantityHTML;
       cellQty.classList.add("qty-col");
-      
+
       // Add data attribute for print quantity
       cellQty.setAttribute('data-print-qty', item.qty || 0);
-      
+
       // Add copy icon and item text
       const itemText = item.item || "N/A";
       cellItem.innerHTML = `
@@ -263,23 +262,23 @@ export function populateBOMTable(bomData, errorMessage = null) {
         ${itemText}
       `;
       cellDesc.textContent = item.description || "N/A";
-      
-      // Still set the text content but they'll be hidden
+
+      // Show price columns with Shopify prices
       cellUnitPrice.textContent = unitPrice.toLocaleString("en-CA", {
         style: "currency",
         currency: "CAD",
       });
-      cellUnitPrice.classList.add("price-col");
+      cellUnitPrice.classList.add("price-col", "text-right");
       cellTotalPrice.textContent = lineTotal.toLocaleString("en-CA", {
         style: "currency",
         currency: "CAD",
       });
-      cellTotalPrice.classList.add("price-col");
+      cellTotalPrice.classList.add("price-col", "text-right");
   });
 
-  // We'll still create the total row but it'll be hidden by CSS
+  // Add total row at the bottom
   const totalRow = bomTableBody.insertRow();
-  totalRow.classList.add("font-semibold", "bg-gray-100");
+  totalRow.classList.add("font-semibold", "bg-gray-100", "bom-total-row");
   const labelCell = totalRow.insertCell();
   labelCell.colSpan = 4;
   labelCell.textContent = "Estimated Material Total:";
@@ -289,7 +288,7 @@ export function populateBOMTable(bomData, errorMessage = null) {
     style: "currency",
     currency: "CAD",
   });
-  totalValCell.classList.add("price-col");
+  totalValCell.classList.add("price-col", "text-right", "font-bold");
   bomSection.classList.remove("hidden");
 }
 

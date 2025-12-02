@@ -81,21 +81,50 @@ function applyLongLengthFallback(
 function getCategoryForUsage(usage) {
   if (!usage) return null;
   const usageStr = String(usage).toLowerCase();
-  
+
   // Check for stairs first
-  if (usageStr.includes("stair") || usageStr.includes("step") || usageStr.includes("stringer") || 
+  if (usageStr.includes("stair") || usageStr.includes("step") || usageStr.includes("stringer") ||
       usageStr.includes("landing") || usageStr.includes("lscz") || usageStr.includes("grk fasteners for pylex")) {
     return "STAIRS";
   }
-  
+
   // Check for beams, posts, footings
-  if (usageStr.includes("beam") || usageStr.includes("post") || usageStr.includes("footing") || 
+  if (usageStr.includes("beam") || usageStr.includes("post") || usageStr.includes("footing") ||
       usageStr.includes("ledger fastener") || usageStr.includes("wall rim fastener")) {
     return "BEAMS, POSTS & FOOTINGS";
   }
-  
+
   // Everything else goes to joists group (including hardware)
   return "JOISTS, LEDGER, RIMS & BLOCKING";
+}
+
+// Simplify usage descriptions to just show component type (no cut dimensions)
+function getSimplifiedUsage(usage) {
+  if (!usage) return "";
+  const usageStr = String(usage).toLowerCase();
+
+  // Map usage strings to simple descriptions
+  if (usageStr.includes("joist")) return "Joists";
+  if (usageStr.includes("ledger")) return "Ledger";
+  if (usageStr.includes("rim")) return "Rim Joists";
+  if (usageStr.includes("blocking")) return "Blocking";
+  if (usageStr.includes("beam")) return "Beams";
+  if (usageStr.includes("post")) return "Posts";
+  if (usageStr.includes("footing")) return "Footings";
+  if (usageStr.includes("stringer")) return "Stair Stringers";
+  if (usageStr.includes("stair") || usageStr.includes("step")) return "Stairs";
+  if (usageStr.includes("landing")) return "Landing";
+  if (usageStr.includes("fastener") || usageStr.includes("hardware")) return "Hardware";
+  if (usageStr.includes("hanger")) return "Joist Hangers";
+  if (usageStr.includes("bracket")) return "Brackets";
+  if (usageStr.includes("anchor")) return "Anchors";
+  if (usageStr.includes("screw") || usageStr.includes("nail")) return "Fasteners";
+  if (usageStr.includes("tape")) return "Tape";
+  if (usageStr.includes("decking")) return "Decking";
+
+  // Return a cleaned up version if no specific match
+  // Remove parenthetical details like "(2x8, 10'6")"
+  return usage.replace(/\s*\([^)]*\)/g, '').trim();
 }
 
 // --- BOM Item Aggregation Helper ---
@@ -129,31 +158,37 @@ function addItemToBOMAggregated(bomItems, stockItem, usage, qty = 1, category = 
 
   // Use only the system_id as the key - no category separation
   const id = stockItem.system_id;
-  
+
+  // Get simplified usage (just component type like "Joists", "Beams", etc.)
+  const simplifiedUsage = getSimplifiedUsage(safeUsage);
+
   const unitPrice = stockItem.retail_price || 0;
   if (!bomItems[id]) {
     bomItems[id] = {
       qty: 0,
+      system_id: stockItem.system_id, // Include for Shopify integration
       item: stockItem.item,
-      description: safeUsage,
+      description: simplifiedUsage,
       unitPrice: unitPrice,
       totalPrice: 0,
-      _usages: new Set([safeUsage]),
+      _usages: new Set([simplifiedUsage]),
     };
   }
   bomItems[id].qty += qty;
-  if (!bomItems[id]._usages.has(safeUsage) && safeUsage) {
-    bomItems[id]._usages.add(safeUsage);
+  // Add simplified usage to set (avoids duplicates like "Joists" appearing multiple times)
+  if (!bomItems[id]._usages.has(simplifiedUsage) && simplifiedUsage) {
+    bomItems[id]._usages.add(simplifiedUsage);
     const usagesArray = Array.from(bomItems[id]._usages).filter(
       (u) => u && u.trim() !== ""
     );
     if (usagesArray.length > 0) {
+      // Join unique simplified usages (e.g., "Joists; Blocking")
       bomItems[id].description = usagesArray.sort().join("; ");
     } else {
       bomItems[id].description = stockItem.item;
     }
-  } else if (!bomItems[id].description && safeUsage) {
-    bomItems[id].description = safeUsage;
+  } else if (!bomItems[id].description && simplifiedUsage) {
+    bomItems[id].description = simplifiedUsage;
   }
 }
 
@@ -1284,7 +1319,7 @@ export function calculateBOM(structure, inputs, stairs, deckDimensions) {
             i.item?.toLowerCase().includes(screwDesc.toLowerCase()) &&
             i.pkg_unit === "box" &&
             (i.pkg_qty || 0) > 0 &&
-            (i.price || 0) > 0
+            (i.retail_price || 0) > 0
         )
         .sort((a, b) => (b.pkg_qty || 0) - (a.pkg_qty || 0)); // Sort largest first
 
@@ -1313,7 +1348,7 @@ export function calculateBOM(structure, inputs, stairs, deckDimensions) {
 
         if (remaining <= 0) {
           // Large boxes alone cover the need
-          const cost = largeQty * largeBox.price;
+          const cost = largeQty * largeBox.retail_price;
           if (cost < bestCost) {
             bestCost = cost;
             bestCombination = [{ box: largeBox, qty: largeQty }];
@@ -1322,7 +1357,7 @@ export function calculateBOM(structure, inputs, stairs, deckDimensions) {
           // Need to fill remainder with smaller boxes
           const smallBox = availableBoxes[availableBoxes.length - 1]; // Smallest
           const smallQty = Math.ceil(remaining / smallBox.pkg_qty);
-          const cost = largeQty * largeBox.price + smallQty * smallBox.price;
+          const cost = largeQty * largeBox.retail_price + smallQty * smallBox.retail_price;
 
           if (cost < bestCost) {
             bestCost = cost;
@@ -1337,7 +1372,7 @@ export function calculateBOM(structure, inputs, stairs, deckDimensions) {
       if (availableBoxes.length > 1) {
         const smallBox = availableBoxes[availableBoxes.length - 1];
         const smallOnlyQty = Math.ceil(totalNeeded / smallBox.pkg_qty);
-        const smallOnlyCost = smallOnlyQty * smallBox.price;
+        const smallOnlyCost = smallOnlyQty * smallBox.retail_price;
         if (smallOnlyCost < bestCost) {
           bestCost = smallOnlyCost;
           bestCombination = [{ box: smallBox, qty: smallOnlyQty }];

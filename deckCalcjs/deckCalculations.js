@@ -1587,6 +1587,14 @@ export function calculateStructure(
       deckCenter,
       joistSize
     );
+
+    // Handle diagonal beams - trim axis-aligned beams at their intersection with diagonal edges
+    console.log(`[DIAG_BEAM] Processing ${detectedDiagonalEdges.length} diagonal edges for beams`);
+    components.beams = handleDiagonalBeams(
+      components.beams,
+      detectedDiagonalEdges,
+      deckCenter
+    );
   }
 
   const blockingMaterialSize = joistSize;
@@ -3403,6 +3411,127 @@ export function handleDiagonalRimJoists(rimJoists, diagonalEdges, deckCenter, ri
 
   console.log('[DIAG_RIM] Final rim joists count:', modifiedRimJoists.length);
   return modifiedRimJoists;
+}
+
+/**
+ * Handles diagonal beams - trims axis-aligned beams at their intersection with diagonal edges
+ * Similar to handleDiagonalRimJoists but for beams
+ * @param {Array} beams - Existing beams
+ * @param {Array} diagonalEdges - Diagonal edges array
+ * @param {Object} deckCenter - Center point of deck
+ * @returns {Array} Modified beams with trimmed endpoints
+ */
+export function handleDiagonalBeams(beams, diagonalEdges, deckCenter) {
+  console.log('[DIAG_BEAM] Starting diagonal beam handling');
+  console.log('[DIAG_BEAM] Input beams:', beams.length);
+  console.log('[DIAG_BEAM] Diagonal edges:', diagonalEdges.length);
+
+  if (!diagonalEdges || diagonalEdges.length === 0) {
+    return beams;
+  }
+
+  const modifiedBeams = [...beams];
+
+  for (const diagEdge of diagonalEdges) {
+    console.log('[DIAG_BEAM] Processing diagonal edge:', JSON.stringify(diagEdge));
+
+    // Trim existing axis-aligned beams at their intersection with diagonal
+    for (let i = 0; i < modifiedBeams.length; i++) {
+      const beam = modifiedBeams[i];
+      if (beam.isDiagonal) continue;  // Skip diagonal beams
+
+      // Get beam centerline points (use centerline if available, otherwise p1/p2)
+      const beamP1 = beam.centerlineP1 || beam.p1;
+      const beamP2 = beam.centerlineP2 || beam.p2;
+
+      // Check if this beam is axis-aligned
+      const isHorizontal = Math.abs(beamP1.y - beamP2.y) < EPSILON;
+      const isVertical = Math.abs(beamP1.x - beamP2.x) < EPSILON;
+
+      if (!isHorizontal && !isVertical) continue;  // Skip non-axis-aligned
+
+      // Find intersection point of beam line with diagonal edge
+      let intersection = null;
+
+      if (isHorizontal) {
+        // Beam is horizontal: y = beamP1.y
+        // Diagonal line: from diagEdge.p1 to diagEdge.p2
+        const diagDx = diagEdge.p2.x - diagEdge.p1.x;
+        const diagDy = diagEdge.p2.y - diagEdge.p1.y;
+
+        if (Math.abs(diagDy) > EPSILON) {
+          const t = (beamP1.y - diagEdge.p1.y) / diagDy;
+          if (t >= -0.01 && t <= 1.01) {
+            const intersectX = diagEdge.p1.x + t * diagDx;
+            // Check if intersection is within beam's x range (with some tolerance)
+            const minX = Math.min(beamP1.x, beamP2.x);
+            const maxX = Math.max(beamP1.x, beamP2.x);
+            if (intersectX >= minX - EPSILON && intersectX <= maxX + EPSILON) {
+              intersection = { x: intersectX, y: beamP1.y };
+            }
+          }
+        }
+      } else if (isVertical) {
+        // Beam is vertical: x = beamP1.x
+        const diagDx = diagEdge.p2.x - diagEdge.p1.x;
+        const diagDy = diagEdge.p2.y - diagEdge.p1.y;
+
+        if (Math.abs(diagDx) > EPSILON) {
+          const t = (beamP1.x - diagEdge.p1.x) / diagDx;
+          if (t >= -0.01 && t <= 1.01) {
+            const intersectY = diagEdge.p1.y + t * diagDy;
+            // Check if intersection is within beam's y range (with some tolerance)
+            const minY = Math.min(beamP1.y, beamP2.y);
+            const maxY = Math.max(beamP1.y, beamP2.y);
+            if (intersectY >= minY - EPSILON && intersectY <= maxY + EPSILON) {
+              intersection = { x: beamP1.x, y: intersectY };
+            }
+          }
+        }
+      }
+
+      if (!intersection) continue;
+
+      console.log(`[DIAG_BEAM] Found intersection for beam ${i}:`, intersection);
+
+      // Determine which endpoint to trim (the one "outside" the diagonal)
+      // Use signed distance from diagonal line to determine which side of the diagonal each endpoint is on
+      const diagVecX = diagEdge.p2.x - diagEdge.p1.x;
+      const diagVecY = diagEdge.p2.y - diagEdge.p1.y;
+
+      // Cross product sign tells us which side of the line a point is on
+      const crossP1 = (beamP1.x - diagEdge.p1.x) * diagVecY - (beamP1.y - diagEdge.p1.y) * diagVecX;
+      const crossP2 = (beamP2.x - diagEdge.p1.x) * diagVecY - (beamP2.y - diagEdge.p1.y) * diagVecX;
+      const crossCenter = (deckCenter.x - diagEdge.p1.x) * diagVecY - (deckCenter.y - diagEdge.p1.y) * diagVecX;
+
+      // The "inside" point has the same sign as the center
+      // The "outside" point has opposite sign - that's the one to trim to intersection
+      const p1IsOutside = (crossP1 * crossCenter) < 0;
+      const p2IsOutside = (crossP2 * crossCenter) < 0;
+
+      console.log(`[DIAG_BEAM] Cross products: p1=${crossP1.toFixed(1)}, p2=${crossP2.toFixed(1)}, center=${crossCenter.toFixed(1)}`);
+      console.log(`[DIAG_BEAM] p1IsOutside=${p1IsOutside}, p2IsOutside=${p2IsOutside}`);
+
+      if (p1IsOutside && !p2IsOutside) {
+        // Trim p1 to intersection
+        console.log(`[DIAG_BEAM] Trimming p1 from (${beam.p1.x.toFixed(1)}, ${beam.p1.y.toFixed(1)}) to (${intersection.x.toFixed(1)}, ${intersection.y.toFixed(1)})`);
+        beam.p1 = { ...intersection };
+        if (beam.centerlineP1) beam.centerlineP1 = { ...intersection };
+        if (beam.positionCoordinateLineP1) beam.positionCoordinateLineP1 = { ...intersection };
+        beam.lengthFeet = distance(beam.p1, beam.p2) / PIXELS_PER_FOOT;
+      } else if (p2IsOutside && !p1IsOutside) {
+        // Trim p2 to intersection
+        console.log(`[DIAG_BEAM] Trimming p2 from (${beam.p2.x.toFixed(1)}, ${beam.p2.y.toFixed(1)}) to (${intersection.x.toFixed(1)}, ${intersection.y.toFixed(1)})`);
+        beam.p2 = { ...intersection };
+        if (beam.centerlineP2) beam.centerlineP2 = { ...intersection };
+        if (beam.positionCoordinateLineP2) beam.positionCoordinateLineP2 = { ...intersection };
+        beam.lengthFeet = distance(beam.p1, beam.p2) / PIXELS_PER_FOOT;
+      }
+    }
+  }
+
+  console.log('[DIAG_BEAM] Final beams count:', modifiedBeams.length);
+  return modifiedBeams;
 }
 
 /**
