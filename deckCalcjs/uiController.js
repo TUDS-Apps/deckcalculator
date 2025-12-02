@@ -198,12 +198,18 @@ export function getFormInputs() {
 }
 
 export function populateBOMTable(bomData, errorMessage = null) {
+  // Preserve scroll position before DOM modifications
+  const scrollX = window.scrollX;
+  const scrollY = window.scrollY;
+
   bomTableBody.innerHTML = "";
   let totalCost = 0;
 
   if (errorMessage) {
     bomTableBody.innerHTML = `<tr><td colspan="5" class="text-center text-gray-500 py-4">${errorMessage}</td></tr>`;
     bomSection.classList.remove("hidden");
+    // Restore scroll position after DOM update
+    window.scrollTo(scrollX, scrollY);
     return;
   }
 
@@ -211,6 +217,8 @@ export function populateBOMTable(bomData, errorMessage = null) {
     const msg = "No materials calculated. Generate a plan or add components.";
     bomTableBody.innerHTML = `<tr><td colspan="5" class="text-center text-gray-500 py-4">${msg}</td></tr>`;
     currentBOMData = null;
+    // Restore scroll position after DOM update
+    window.scrollTo(scrollX, scrollY);
     return;
   }
 
@@ -290,6 +298,9 @@ export function populateBOMTable(bomData, errorMessage = null) {
   });
   totalValCell.classList.add("price-col", "text-right", "font-bold");
   bomSection.classList.remove("hidden");
+
+  // Restore scroll position after DOM update to prevent scroll snap
+  window.scrollTo(scrollX, scrollY);
 }
 
 export function populateSummaryCard(
