@@ -55,18 +55,14 @@ function decomposePolygonIntoRectangles(points, wallIndex) {
     }
   }
 
-  // SPECIAL CASE: For shapes with diagonal edges, return a single rectangle
-  // covering the orthogonal bounding box. The diagonal edge trimming logic
-  // in structural calculations will handle proper joist termination.
-  if (hasDiagonalEdge(workingPoints)) {
-    console.log("Shape has diagonal edges - returning single bounding rectangle");
-    const bounds = getPolygonBounds(workingPoints);
-    return [{
-      x: bounds.minX,
-      y: bounds.minY,
-      width: bounds.maxX - bounds.minX,
-      height: bounds.maxY - bounds.minY
-    }];
+  // NOTE: Shapes with diagonal edges are now handled through grid decomposition.
+  // The grid is created from vertex coordinates, and cells are tested for inclusion
+  // in the actual polygon (respecting diagonal edges). Structural calculations
+  // handle diagonal edge trimming for joists, rim joists, and beams.
+  // This allows proper L-shape decomposition even when diagonal corners exist.
+  const hasDiagonal = hasDiagonalEdge(workingPoints);
+  if (hasDiagonal) {
+    console.log("Shape has diagonal edges - will decompose using grid method and handle diagonal trimming in structural calculations");
   }
 
   // Step 1: Find all unique X and Y coordinates to create a grid
