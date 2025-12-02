@@ -294,8 +294,8 @@ function drawDeckContent(currentCtx, state) {
     );
   }
 
-  // Draw dimensions if visible
-  if (points.length >= 2 && layerVisibility.dimensions) {
+  // Draw dimensions if visible (but NOT in blueprint mode - blueprint has its own dimension system)
+  if (points.length >= 2 && layerVisibility.dimensions && !state.isBlueprintMode) {
     drawAllDimensions(
       currentCtx,
       points,
@@ -1561,17 +1561,40 @@ function drawStructuralComponentsInternal(
     currentCtx.restore();
   }
 
-  // Draw annotation label for lumber/structural element
-  function drawBlueprintAnnotation(x, y, text, angle = 0) {
+  // Draw annotation label for lumber/structural element with white background for legibility
+  function drawBlueprintAnnotation(x, y, text, angle = 0, forceHorizontal = false) {
     const fontSize = Math.max(7, 9 / scale);
     currentCtx.font = `bold ${fontSize}px Arial`;
-    currentCtx.fillStyle = config.BLUEPRINT_TEXT;
     currentCtx.textAlign = 'center';
     currentCtx.textBaseline = 'middle';
 
+    // Measure text for background
+    const textMetrics = currentCtx.measureText(text);
+    const textWidth = textMetrics.width;
+    const textHeight = fontSize * 1.2;
+    const padding = 2 / scale;
+
     currentCtx.save();
     currentCtx.translate(x, y);
-    currentCtx.rotate(angle);
+
+    // Adjust rotation to keep text readable (right-side up)
+    let adjustedAngle = forceHorizontal ? 0 : angle;
+    if (!forceHorizontal && (adjustedAngle > Math.PI / 2 || adjustedAngle < -Math.PI / 2)) {
+      adjustedAngle += Math.PI;
+    }
+    currentCtx.rotate(adjustedAngle);
+
+    // Draw white background for legibility
+    currentCtx.fillStyle = 'rgba(255, 255, 255, 0.85)';
+    currentCtx.fillRect(
+      -textWidth / 2 - padding,
+      -textHeight / 2 - padding,
+      textWidth + padding * 2,
+      textHeight + padding * 2
+    );
+
+    // Draw text
+    currentCtx.fillStyle = config.BLUEPRINT_TEXT;
     currentCtx.fillText(text, 0, 0);
     currentCtx.restore();
   }
@@ -1579,23 +1602,30 @@ function drawStructuralComponentsInternal(
   // ==================== BLUEPRINT MODE RENDERING ====================
 
   if (blueprintMode) {
-    // Draw structural annotations
-    // Ledger annotation
+    // Draw structural annotations with improved positioning
+    // Calculate ledger direction for positioning other elements
+    let ledgerAngle = 0;
+    let ledgerPerpX = 0;
+    let ledgerPerpY = 1; // Default: perpendicular is downward
+
+    if (ledger) {
+      ledgerAngle = Math.atan2(ledger.p2.y - ledger.p1.y, ledger.p2.x - ledger.p1.x);
+      ledgerPerpX = -Math.sin(ledgerAngle);
+      ledgerPerpY = Math.cos(ledgerAngle);
+    }
+
+    // Ledger annotation - position inside the deck near the top
     if (ledger && layerVisibility.ledger) {
       const midX = (ledger.p1.x + ledger.p2.x) / 2;
       const midY = (ledger.p1.y + ledger.p2.y) / 2;
-      const angle = Math.atan2(ledger.p2.y - ledger.p1.y, ledger.p2.x - ledger.p1.x);
-      // Offset label slightly toward house (up/left based on angle)
-      const offsetDist = 15 / scale;
-      const perpX = -Math.sin(angle);
-      const perpY = Math.cos(angle);
-      // Position toward house (negative perpendicular)
-      const labelX = midX - perpX * offsetDist;
-      const labelY = midY - perpY * offsetDist;
-      drawBlueprintAnnotation(labelX, labelY, '2x10 LEDGER', angle);
+      // Offset label toward deck interior (positive perpendicular, closer to center)
+      const offsetDist = 10 / scale;
+      const labelX = midX + ledgerPerpX * offsetDist;
+      const labelY = midY + ledgerPerpY * offsetDist;
+      drawBlueprintAnnotation(labelX, labelY, '2x10 LEDGER', ledgerAngle);
     }
 
-    // Beam annotations
+    // Beam annotations - position above the beam line
     if (layerVisibility.beams) {
       beams.forEach((beam, idx) => {
         const midX = (beam.p1.x + beam.p2.x) / 2;
@@ -1603,105 +1633,221 @@ function drawStructuralComponentsInternal(
         const angle = Math.atan2(beam.p2.y - beam.p1.y, beam.p2.x - beam.p1.x);
         const plyCount = beam.ply || 2;
         const plyText = plyCount > 1 ? ` (${plyCount}-PLY)` : '';
-        // Offset label below beam
-        const offsetDist = 12 / scale;
+        // Offset label toward ledger (negative perpendicular from beam)
+        const offsetDist = 10 / scale;
         const perpX = -Math.sin(angle);
         const perpY = Math.cos(angle);
-        const labelX = midX + perpX * offsetDist;
-        const labelY = midY + perpY * offsetDist;
-        // Only label first beam, then use "TYP." for others
+        const labelX = midX - perpX * offsetDist;
+        const labelY = midY - perpY * offsetDist;
+        // Only label first beam
         if (idx === 0) {
           drawBlueprintAnnotation(labelX, labelY, `2x10 BEAM${plyText}`, angle);
         }
       });
     }
 
-    // Joist annotation (just one with "TYP.")
+    // Joist annotation - use HORIZONTAL text positioned in open area of deck
     if (layerVisibility.joists && joists.length > 0) {
-      // Find a joist in the middle of the array
-      const midJoistIdx = Math.floor(joists.length / 2);
-      const joist = joists[midJoistIdx];
+      // Find a joist around 1/3 from the start for better placement
+      const joistIdx = Math.floor(joists.length / 3);
+      const joist = joists[joistIdx];
       if (joist) {
-        const midX = (joist.p1.x + joist.p2.x) / 2;
-        const midY = (joist.p1.y + joist.p2.y) / 2;
-        const angle = Math.atan2(joist.p2.y - joist.p1.y, joist.p2.x - joist.p1.x);
-        // Offset label to side
-        const offsetDist = 18 / scale;
-        const perpX = -Math.sin(angle);
-        const perpY = Math.cos(angle);
-        const labelX = midX + perpX * offsetDist;
-        const labelY = midY + perpY * offsetDist;
-        drawBlueprintAnnotation(labelX, labelY, '2x8 JOISTS @ 16" O.C. (TYP.)', angle);
+        // Position at 40% along the joist length, horizontally
+        const t = 0.4;
+        const labelX = joist.p1.x + (joist.p2.x - joist.p1.x) * t;
+        const labelY = joist.p1.y + (joist.p2.y - joist.p1.y) * t;
+        // Force horizontal text for better readability
+        drawBlueprintAnnotation(labelX, labelY, '2x8 JOISTS @ 16" O.C. (TYP.)', 0, true);
       }
     }
 
-    // Rim joist annotation
+    // Rim joist annotation - find the side rim joist and label it
     if (layerVisibility.joists && rimJoists.length > 0) {
-      // Label just one rim joist
-      const rim = rimJoists[0];
+      // Find a side rim joist (perpendicular to ledger direction)
+      let sideRim = null;
+      rimJoists.forEach(rim => {
+        if (!rim || !rim.p1 || !rim.p2) return;
+        const rimAngle = Math.atan2(rim.p2.y - rim.p1.y, rim.p2.x - rim.p1.x);
+        // Check if this rim is roughly perpendicular to ledger (side rim)
+        const angleDiff = Math.abs(rimAngle - ledgerAngle);
+        if (Math.abs(angleDiff - Math.PI / 2) < 0.3 || Math.abs(angleDiff - 3 * Math.PI / 2) < 0.3) {
+          sideRim = rim;
+        }
+      });
+
+      // If found a side rim, use it; otherwise use first rim
+      const rim = sideRim || rimJoists[0];
       if (rim) {
         const midX = (rim.p1.x + rim.p2.x) / 2;
         const midY = (rim.p1.y + rim.p2.y) / 2;
-        const angle = Math.atan2(rim.p2.y - rim.p1.y, rim.p2.x - rim.p1.x);
-        const offsetDist = 12 / scale;
-        const perpX = -Math.sin(angle);
-        const perpY = Math.cos(angle);
-        const labelX = midX + perpX * offsetDist;
-        const labelY = midY + perpY * offsetDist;
-        drawBlueprintAnnotation(labelX, labelY, '2x8 RIM', angle);
+        const rimAngle = Math.atan2(rim.p2.y - rim.p1.y, rim.p2.x - rim.p1.x);
+        // Offset label to outside of deck
+        const offsetDist = 15 / scale;
+        const perpX = -Math.sin(rimAngle);
+        const perpY = Math.cos(rimAngle);
+        // Position outside the deck (away from center)
+        const labelX = midX - perpX * offsetDist;
+        const labelY = midY - perpY * offsetDist;
+        drawBlueprintAnnotation(labelX, labelY, '2x8 RIM', rimAngle);
       }
     }
 
-    // Post annotations (just label one)
+    // Post annotations - label first post with size, positioned below
     if (layerVisibility.posts && posts.length > 0) {
       const post = posts[0];
       const postSize = post.size || '4x4';
+      // Position below the post
       const labelX = post.x;
-      const labelY = post.y + 12 / scale;
-      drawBlueprintAnnotation(labelX, labelY, `${postSize.toUpperCase()} POST`, 0);
+      const labelY = post.y + 15 / scale;
+      drawBlueprintAnnotation(labelX, labelY, `${postSize.toUpperCase()} POST`, 0, true);
     }
 
-    // Draw overall dimensions if we have valid structural data
-    // Get deck bounds from ledger and beams
+    // Draw comprehensive architectural dimensions
     if (ledger) {
-      const ledgerLength = Math.sqrt(
-        Math.pow(ledger.p2.x - ledger.p1.x, 2) +
-        Math.pow(ledger.p2.y - ledger.p1.y, 2)
-      );
+      // Calculate ledger direction vectors
+      const ledgerDx = ledger.p2.x - ledger.p1.x;
+      const ledgerDy = ledger.p2.y - ledger.p1.y;
+      const ledgerLength = Math.sqrt(ledgerDx * ledgerDx + ledgerDy * ledgerDy);
       const ledgerFeet = ledgerLength / config.PIXELS_PER_FOOT;
 
-      // Draw ledger dimension
+      // Normalized ledger direction and perpendicular
+      const ledgerDirX = ledgerDx / ledgerLength;
+      const ledgerDirY = ledgerDy / ledgerLength;
+      const perpX = -ledgerDirY;
+      const perpY = ledgerDirX;
+
+      // Find the outer rim joist (the one opposite to the ledger - farthest away)
+      let outerRimJoist = null;
+      let maxDist = 0;
+      const ledgerMidX = (ledger.p1.x + ledger.p2.x) / 2;
+      const ledgerMidY = (ledger.p1.y + ledger.p2.y) / 2;
+
+      rimJoists.forEach(rim => {
+        if (!rim || !rim.p1 || !rim.p2) return;
+        const rimMidX = (rim.p1.x + rim.p2.x) / 2;
+        const rimMidY = (rim.p1.y + rim.p2.y) / 2;
+        const dist = Math.sqrt(Math.pow(rimMidX - ledgerMidX, 2) + Math.pow(rimMidY - ledgerMidY, 2));
+        if (dist > maxDist) {
+          maxDist = dist;
+          outerRimJoist = rim;
+        }
+      });
+
+      // === DIMENSION 1: Ledger/Overall Width (at top) ===
       drawDimensionLine(
         ledger.p1.x, ledger.p1.y,
         ledger.p2.x, ledger.p2.y,
-        25,
+        30,
         formatArchitecturalDimension(ledgerFeet),
         'top'
       );
 
-      // Draw depth dimension (from ledger to first beam)
-      if (beams.length > 0) {
-        const beam = beams[0];
-        // Calculate perpendicular distance from ledger to beam
-        const ledgerMidX = (ledger.p1.x + ledger.p2.x) / 2;
-        const ledgerMidY = (ledger.p1.y + ledger.p2.y) / 2;
-        const beamMidX = (beam.p1.x + beam.p2.x) / 2;
-        const beamMidY = (beam.p1.y + beam.p2.y) / 2;
+      // === DIMENSION 2: Overall Depth (full height on left side, outside deck) ===
+      if (outerRimJoist) {
+        const outerRimMidX = (outerRimJoist.p1.x + outerRimJoist.p2.x) / 2;
+        const outerRimMidY = (outerRimJoist.p1.y + outerRimJoist.p2.y) / 2;
 
-        const depthPixels = Math.sqrt(
-          Math.pow(beamMidX - ledgerMidX, 2) +
-          Math.pow(beamMidY - ledgerMidY, 2)
+        // Project to find the actual perpendicular depth
+        const fullDepthPixels = Math.abs(
+          (outerRimMidX - ledgerMidX) * perpX + (outerRimMidY - ledgerMidY) * perpY
         );
-        const depthFeet = depthPixels / config.PIXELS_PER_FOOT;
+        const fullDepthFeet = fullDepthPixels / config.PIXELS_PER_FOOT;
 
-        // Draw dimension on the left side
+        // Calculate outer rim P1 position (projected from ledger.p1 perpendicular)
+        const outerP1X = ledger.p1.x + perpX * fullDepthPixels;
+        const outerP1Y = ledger.p1.y + perpY * fullDepthPixels;
+
+        // Draw full depth dimension on left side (outside the deck)
         drawDimensionLine(
           ledger.p1.x, ledger.p1.y,
-          beam.p1.x, beam.p1.y,
-          25,
-          formatArchitecturalDimension(depthFeet),
+          outerP1X, outerP1Y,
+          40,
+          formatArchitecturalDimension(fullDepthFeet),
           'left'
         );
+
+        // === DIMENSION 3: Distance to Beam (stacked inside the overall) ===
+        if (beams.length > 0) {
+          const beam = beams[0];
+          const beamMidX = (beam.p1.x + beam.p2.x) / 2;
+          const beamMidY = (beam.p1.y + beam.p2.y) / 2;
+
+          // Calculate perpendicular distance from ledger to beam
+          const beamDistPixels = Math.abs(
+            (beamMidX - ledgerMidX) * perpX + (beamMidY - ledgerMidY) * perpY
+          );
+          const beamDistFeet = beamDistPixels / config.PIXELS_PER_FOOT;
+
+          // Beam P1 projected from ledger
+          const beamP1X = ledger.p1.x + perpX * beamDistPixels;
+          const beamP1Y = ledger.p1.y + perpY * beamDistPixels;
+
+          // Draw ledger-to-beam dimension (stacked closer to deck)
+          drawDimensionLine(
+            ledger.p1.x, ledger.p1.y,
+            beamP1X, beamP1Y,
+            25,
+            formatArchitecturalDimension(beamDistFeet),
+            'left'
+          );
+
+          // === DIMENSION 4: Cantilever (from beam to outer edge) ===
+          const cantileverPixels = fullDepthPixels - beamDistPixels;
+          if (cantileverPixels > config.PIXELS_PER_FOOT * 0.25) { // Only show if > 3 inches
+            const cantileverFeet = cantileverPixels / config.PIXELS_PER_FOOT;
+
+            // Draw cantilever dimension on right side
+            const beamP2X = ledger.p2.x + perpX * beamDistPixels;
+            const beamP2Y = ledger.p2.y + perpY * beamDistPixels;
+            const outerP2X = ledger.p2.x + perpX * fullDepthPixels;
+            const outerP2Y = ledger.p2.y + perpY * fullDepthPixels;
+
+            drawDimensionLine(
+              beamP2X, beamP2Y,
+              outerP2X, outerP2Y,
+              25,
+              formatArchitecturalDimension(cantileverFeet),
+              'right'
+            );
+          }
+
+          // === DIMENSION 5: Post spacing along beam ===
+          if (posts.length >= 2) {
+            // Sort posts by position along the beam
+            const beamDx = beam.p2.x - beam.p1.x;
+            const beamDy = beam.p2.y - beam.p1.y;
+            const beamLen = Math.sqrt(beamDx * beamDx + beamDy * beamDy);
+            const beamDirX = beamDx / beamLen;
+            const beamDirY = beamDy / beamLen;
+
+            // Get posts with their position along beam
+            const postsWithPos = posts.map(post => {
+              const dx = post.x - beam.p1.x;
+              const dy = post.y - beam.p1.y;
+              const pos = dx * beamDirX + dy * beamDirY;
+              return { post, pos };
+            }).sort((a, b) => a.pos - b.pos);
+
+            // Draw spacing between first two posts (typical spacing)
+            if (postsWithPos.length >= 2) {
+              const post1 = postsWithPos[0].post;
+              const post2 = postsWithPos[1].post;
+              const spacingPixels = Math.sqrt(
+                Math.pow(post2.x - post1.x, 2) + Math.pow(post2.y - post1.y, 2)
+              );
+              const spacingFeet = spacingPixels / config.PIXELS_PER_FOOT;
+
+              // Draw post spacing dimension below the beam
+              drawDimensionLine(
+                post1.x, post1.y,
+                post2.x, post2.y,
+                20,
+                formatArchitecturalDimension(spacingFeet) + ' TYP.',
+                'bottom'
+              );
+            }
+          }
+        }
       }
     }
   }
