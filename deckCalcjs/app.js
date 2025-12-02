@@ -3584,6 +3584,33 @@ function handleCanvasMouseDown(viewMouseX, viewMouseY, event) {
   const modelMouse = getModelMousePosition(viewMouseX, viewMouseY);
   appState.currentModelMousePos = modelMouse;
 
+  // In stair placement mode, check if clicking on existing stair to drag it
+  if (appState.stairPlacementMode && appState.stairs.length > 0) {
+    for (let i = 0; i < appState.stairs.length; i++) {
+      if (
+        canvasLogic.isPointInStairBounds(
+          modelMouse.x,
+          modelMouse.y,
+          appState.stairs[i],
+          appState.deckDimensions,
+          appState.viewportScale
+        )
+      ) {
+        appState.isDraggingStairs = true;
+        appState.draggedStairIndex = i;
+        appState.selectedStairIndex = i;
+        appState.dragStartX = viewMouseX;
+        appState.dragStartY = viewMouseY;
+        appState.dragInitialStairX = appState.stairs[i].positionX;
+        appState.dragInitialStairY = appState.stairs[i].positionY;
+        if (deckCanvas) deckCanvas.style.cursor = "grabbing";
+        event.preventDefault();
+        redrawApp();
+        return;
+      }
+    }
+  }
+
   if (
     appState.isDrawing ||
     appState.stairPlacementMode ||
