@@ -4940,8 +4940,8 @@ const DECK_TEMPLATES = {
     ]
   },
   'notched': {
-    name: 'Notched Corner',
-    description: 'Rectangle with corner notch',
+    name: 'Notched Corner Right',
+    description: 'Rectangle with corner notch on right',
     // 16x14 rectangle with 6x6 notch in top-right
     points: [
       { x: 0, y: 0 },      // Top-left
@@ -4950,6 +4950,29 @@ const DECK_TEMPLATES = {
       { x: 16, y: 6 },     // Notch bottom
       { x: 10, y: 6 },     // Notch corner
       { x: 10, y: 0 },     // Notch top
+    ]
+  },
+  'notched-left': {
+    name: 'Notched Corner Left',
+    description: 'Rectangle with corner notch on left',
+    // 16x14 rectangle with 6x6 notch in top-left
+    points: [
+      { x: 6, y: 0 },      // Top (after notch)
+      { x: 6, y: 6 },      // Notch corner
+      { x: 0, y: 6 },      // Notch bottom
+      { x: 0, y: 14 },     // Bottom-left
+      { x: 16, y: 14 },    // Bottom-right
+      { x: 16, y: 0 },     // Top-right
+    ]
+  },
+  'square': {
+    name: 'Square 12x12',
+    description: '12\' x 12\' square deck',
+    points: [
+      { x: 0, y: 0 },      // Top-left
+      { x: 0, y: 12 },     // Bottom-left
+      { x: 12, y: 12 },    // Bottom-right
+      { x: 12, y: 0 },     // Top-right
     ]
   },
   'diagonal-corners': {
@@ -5046,8 +5069,8 @@ window.createRectangleFromDimensions = function() {
   // Calculate deck dimensions
   calculateAndUpdateDeckDimensions();
 
-  // Center and fit the shape in viewport
-  centerAndFitShape();
+  // Center and fit the shape in viewport (use same logic as center button)
+  handleCenterFit();
 
   // Reset UI
   uiController.resetUIOutputs();
@@ -5534,8 +5557,8 @@ window.loadTemplate = function(templateId) {
   // Calculate deck dimensions
   calculateAndUpdateDeckDimensions();
 
-  // Center and fit the shape in viewport
-  centerAndFitShape();
+  // Center and fit the shape in viewport (use same logic as center button)
+  handleCenterFit();
 
   // Reset UI
   uiController.resetUIOutputs();
