@@ -1603,6 +1603,8 @@ function handleStepEntry(stepId, previousStep) {
       }
       break;
     case 'stairs':
+      // Unlock stairs layer directly (don't call onStepComplete to avoid redraw loop)
+      appState.unlockedLayers.stairs = true;
       // Enable stair placement mode
       appState.stairPlacementMode = true;
       // Ensure structure is calculated if jumping directly here
@@ -3262,6 +3264,10 @@ function handleStairPlacementClick(modelMouseX, modelMouseY) {
       uiController.updateCanvasStatus(`Error: ${newStair.calculationError}`);
     } else {
       appState.stairs.push(newStair);
+      // Ensure stairs layer is unlocked so they render
+      if (!appState.unlockedLayers.stairs) {
+        appState.unlockedLayers.stairs = true;
+      }
       saveHistoryState('Add stairs');
       // Keep the stair configuration panel visible so user can add more or finish
       // Don't exit placement mode yet - let user click "Add More" or "Finish"
@@ -4675,24 +4681,44 @@ window.switchTab = function(tabName) {
 function updateStairList() {
   const stairList = document.getElementById('stairList');
   const stairCount = document.getElementById('stairCount');
-  
-  if (!stairList || !stairCount) return;
-  
+
+  // Also get wizard elements
+  const wizardStairList = document.getElementById('wizardStairListItems');
+  const wizardStairCount = document.getElementById('wizardStairCount');
+
   // Update stair count
   const count = appState.stairs.length;
-  stairCount.textContent = count === 1 ? '1 set' : `${count} sets`;
-  
+  const countText = count === 1 ? '1 set' : `${count} sets`;
+
+  // Update main panel elements if they exist
+  if (stairCount) stairCount.textContent = countText;
+
+  // Update wizard elements if they exist
+  if (wizardStairCount) wizardStairCount.textContent = countText;
+
   // Don't automatically show/hide the section - let the toggle button control visibility
-  
-  // Clear existing stairs
-  stairList.innerHTML = '';
-  
-  // Add each stair to the list
-  appState.stairs.forEach((stair, index) => {
-    const stairItem = createStairListItem(stair, index);
-    stairList.appendChild(stairItem);
-  });
-  
+
+  // Clear and repopulate main stair list
+  if (stairList) {
+    stairList.innerHTML = '';
+    appState.stairs.forEach((stair, index) => {
+      const stairItem = createStairListItem(stair, index);
+      stairList.appendChild(stairItem);
+    });
+  }
+
+  // Clear and repopulate wizard stair list
+  if (wizardStairList) {
+    wizardStairList.innerHTML = '';
+    if (count === 0) {
+      wizardStairList.innerHTML = '<p class="text-gray-500 text-sm">Click on a deck edge to add stairs</p>';
+    } else {
+      appState.stairs.forEach((stair, index) => {
+        const stairItem = createStairListItem(stair, index);
+        wizardStairList.appendChild(stairItem);
+      });
+    }
+  }
 }
 
 function createStairListItem(stair, index) {
