@@ -4085,15 +4085,15 @@ canvas.mode-transition {
   left: 0;
   right: 0;
   bottom: 0;
-  width: 100vw;
-  height: 100vh;
+  width: 100%;
+  height: 100%;
   z-index: var(--z-modal);
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   justify-content: center;
   background-color: rgba(0, 0, 0, 0.5);
   backdrop-filter: blur(4px);
-  padding: var(--space-4);
+  padding: 2rem 1rem;
   opacity: 1;
   transition: opacity var(--transition-normal);
   overflow-y: auto;
@@ -4110,11 +4110,13 @@ canvas.mode-transition {
   box-shadow: var(--shadow-xl);
   max-width: 900px;
   width: 100%;
-  max-height: 90vh;
+  max-height: calc(100vh - 4rem);
+  margin: auto;
   display: flex;
   flex-direction: column;
   overflow: hidden;
   animation: modalSlideIn var(--transition-normal);
+  flex-shrink: 0;
 }
 
 @keyframes modalSlideIn {
@@ -4349,15 +4351,15 @@ canvas.mode-transition {
   left: 0;
   right: 0;
   bottom: 0;
-  width: 100vw;
-  height: 100vh;
+  width: 100%;
+  height: 100%;
   z-index: 9999;
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   justify-content: center;
   background-color: rgba(0, 0, 0, 0.5);
   backdrop-filter: blur(2px);
-  padding: 1rem;
+  padding: 2rem 1rem;
   opacity: 1;
   transition: opacity 0.2s ease;
   overflow-y: auto;
@@ -4374,11 +4376,13 @@ canvas.mode-transition {
   box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
   max-width: 800px;
   width: 100%;
-  max-height: 90vh;
+  max-height: calc(100vh - 4rem);
+  margin: auto;
   display: flex;
   flex-direction: column;
   overflow: hidden;
   animation: modalSlideIn 0.2s ease-out;
+  flex-shrink: 0;
 }
 
 .cut-list-modal-header {
@@ -5397,15 +5401,15 @@ canvas.mode-transition {
   left: 0;
   right: 0;
   bottom: 0;
-  width: 100vw;
-  height: 100vh;
+  width: 100%;
+  height: 100%;
   background: rgba(0, 0, 0, 0.6);
   backdrop-filter: blur(4px);
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   justify-content: center;
   z-index: 1000;
-  padding: 1rem;
+  padding: 2rem 1rem;
   overflow-y: auto;
   box-sizing: border-box;
 }
@@ -5420,11 +5424,13 @@ canvas.mode-transition {
   box-shadow: var(--shadow-xl, 0 25px 50px -12px rgba(0, 0, 0, 0.25));
   width: 100%;
   max-width: 600px;
-  max-height: 90vh;
+  max-height: calc(100vh - 4rem);
+  margin: auto;
   display: flex;
   flex-direction: column;
   overflow: hidden;
   animation: modalSlideIn 0.2s ease-out;
+  flex-shrink: 0;
 }
 
 @keyframes modalSlideIn {
@@ -6143,15 +6149,15 @@ canvas.mode-transition {
   left: 0;
   right: 0;
   bottom: 0;
-  width: 100vw;
-  height: 100vh;
+  width: 100%;
+  height: 100%;
   background: rgba(0, 0, 0, 0.6);
   backdrop-filter: blur(4px);
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   justify-content: center;
   z-index: 10000;
-  padding: 1rem;
+  padding: 2rem 1rem;
   overflow-y: auto;
   box-sizing: border-box;
 }
@@ -6161,9 +6167,11 @@ canvas.mode-transition {
   border-radius: var(--radius-xl, 1rem);
   max-width: 400px;
   width: 100%;
-  max-height: 90vh;
+  max-height: calc(100vh - 4rem);
+  margin: auto;
   overflow-y: auto;
   box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+  flex-shrink: 0;
 }
 
 .auth-modal-header {
