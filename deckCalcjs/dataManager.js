@@ -119,7 +119,31 @@ const rawStockListCSV = `System ID,Item,Retail Price
 210000000265,Simpson BCS Post Cap  BCS2-3/6Z,$19.49
 210000000267,Simpson Hurricane  H2.5AZ Flush Tie,$1.19
 210000005241,Quikrete 30kg Ready-to-Use Concrete Mix,$12.59
-210000000929,Simpson LSCZ Adjustable Stair Stringer Connector Z-MAX,$5.39`;
+210000000929,Simpson LSCZ Adjustable Stair Stringer Connector Z-MAX,$5.39
+210000010001,"5/4x6 PT Brown Deck Board 8'",$11.99
+210000010002,"5/4x6 PT Brown Deck Board 10'",$14.99
+210000010003,"5/4x6 PT Brown Deck Board 12'",$17.99
+210000010004,"5/4x6 PT Brown Deck Board 14'",$20.99
+210000010005,"5/4x6 PT Brown Deck Board 16'",$23.99
+210000010011,"5/4x6 Cedar Deck Board 8'",$18.99
+210000010012,"5/4x6 Cedar Deck Board 10'",$23.99
+210000010013,"5/4x6 Cedar Deck Board 12'",$28.99
+210000010014,"5/4x6 Cedar Deck Board 14'",$33.99
+210000010015,"5/4x6 Cedar Deck Board 16'",$38.99
+210000010021,"5/4x5 Cedar Deck Board 8'",$15.99
+210000010022,"5/4x5 Cedar Deck Board 10'",$19.99
+210000010023,"5/4x5 Cedar Deck Board 12'",$23.99
+210000010024,"5/4x5 Cedar Deck Board 14'",$27.99
+210000010025,"5/4x5 Cedar Deck Board 16'",$31.99
+210000010101,"DSB Deck Screw 2-1/2"" 100ct",$12.99
+210000010102,"DSB Deck Screw 2-1/2"" 350ct",$39.99
+210000010103,"DSB Deck Screw 2-1/2"" 1000ct",$99.99
+210000010111,"DSB Deck Screw 3"" 100ct",$14.99
+210000010112,"DSB Deck Screw 3"" 350ct",$44.99
+210000010113,"DSB Deck Screw 3"" 1000ct",$109.99
+210000010201,"Camo Hidden Deck Screw 2-3/8"" 100ct",$29.99
+210000010202,"Camo Hidden Deck Screw 2-3/8"" 350ct",$89.99
+210000010203,"Camo Hidden Deck Screw 2-3/8"" 700ct",$169.99`;
 
 // Max Joist Span Data Structure (this would ideally come from a CSV too, but embedded for now)
 const maxJoistSpansData = [

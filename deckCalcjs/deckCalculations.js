@@ -11,7 +11,6 @@ import {
   PICTURE_FRAME_DOUBLE_INSET_INCHES,
   MAX_BLOCKING_SPACING_FEET,
   JOIST_SIZE_ORDER,
-  DROP_BEAM_CENTERLINE_SETBACK_FEET as CONFIG_DROP_BEAM_SETBACK,
 } from "./config.js?v=8";
 import { distance } from "./utils.js?v=8";
 import { getMaxJoistSpans } from "./dataManager.js?v=8";
@@ -21,8 +20,6 @@ const ACTUAL_LUMBER_THICKNESS_INCHES = 1.5;
 const ACTUAL_LUMBER_THICKNESS_PIXELS =
   (ACTUAL_LUMBER_THICKNESS_INCHES / 12) * PIXELS_PER_FOOT;
 const HALF_LUMBER_THICKNESS_PIXELS = ACTUAL_LUMBER_THICKNESS_PIXELS / 2;
-const DROP_BEAM_CENTERLINE_SETBACK_FEET =
-  typeof CONFIG_DROP_BEAM_SETBACK === "number" ? CONFIG_DROP_BEAM_SETBACK : 1.0;
 
 // --- Helper Functions ---
 function calculateBeamAndPostsInternal(
@@ -1086,14 +1083,17 @@ export function calculateStructure(
     outerBeam = null,
     midBeam = null;
 
+  // Get the cantilever distance based on joist size (not hardcoded 1 foot)
+  const cantileverFeet = getCantileverForJoistSize(joistSize);
+
   if (inputs.attachmentType === "floating") {
     let wsPosCoord = wallSideActualEdgeCoord;
     if (inputs.beamType === "drop") {
       wsPosCoord =
         wallSideActualEdgeCoord +
         (deckExtendsPositiveDir
-          ? DROP_BEAM_CENTERLINE_SETBACK_FEET * PIXELS_PER_FOOT
-          : -(DROP_BEAM_CENTERLINE_SETBACK_FEET * PIXELS_PER_FOOT));
+          ? cantileverFeet * PIXELS_PER_FOOT
+          : -(cantileverFeet * PIXELS_PER_FOOT));
     }
     const wsRes = calculateBeamAndPostsInternal(
       wsPosCoord,
@@ -1126,8 +1126,8 @@ export function calculateStructure(
       obPosCoord =
         outerActualEdgeCoord +
         (deckExtendsPositiveDir
-          ? -(DROP_BEAM_CENTERLINE_SETBACK_FEET * PIXELS_PER_FOOT)
-          : DROP_BEAM_CENTERLINE_SETBACK_FEET * PIXELS_PER_FOOT);
+          ? -(cantileverFeet * PIXELS_PER_FOOT)
+          : cantileverFeet * PIXELS_PER_FOOT);
     }
 
     // Check for diagonal edges and find where horizontal outer edge ends
@@ -1311,8 +1311,12 @@ export function calculateStructure(
 
   // Generate unified beam outline (mirrors rim joist, offset by cantilever)
   // This replaces separate outer beam and diagonal beam calculations
-  if (shapePoints && shapePoints.length >= 3 && inputs.beamType === 'drop') {
-    console.log('[BEAM_OUTLINE] Generating unified beam outline from perimeter');
+  // ONLY apply when shape has diagonal edges - simple rectangles use traditional beam placement
+  const hasDiagonalEdgesForBeams = shapePoints && shapePoints.length >= 3 && getDiagonalEdges(shapePoints).length > 0;
+  const shouldUsePerimeterBeams = hasDiagonalEdgesForBeams;
+
+  if (shouldUsePerimeterBeams) {
+    console.log(`[BEAM_OUTLINE] Generating unified beam outline from perimeter (beamType=${inputs.beamType}, hasDiagonalEdges=${hasDiagonalEdgesForBeams})`);
 
     // Remove existing outer beam and diagonal beams from components
     // (they were added by the old calculateBeamAndPostsInternal call above)
@@ -2144,11 +2148,19 @@ export function generateBeamOutlineFromPerimeter(shapePoints, ledgerIndices, joi
 
   console.log(`[BEAM_OUTLINE] Generating beam outline from perimeter, cantilever=${cantileverFeet}ft (${joistSize})`);
 
+  // Check if the shape has a closing point (last point equals first point)
+  // If so, we need to exclude the last edge which would be zero-length
+  const firstP = shapePoints[0];
+  const lastP = shapePoints[shapePoints.length - 1];
+  const hasClosingPoint = Math.abs(firstP.x - lastP.x) < 1 && Math.abs(firstP.y - lastP.y) < 1;
+  const numEdges = hasClosingPoint ? shapePoints.length - 1 : shapePoints.length;
+  console.log(`[BEAM_OUTLINE] Shape has ${shapePoints.length} points, ${hasClosingPoint ? 'with' : 'without'} closing point, ${numEdges} edges`);
+
   // Determine joist direction from the primary ledger
   // Joists run perpendicular to the ledger
   const primaryLedgerIndex = ledgerIndices[0];
   const ledgerP1 = shapePoints[primaryLedgerIndex];
-  const ledgerP2 = shapePoints[(primaryLedgerIndex + 1) % shapePoints.length];
+  const ledgerP2 = shapePoints[(primaryLedgerIndex + 1) % numEdges];
   const isLedgerHorizontal = Math.abs(ledgerP1.y - ledgerP2.y) < Math.abs(ledgerP1.x - ledgerP2.x);
 
   // If ledger is horizontal, joists run vertically (in Y direction)
@@ -2160,13 +2172,13 @@ export function generateBeamOutlineFromPerimeter(shapePoints, ledgerIndices, joi
 
   // Get all non-ledger edges that need beams (edges that cross under joists)
   const edges = [];
-  for (let i = 0; i < shapePoints.length; i++) {
+  for (let i = 0; i < numEdges; i++) {
     if (ledgerIndices.includes(i)) {
       console.log(`[BEAM_OUTLINE] Edge ${i} is a ledger - skipping`);
       continue; // Skip ledger edges
     }
     const p1 = shapePoints[i];
-    const p2 = shapePoints[(i + 1) % shapePoints.length];
+    const p2 = shapePoints[(i + 1) % numEdges];
 
     // Classify this edge
     const dx = Math.abs(p2.x - p1.x);
@@ -2205,26 +2217,38 @@ export function generateBeamOutlineFromPerimeter(shapePoints, ledgerIndices, joi
 
   console.log(`[BEAM_OUTLINE] Processing ${edges.length} edges that need beams`);
 
-  // For each edge, calculate the offset direction (toward deck center)
+  // Determine polygon winding order to know which way is "inward"
+  // Use the shoelace formula: positive sum = clockwise (in screen coords), negative = counter-clockwise
+  let windingSum = 0;
+  for (let i = 0; i < numEdges; i++) {
+    const p1 = shapePoints[i];
+    const p2 = shapePoints[(i + 1) % numEdges];
+    windingSum += (p2.x - p1.x) * (p2.y + p1.y);
+  }
+  // For clockwise (positive), perpendicular (90° CCW) points OUTWARD, so we need -1 to go inward
+  // For counter-clockwise (negative), perpendicular points INWARD, so we use +1
+  const windingSign = windingSum >= 0 ? -1 : 1;
+  console.log(`[BEAM_OUTLINE] Winding sum=${windingSum.toFixed(0)}, sign=${windingSign} (${windingSum >= 0 ? 'clockwise' : 'counter-clockwise'})`);
+
+  // For each edge, calculate the offset direction using winding order (not distance-to-center)
   const offsetSegments = [];
   for (const edge of edges) {
-    const edgeMidX = (edge.p1.x + edge.p2.x) / 2;
-    const edgeMidY = (edge.p1.y + edge.p2.y) / 2;
+    // Calculate perpendicular vector from edge direction
+    const dx = edge.p2.x - edge.p1.x;
+    const dy = edge.p2.y - edge.p1.y;
+    const len = Math.sqrt(dx * dx + dy * dy);
+    if (len < EPSILON) continue;
 
-    // Get perpendicular vector
-    const angle = getEdgeAngle(edge.p1, edge.p2);
-    const perp = getPerpendicularVector(angle);
+    // Perpendicular vector (90° counter-clockwise rotation of edge direction)
+    // Adjusted by winding sign to always point inward
+    const perpX = (-dy / len) * windingSign;
+    const perpY = (dx / len) * windingSign;
 
-    // Test which direction is toward deck center
-    const testX = edgeMidX + perp.x * 10;
-    const testY = edgeMidY + perp.y * 10;
-    const distToCenter1 = Math.sqrt((testX - deckCenter.x) ** 2 + (testY - deckCenter.y) ** 2);
-    const distToCenter2 = Math.sqrt((edgeMidX - perp.x * 10 - deckCenter.x) ** 2 +
-                                     (edgeMidY - perp.y * 10 - deckCenter.y) ** 2);
-
-    // Offset toward deck center
-    const inwardSign = distToCenter1 < distToCenter2 ? 1 : -1;
-    const offset = offsetSegment(edge.p1, edge.p2, cantileverPixels * inwardSign);
+    // Offset the segment inward by cantilever distance
+    const offset = {
+      p1: { x: edge.p1.x + perpX * cantileverPixels, y: edge.p1.y + perpY * cantileverPixels },
+      p2: { x: edge.p2.x + perpX * cantileverPixels, y: edge.p2.y + perpY * cantileverPixels }
+    };
 
     offsetSegments.push({
       ...offset,
@@ -2236,7 +2260,8 @@ export function generateBeamOutlineFromPerimeter(shapePoints, ledgerIndices, joi
 
   // Build a map of which edge indices have beams
   const edgeHasBeam = new Set(edges.map(e => e.edgeIndex));
-  const numPoints = shapePoints.length;
+  // Use numEdges (which accounts for closing point) instead of shapePoints.length
+  const numPoints = numEdges;
 
   // Helper: extend a beam line to intersect with a deck edge (for edges without beams)
   function extendBeamToEdge(beamP1, beamP2, edgeIdx) {

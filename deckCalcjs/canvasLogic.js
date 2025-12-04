@@ -1,4 +1,4 @@
-// canvasLogic.js (v9 - Fix Interactive Grid, Print Grid Coverage, Larger Print Icons/Fonts, Dim Padding)
+// canvasLogic.js (v10 - Touch support for mobile/tablet)
 import * as config from "./config.js";
 import * as utils from "./utils.js";
 
@@ -14,6 +14,32 @@ let onMouseDownCallback = null;
 let onMouseUpCallback = null;
 let onCanvasResizeCallback = null;
 
+// Touch callbacks (for pinch-zoom and two-finger pan)
+let onPinchZoomCallback = null;
+let onTwoFingerPanCallback = null;
+
+// Touch state tracking
+let touchState = {
+  isActive: false,
+  isTwoFingerGesture: false,
+  startTime: 0,
+  startX: 0,
+  startY: 0,
+  lastX: 0,
+  lastY: 0,
+  // For pinch-zoom
+  initialPinchDistance: 0,
+  lastPinchDistance: 0,
+  pinchCenterX: 0,
+  pinchCenterY: 0,
+  // For two-finger pan
+  initialPanX: 0,
+  initialPanY: 0,
+  // Tap detection
+  tapTimeout: null,
+  lastTapTime: 0
+};
+
 // --- Initialization ---
 export function initializeCanvas(
   canvasEl,
@@ -22,7 +48,9 @@ export function initializeCanvas(
   onMouseMove,
   onMouseDown,
   onMouseUp,
-  onResize
+  onResize,
+  onPinchZoom = null,
+  onTwoFingerPan = null
 ) {
   if (!canvasEl || !containerEl) {
     console.error(
@@ -38,6 +66,8 @@ export function initializeCanvas(
   onMouseMoveCallback = onMouseMove;
   onMouseDownCallback = onMouseDown;
   onMouseUpCallback = onMouseUp;
+  onPinchZoomCallback = onPinchZoom;
+  onTwoFingerPanCallback = onTwoFingerPan;
   onCanvasResizeCallback = onResize;
 
   if (!ctx) {
@@ -48,10 +78,17 @@ export function initializeCanvas(
   resizeCanvas();
 
   if (!canvasElement.dataset.listenersAdded) {
+    // Mouse events
     canvasElement.addEventListener("click", handleCanvasClickInternal);
     canvasElement.addEventListener("mousemove", handleMouseMoveInternal);
     canvasElement.addEventListener("mousedown", handleMouseDownInternal);
     canvasElement.addEventListener("mouseup", handleMouseUpInternal);
+
+    // Touch events for mobile/tablet support
+    canvasElement.addEventListener("touchstart", handleTouchStartInternal, { passive: false });
+    canvasElement.addEventListener("touchmove", handleTouchMoveInternal, { passive: false });
+    canvasElement.addEventListener("touchend", handleTouchEndInternal, { passive: false });
+    canvasElement.addEventListener("touchcancel", handleTouchEndInternal, { passive: false });
 
     const resizeObserver = new ResizeObserver((entries) => {
       for (let entry of entries) {
@@ -151,6 +188,144 @@ function drawGrid(
   currentCtx.restore();
 }
 
+/**
+ * Draw an inactive tier's outline (for multi-tier mode).
+ * Shows a semi-transparent outline so users can see both tiers at once.
+ */
+function drawInactiveTierOutline(currentCtx, tier, effectiveScale, isActive = false, isHovered = false) {
+  if (!tier || !tier.points || tier.points.length < 2) return;
+
+  const points = tier.points;
+  const tierColor = tier.color || '#4A90E2';
+
+  // Scale line width for current zoom level
+  const scaledLineWidth = (width) => Math.max(0.5 / effectiveScale, width / effectiveScale);
+
+  // Set style based on whether this is the active tier or hovered
+  if (isActive) {
+    // Active tier: solid outline with full color
+    currentCtx.strokeStyle = tierColor;
+    currentCtx.lineWidth = scaledLineWidth(3);
+    currentCtx.setLineDash([]);
+    currentCtx.globalAlpha = 1;
+  } else if (isHovered) {
+    // Hovered inactive tier: brighter, more prominent to show it's clickable
+    currentCtx.strokeStyle = tierColor;
+    currentCtx.lineWidth = scaledLineWidth(3);
+    currentCtx.setLineDash([scaledLineWidth(8), scaledLineWidth(4)]);
+    currentCtx.globalAlpha = 0.8;
+  } else {
+    // Inactive tier: dashed outline with reduced opacity
+    currentCtx.strokeStyle = tierColor;
+    currentCtx.lineWidth = scaledLineWidth(2);
+    currentCtx.setLineDash([scaledLineWidth(8), scaledLineWidth(4)]);
+    currentCtx.globalAlpha = 0.5;
+  }
+
+  // Draw the outline
+  currentCtx.beginPath();
+  currentCtx.moveTo(points[0].x, points[0].y);
+  for (let i = 1; i < points.length; i++) {
+    currentCtx.lineTo(points[i].x, points[i].y);
+  }
+  currentCtx.closePath();
+  currentCtx.stroke();
+
+  // Optionally draw a semi-transparent fill for inactive tier
+  if (!isActive && points.length >= 3) {
+    currentCtx.fillStyle = tierColor;
+    currentCtx.globalAlpha = isHovered ? 0.15 : 0.08; // Brighter fill when hovered
+    currentCtx.fill();
+  }
+
+  // Draw vertex points for inactive tier
+  if (!isActive) {
+    currentCtx.globalAlpha = isHovered ? 0.8 : 0.5;
+    currentCtx.fillStyle = tierColor;
+    const pointRadius = (isHovered ? 5 : 4) / effectiveScale;
+    points.forEach((p) => {
+      currentCtx.beginPath();
+      currentCtx.arc(p.x, p.y, pointRadius, 0, Math.PI * 2);
+      currentCtx.fill();
+    });
+  }
+
+  // Reset context state
+  currentCtx.globalAlpha = 1;
+  currentCtx.setLineDash([]);
+}
+
+/**
+ * Draw a tier label near the shape for identification.
+ * Only shows label if tier has at least 3 points (valid shape).
+ */
+function drawTierLabel(currentCtx, tier, effectiveScale, isActive = false) {
+  if (!tier || !tier.points || tier.points.length < 3) return;
+
+  // Find the bounding box center
+  let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
+  tier.points.forEach(p => {
+    minX = Math.min(minX, p.x);
+    maxX = Math.max(maxX, p.x);
+    minY = Math.min(minY, p.y);
+    maxY = Math.max(maxY, p.y);
+  });
+
+  // Position label in the CENTER of the shape
+  const centerX = (minX + maxX) / 2;
+  const centerY = (minY + maxY) / 2;
+
+  const fontSize = Math.max(10, 14 / effectiveScale);
+  currentCtx.font = `bold ${fontSize}px 'Inter', sans-serif`;
+  currentCtx.textAlign = 'center';
+  currentCtx.textBaseline = 'middle';
+
+  // Draw label background
+  const labelText = tier.name || tier.id;
+  const textMetrics = currentCtx.measureText(labelText);
+  const padding = 6 / effectiveScale;
+
+  // Use tier color with different opacity for active vs inactive
+  const tierColor = tier.color || '#4A90E2';
+  currentCtx.fillStyle = tierColor;
+  currentCtx.globalAlpha = isActive ? 0.85 : 0.7;
+
+  const bgWidth = textMetrics.width + padding * 2;
+  const bgHeight = fontSize + padding * 2;
+  const bgX = centerX - bgWidth / 2;
+  const bgY = centerY - bgHeight / 2;
+  const radius = 4 / effectiveScale;
+
+  // Draw rounded rectangle background
+  currentCtx.beginPath();
+  currentCtx.moveTo(bgX + radius, bgY);
+  currentCtx.lineTo(bgX + bgWidth - radius, bgY);
+  currentCtx.arcTo(bgX + bgWidth, bgY, bgX + bgWidth, bgY + radius, radius);
+  currentCtx.lineTo(bgX + bgWidth, bgY + bgHeight - radius);
+  currentCtx.arcTo(bgX + bgWidth, bgY + bgHeight, bgX + bgWidth - radius, bgY + bgHeight, radius);
+  currentCtx.lineTo(bgX + radius, bgY + bgHeight);
+  currentCtx.arcTo(bgX, bgY + bgHeight, bgX, bgY + bgHeight - radius, radius);
+  currentCtx.lineTo(bgX, bgY + radius);
+  currentCtx.arcTo(bgX, bgY, bgX + radius, bgY, radius);
+  currentCtx.closePath();
+  currentCtx.fill();
+
+  // Draw selection ring for active tier
+  if (isActive) {
+    currentCtx.strokeStyle = '#FFFFFF';
+    currentCtx.lineWidth = 2 / effectiveScale;
+    currentCtx.globalAlpha = 1;
+    currentCtx.stroke();
+  }
+
+  // Draw label text
+  currentCtx.fillStyle = '#FFFFFF';
+  currentCtx.globalAlpha = 1;
+  currentCtx.fillText(labelText, centerX, centerY);
+
+  currentCtx.globalAlpha = 1;
+}
+
 
 function drawDeckContent(currentCtx, state) {
   const {
@@ -158,6 +333,7 @@ function drawDeckContent(currentCtx, state) {
     isShapeClosed = false,
     selectedWallIndices = [],
     wallSelectionMode = false,
+    hoveredWallIndex = -1,
     structuralComponents = null,
     stairs = [],
     isDraggingStairs = false,
@@ -176,8 +352,11 @@ function drawDeckContent(currentCtx, state) {
       posts: true,
       blocking: true,
       dimensions: true,
-      stairs: true
-    }
+      stairs: true,
+      decking: true
+    },
+    decking = null, // Decking configuration state
+    wizardStep = 'draw' // Current wizard step
   } = state;
 
   const effectiveScale = isScaledForPrint
@@ -211,6 +390,16 @@ function drawDeckContent(currentCtx, state) {
             effectiveScale
           );
         });
+      }
+      // Highlight hovered wall during wall selection mode (orange color)
+      if (wallSelectionMode && hoveredWallIndex >= 0 && !selectedWallIndices.includes(hoveredWallIndex)) {
+        highlightWall(
+          currentCtx,
+          points,
+          hoveredWallIndex,
+          true, // isHover = true for orange color
+          effectiveScale
+        );
       }
     } else {
       currentCtx.stroke();
@@ -316,6 +505,24 @@ function drawDeckContent(currentCtx, state) {
       layerVisibility
     );
   }
+
+  // Draw decking boards if on decking step or beyond (and layer is visible)
+  const showDecking = decking &&
+                      isShapeClosed &&
+                      deckDimensions &&
+                      (layerVisibility.decking !== false) &&
+                      (wizardStep === 'decking' || wizardStep === 'railing' || wizardStep === 'review');
+  if (showDecking) {
+    drawDeckingBoards(
+      currentCtx,
+      points,
+      deckDimensions,
+      decking,
+      effectiveScale,
+      isScaledForPrint
+    );
+  }
+
   // Draw stairs if visible
   if (stairs && stairs.length > 0 && deckDimensions && layerVisibility.stairs) {
     drawStairsInternal(
@@ -632,10 +839,67 @@ export function redrawCanvas(state) {
       Math.min(modelVisibleMaxY, modelMaxY),
       false
     );
+
+    // Multi-tier rendering: Draw inactive tier outline first (if enabled)
+    if (state.tiersEnabled && state.tiers) {
+      const activeTierId = state.activeTierId || 'upper';
+      const tierIds = Object.keys(state.tiers);
+
+      // Sort tiers by zOrder so lower tiers are drawn first
+      const sortedTiers = tierIds
+        .map(id => state.tiers[id])
+        .sort((a, b) => (a.zOrder || 0) - (b.zOrder || 0));
+
+      // Count how many tiers have shapes (for deciding whether to show labels)
+      const tiersWithShapes = sortedTiers.filter(t => t.points && t.points.length >= 3).length;
+      const showTierLabels = tiersWithShapes > 1;
+
+      // Draw inactive tier(s) first (behind the active tier)
+      sortedTiers.forEach(tier => {
+        if (tier.id !== activeTierId && tier.points && tier.points.length >= 2) {
+          // Check if this tier is being hovered
+          const isHovered = state.hoveredTierId === tier.id;
+          // Draw the inactive tier's outline with semi-transparent style
+          drawInactiveTierOutline(ctx, tier, state.viewportScale, false, isHovered);
+          // Draw tier label (inactive) - only if multiple tiers have shapes
+          if (showTierLabels) {
+            drawTierLabel(ctx, tier, state.viewportScale, false);
+          }
+
+          // Draw structural components for inactive tier (slightly reduced opacity)
+          // This allows users to see both tiers' structure simultaneously
+          if (tier.isShapeClosed && tier.structuralComponents && !tier.structuralComponents.error) {
+            ctx.save();
+            ctx.globalAlpha = isHovered ? 0.85 : 0.7; // Good visibility for inactive tier
+            drawStructuralComponentsInternal(
+              ctx,
+              tier.structuralComponents,
+              state.viewportScale,
+              false, // isScaledForPrint
+              blueprintMode,
+              state.layerVisibility || { ledger: true, joists: true, beams: true, posts: true, blocking: true }
+            );
+            ctx.restore();
+          }
+        }
+      });
+
+      // Store for use when drawing active tier label
+      state._showTierLabels = showTierLabels;
+    }
+
     drawDeckContent(ctx, {
       ...state,
       isBlueprintMode: blueprintMode
     });
+
+    // Multi-tier rendering: Draw active tier label after deck content (only if multiple tiers)
+    if (state.tiersEnabled && state.tiers && state.activeTierId && state._showTierLabels) {
+      const activeTier = state.tiers[state.activeTierId];
+      if (activeTier && activeTier.points && activeTier.points.length >= 3) {
+        drawTierLabel(ctx, activeTier, state.viewportScale, true); // isActive = true
+      }
+    }
 
     // Draw measurement overlay (only in measure mode)
     if (state.isMeasureMode && (state.measurePoint1 || state.measurePoint2)) {
@@ -928,6 +1192,218 @@ function handleMouseDownInternal(event) {
 function handleMouseUpInternal(event) {
   if (onMouseUpCallback) {
     onMouseUpCallback(event);
+  }
+}
+
+// --- Touch Event Handlers for Mobile/Tablet ---
+
+/**
+ * Get distance between two touch points
+ */
+function getTouchDistance(touch1, touch2) {
+  const dx = touch2.clientX - touch1.clientX;
+  const dy = touch2.clientY - touch1.clientY;
+  return Math.sqrt(dx * dx + dy * dy);
+}
+
+/**
+ * Get center point between two touches
+ */
+function getTouchCenter(touch1, touch2) {
+  return {
+    x: (touch1.clientX + touch2.clientX) / 2,
+    y: (touch1.clientY + touch2.clientY) / 2
+  };
+}
+
+/**
+ * Handle touch start - supports single touch (tap/draw) and multi-touch (pinch/pan)
+ */
+function handleTouchStartInternal(event) {
+  const rect = canvasElement.getBoundingClientRect();
+  const touches = event.touches;
+
+  if (touches.length === 1) {
+    // Single finger touch - treat like mouse down
+    const touch = touches[0];
+    const x = touch.clientX - rect.left;
+    const y = touch.clientY - rect.top;
+
+    touchState.isActive = true;
+    touchState.isTwoFingerGesture = false;
+    touchState.startTime = Date.now();
+    touchState.startX = x;
+    touchState.startY = y;
+    touchState.lastX = x;
+    touchState.lastY = y;
+
+    // Trigger mouse down callback for drawing
+    if (onMouseDownCallback) {
+      // Create a synthetic event object with button=0 (left click)
+      const syntheticEvent = {
+        button: 0,
+        clientX: touch.clientX,
+        clientY: touch.clientY,
+        preventDefault: () => event.preventDefault(),
+        stopPropagation: () => event.stopPropagation()
+      };
+      onMouseDownCallback(x, y, syntheticEvent);
+    }
+
+    // Prevent default to avoid scrolling while drawing
+    event.preventDefault();
+
+  } else if (touches.length === 2) {
+    // Two finger touch - pinch zoom or pan
+    touchState.isActive = true;
+    touchState.isTwoFingerGesture = true;
+
+    const touch1 = touches[0];
+    const touch2 = touches[1];
+
+    // Calculate initial pinch distance
+    touchState.initialPinchDistance = getTouchDistance(touch1, touch2);
+    touchState.lastPinchDistance = touchState.initialPinchDistance;
+
+    // Calculate pinch center (in canvas coordinates)
+    const center = getTouchCenter(touch1, touch2);
+    touchState.pinchCenterX = center.x - rect.left;
+    touchState.pinchCenterY = center.y - rect.top;
+
+    // Store initial pan position
+    touchState.initialPanX = center.x;
+    touchState.initialPanY = center.y;
+    touchState.lastX = center.x;
+    touchState.lastY = center.y;
+
+    event.preventDefault();
+  }
+}
+
+/**
+ * Handle touch move - updates drawing position or handles pinch/pan gestures
+ */
+function handleTouchMoveInternal(event) {
+  if (!touchState.isActive) return;
+
+  const rect = canvasElement.getBoundingClientRect();
+  const touches = event.touches;
+
+  if (touches.length === 1 && !touchState.isTwoFingerGesture) {
+    // Single finger move - treat like mouse move
+    const touch = touches[0];
+    const x = touch.clientX - rect.left;
+    const y = touch.clientY - rect.top;
+
+    touchState.lastX = x;
+    touchState.lastY = y;
+
+    if (onMouseMoveCallback) {
+      onMouseMoveCallback(x, y);
+    }
+
+    event.preventDefault();
+
+  } else if (touches.length === 2) {
+    // Two finger gesture
+    touchState.isTwoFingerGesture = true;
+
+    const touch1 = touches[0];
+    const touch2 = touches[1];
+
+    // Calculate current pinch distance
+    const currentDistance = getTouchDistance(touch1, touch2);
+    const center = getTouchCenter(touch1, touch2);
+
+    // Pinch zoom
+    if (onPinchZoomCallback && touchState.lastPinchDistance > 0) {
+      const scale = currentDistance / touchState.lastPinchDistance;
+      const centerX = center.x - rect.left;
+      const centerY = center.y - rect.top;
+
+      // Only trigger zoom if there's significant pinch movement
+      if (Math.abs(scale - 1) > 0.01) {
+        onPinchZoomCallback(scale, centerX, centerY);
+      }
+    }
+
+    // Two-finger pan
+    if (onTwoFingerPanCallback) {
+      const deltaX = center.x - touchState.lastX;
+      const deltaY = center.y - touchState.lastY;
+
+      // Only trigger pan if there's significant movement
+      if (Math.abs(deltaX) > 2 || Math.abs(deltaY) > 2) {
+        onTwoFingerPanCallback(deltaX, deltaY);
+      }
+    }
+
+    touchState.lastPinchDistance = currentDistance;
+    touchState.lastX = center.x;
+    touchState.lastY = center.y;
+
+    event.preventDefault();
+  }
+}
+
+/**
+ * Handle touch end - completes drawing action or gesture
+ */
+function handleTouchEndInternal(event) {
+  if (!touchState.isActive) return;
+
+  const rect = canvasElement.getBoundingClientRect();
+  const touches = event.touches;
+  const changedTouches = event.changedTouches;
+
+  // If we were in a two-finger gesture and now have 1 finger, don't process as tap
+  if (touchState.isTwoFingerGesture) {
+    if (touches.length === 0) {
+      // All fingers lifted - reset state
+      touchState.isActive = false;
+      touchState.isTwoFingerGesture = false;
+    }
+    // Don't trigger click for multi-touch gestures
+    return;
+  }
+
+  // Single touch end
+  if (changedTouches.length > 0 && !touchState.isTwoFingerGesture) {
+    const touch = changedTouches[0];
+    const x = touch.clientX - rect.left;
+    const y = touch.clientY - rect.top;
+
+    // Check if this was a tap (short duration, minimal movement)
+    const duration = Date.now() - touchState.startTime;
+    const distance = Math.sqrt(
+      Math.pow(x - touchState.startX, 2) +
+      Math.pow(y - touchState.startY, 2)
+    );
+
+    // Trigger mouse up
+    if (onMouseUpCallback) {
+      const syntheticEvent = {
+        button: 0,
+        clientX: touch.clientX,
+        clientY: touch.clientY
+      };
+      onMouseUpCallback(syntheticEvent);
+    }
+
+    // If it was a quick tap with minimal movement, also trigger click
+    if (duration < 300 && distance < 10) {
+      if (onCanvasClickCallback) {
+        onCanvasClickCallback(x, y);
+      }
+    }
+  }
+
+  // Reset touch state if all fingers are lifted
+  if (touches.length === 0) {
+    touchState.isActive = false;
+    touchState.isTwoFingerGesture = false;
+    touchState.initialPinchDistance = 0;
+    touchState.lastPinchDistance = 0;
   }
 }
 
@@ -2515,3 +2991,519 @@ export function drawMeasurementOverlay(currentCtx, measurePoint1, measurePoint2,
 
   currentCtx.restore();
 }
+
+// ================================================
+// DECKING BOARD RENDERING
+// ================================================
+
+/**
+ * Draw deck boards on the canvas with realistic appearance
+ * @param {CanvasRenderingContext2D} currentCtx - Canvas context
+ * @param {Array} points - Deck polygon points
+ * @param {Object} deckDimensions - Deck bounding box and dimensions
+ * @param {Object} deckingState - Decking configuration from appState.decking
+ * @param {number} scale - Current viewport scale
+ * @param {boolean} isScaledForPrint - Whether rendering for print
+ */
+function drawDeckingBoards(currentCtx, points, deckDimensions, deckingState, scale, isScaledForPrint) {
+  if (!points || points.length < 3 || !deckDimensions || !deckingState) return;
+  if (!deckingState.showBoardLines) return;
+
+  const { material, boardDirection, pictureFrame, breakerBoards = [] } = deckingState;
+  const { minX, maxX, minY, maxY } = deckDimensions;
+
+  // Board dimensions (5/4x6 = 5.5" actual width)
+  const boardWidthInches = 5.5;
+  const gapInches = 0.1875; // 3/16" gap between boards
+  const boardWidthPx = boardWidthInches / 12 * config.PIXELS_PER_FOOT;
+  const gapPx = gapInches / 12 * config.PIXELS_PER_FOOT;
+  const boardSpacing = boardWidthPx + gapPx;
+
+  // Picture frame border width (one board width per layer)
+  const pictureFrameWidth = boardWidthPx + gapPx;
+  const pictureFrameOffset = pictureFrame === 'double' ? pictureFrameWidth * 2 :
+                             pictureFrame === 'single' ? pictureFrameWidth : 0;
+
+  // Material-specific colors
+  const materialColors = getMaterialColors(material);
+
+  const scaledLineWidth = (width) => Math.max(0.5 / scale, width / scale);
+
+  currentCtx.save();
+
+  // Create clipping path from deck polygon
+  currentCtx.beginPath();
+  currentCtx.moveTo(points[0].x, points[0].y);
+  for (let i = 1; i < points.length; i++) {
+    currentCtx.lineTo(points[i].x, points[i].y);
+  }
+  currentCtx.closePath();
+  currentCtx.clip();
+
+  // Draw main deck boards as filled rectangles FIRST
+  if (boardDirection === 'horizontal') {
+    drawHorizontalBoards(currentCtx, minX, maxX, minY, maxY, pictureFrameOffset,
+                         boardWidthPx, gapPx, materialColors, scale);
+  } else if (boardDirection === 'diagonal') {
+    drawDiagonalBoards(currentCtx, minX, maxX, minY, maxY, pictureFrameOffset,
+                       boardWidthPx, gapPx, materialColors, scale);
+  }
+
+  // Draw picture frame border AFTER main boards so it's visible on top
+  if (pictureFrame !== 'none') {
+    drawPictureFrameBorder(currentCtx, points, pictureFrame, materialColors, scaledLineWidth);
+  }
+
+  // Draw breaker boards
+  if (breakerBoards.length > 0) {
+    drawBreakerBoards(currentCtx, breakerBoards, deckDimensions, scale, scaledLineWidth);
+  }
+
+  currentCtx.restore();
+}
+
+/**
+ * Get material-specific colors and patterns
+ */
+function getMaterialColors(material) {
+  const colors = {
+    pt: {
+      // Pressure-treated brown wood
+      boardFill: 'rgb(139, 105, 70)',     // Base brown
+      boardVariance: 15,                   // Color variance between boards
+      boardStroke: 'rgb(101, 75, 50)',    // Darker edge
+      grainColor: 'rgba(90, 65, 40, 0.3)', // Darker grain lines
+      knotColor: 'rgba(70, 50, 30, 0.5)',  // Dark knot color
+      hasKnots: true,
+      hasGrain: true,
+      grainIntensity: 0.4
+    },
+    cedar: {
+      // Natural cedar reddish-brown
+      boardFill: 'rgb(180, 130, 90)',      // Warm cedar base
+      boardVariance: 20,                    // More variance for natural look
+      boardStroke: 'rgb(140, 95, 60)',     // Darker edge
+      grainColor: 'rgba(120, 80, 50, 0.35)', // Reddish grain
+      knotColor: 'rgba(100, 65, 35, 0.5)',   // Cedar knot
+      hasKnots: true,
+      hasGrain: true,
+      grainIntensity: 0.5
+    },
+    composite: {
+      // Solid composite color (could be customized)
+      boardFill: 'rgb(120, 100, 85)',      // Neutral gray-brown
+      boardVariance: 5,                     // Very little variance
+      boardStroke: 'rgb(90, 75, 60)',      // Darker edge
+      grainColor: 'rgba(100, 85, 70, 0.15)', // Subtle streaking
+      knotColor: null,                       // No knots
+      hasKnots: false,
+      hasGrain: true,
+      grainIntensity: 0.2
+    }
+  };
+  return colors[material] || colors.pt;
+}
+
+/**
+ * Draw horizontal deck boards
+ */
+function drawHorizontalBoards(ctx, minX, maxX, minY, maxY, offset, boardWidth, gap, colors, scale) {
+  // Offset in both X and Y to leave room for picture frame borders on all sides
+  const startX = minX + offset;
+  const endX = maxX - offset;
+  const startY = minY + offset;
+  const endY = maxY - offset;
+  const boardSpacing = boardWidth + gap;
+
+  // Use deterministic random for consistent board appearance
+  let boardIndex = 0;
+  let y = startY;
+
+  while (y < endY) {
+    const boardEndY = Math.min(y + boardWidth, endY);
+
+    // Draw the board rectangle - extend slightly beyond bounds for clean clipping
+    drawSingleBoard(ctx, startX - 50, y, endX - startX + 100, boardEndY - y,
+                    colors, boardIndex, scale, 'horizontal');
+
+    boardIndex++;
+    y += boardSpacing;
+  }
+}
+
+/**
+ * Draw diagonal deck boards at 45 degrees
+ */
+function drawDiagonalBoards(ctx, minX, maxX, minY, maxY, offset, boardWidth, gap, colors, scale) {
+  const startY = minY + offset;
+  const endY = maxY - offset;
+  const startX = minX + offset;
+  const endX = maxX - offset;
+
+  // For 45 degree diagonal, the perpendicular spacing needs adjustment
+  // The board width perpendicular to the board direction stays the same
+  const boardSpacing = boardWidth + gap;
+
+  // Calculate how far we need to iterate (along the diagonal offset direction)
+  const deckWidth = endX - startX;
+  const deckHeight = endY - startY;
+  const totalDiagDistance = deckWidth + deckHeight;
+
+  let boardIndex = 0;
+
+  // Draw boards starting from bottom-left going to top-right
+  // Each board runs from top-left to bottom-right at 45 degrees
+  for (let diagOffset = 0; diagOffset < totalDiagDistance + boardWidth * 2; diagOffset += boardSpacing) {
+    // Calculate the parallelogram corners for this board
+    // The board runs at 45 degrees, width is perpendicular to the board direction
+
+    // For a 45-degree board, perpendicular offset at 45 degrees
+    const perpOffsetX = boardWidth / Math.sqrt(2);
+    const perpOffsetY = boardWidth / Math.sqrt(2);
+
+    // Starting corner (bottom edge, moving from left to right)
+    let x1Start, y1Start;
+    if (diagOffset < deckHeight) {
+      x1Start = startX;
+      y1Start = startY + diagOffset;
+    } else {
+      x1Start = startX + (diagOffset - deckHeight);
+      y1Start = endY;
+    }
+
+    // End corner (top edge, moving right and up at 45 degrees from start)
+    const lineLength = Math.min(endX - x1Start, y1Start - startY) + 50;
+    let x1End = x1Start + lineLength;
+    let y1End = y1Start - lineLength;
+
+    // Draw the board as a parallelogram
+    drawDiagonalBoard(ctx, x1Start, y1Start, x1End, y1End, boardWidth,
+                      colors, boardIndex, scale);
+
+    boardIndex++;
+  }
+}
+
+/**
+ * Draw a single horizontal board with texture
+ */
+function drawSingleBoard(ctx, x, y, width, height, colors, boardIndex, scale, direction) {
+  // Seeded random for this board (consistent appearance)
+  const seed = boardIndex * 12345;
+  const random = (offset) => {
+    const x = Math.sin(seed + offset) * 10000;
+    return x - Math.floor(x);
+  };
+
+  // Vary the base color slightly per board
+  const variance = colors.boardVariance;
+  const rVar = (random(1) - 0.5) * variance;
+  const gVar = (random(2) - 0.5) * variance;
+  const bVar = (random(3) - 0.5) * variance;
+
+  // Parse base color and apply variance
+  const baseColor = parseRGB(colors.boardFill);
+  const boardColor = `rgb(${clamp(baseColor.r + rVar, 0, 255)}, ${clamp(baseColor.g + gVar, 0, 255)}, ${clamp(baseColor.b + bVar, 0, 255)})`;
+
+  // Draw board fill
+  ctx.fillStyle = boardColor;
+  ctx.fillRect(x, y, width, height);
+
+  // Draw wood grain lines
+  if (colors.hasGrain) {
+    ctx.strokeStyle = colors.grainColor;
+    ctx.lineWidth = Math.max(0.5, 1 / scale);
+
+    const grainCount = Math.floor(height / 3) + 2;
+    for (let i = 0; i < grainCount; i++) {
+      const grainY = y + (i / grainCount) * height + (random(10 + i) - 0.5) * 2;
+      const waveAmplitude = random(20 + i) * 3;
+
+      ctx.beginPath();
+      ctx.moveTo(x, grainY);
+
+      // Draw wavy grain line
+      for (let gx = x; gx < x + width; gx += 20) {
+        const waveY = grainY + Math.sin(gx * 0.02 + random(30 + i) * 10) * waveAmplitude;
+        ctx.lineTo(gx, waveY);
+      }
+      ctx.stroke();
+    }
+  }
+
+  // Draw knots for natural wood
+  if (colors.hasKnots && random(100) > 0.7) {
+    const knotX = x + random(101) * width * 0.8 + width * 0.1;
+    const knotY = y + random(102) * height * 0.6 + height * 0.2;
+    const knotRadius = (random(103) * 3 + 2) / scale;
+
+    ctx.fillStyle = colors.knotColor;
+    ctx.beginPath();
+    ctx.ellipse(knotX, knotY, knotRadius * 1.2, knotRadius, 0, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Knot ring
+    ctx.strokeStyle = colors.knotColor;
+    ctx.lineWidth = Math.max(0.5, 0.8 / scale);
+    ctx.beginPath();
+    ctx.ellipse(knotX, knotY, knotRadius * 2, knotRadius * 1.5, 0, 0, Math.PI * 2);
+    ctx.stroke();
+  }
+
+  // Draw board edge/gap line
+  ctx.strokeStyle = colors.boardStroke;
+  ctx.lineWidth = Math.max(1, 1.5 / scale);
+  ctx.beginPath();
+  ctx.moveTo(x, y + height);
+  ctx.lineTo(x + width, y + height);
+  ctx.stroke();
+}
+
+/**
+ * Draw a single diagonal board as a parallelogram
+ */
+function drawDiagonalBoard(ctx, x1, y1, x2, y2, boardWidth, colors, boardIndex, scale) {
+  // Seeded random for this board
+  const seed = boardIndex * 12345;
+  const random = (offset) => {
+    const x = Math.sin(seed + offset) * 10000;
+    return x - Math.floor(x);
+  };
+
+  // Perpendicular offset for board width (perpendicular to 45-degree line)
+  const perpX = boardWidth / Math.sqrt(2);
+  const perpY = boardWidth / Math.sqrt(2);
+
+  // Four corners of the parallelogram
+  const corners = [
+    { x: x1, y: y1 },                           // Bottom-left
+    { x: x2, y: y2 },                           // Top-right
+    { x: x2 + perpX, y: y2 + perpY },          // Top-right + width
+    { x: x1 + perpX, y: y1 + perpY }           // Bottom-left + width
+  ];
+
+  // Vary the base color slightly per board
+  const variance = colors.boardVariance;
+  const rVar = (random(1) - 0.5) * variance;
+  const gVar = (random(2) - 0.5) * variance;
+  const bVar = (random(3) - 0.5) * variance;
+
+  const baseColor = parseRGB(colors.boardFill);
+  const boardColor = `rgb(${clamp(baseColor.r + rVar, 0, 255)}, ${clamp(baseColor.g + gVar, 0, 255)}, ${clamp(baseColor.b + bVar, 0, 255)})`;
+
+  // Draw board fill
+  ctx.fillStyle = boardColor;
+  ctx.beginPath();
+  ctx.moveTo(corners[0].x, corners[0].y);
+  ctx.lineTo(corners[1].x, corners[1].y);
+  ctx.lineTo(corners[2].x, corners[2].y);
+  ctx.lineTo(corners[3].x, corners[3].y);
+  ctx.closePath();
+  ctx.fill();
+
+  // Draw wood grain (diagonal along the board)
+  if (colors.hasGrain) {
+    ctx.strokeStyle = colors.grainColor;
+    ctx.lineWidth = Math.max(0.5, 1 / scale);
+
+    const grainCount = 4;
+    for (let i = 0; i < grainCount; i++) {
+      const t = (i + 0.5) / grainCount;
+      const grainX1 = x1 + perpX * t + (random(10 + i) - 0.5) * 2;
+      const grainY1 = y1 + perpY * t + (random(11 + i) - 0.5) * 2;
+      const grainX2 = x2 + perpX * t + (random(12 + i) - 0.5) * 2;
+      const grainY2 = y2 + perpY * t + (random(13 + i) - 0.5) * 2;
+
+      ctx.beginPath();
+      ctx.moveTo(grainX1, grainY1);
+      ctx.lineTo(grainX2, grainY2);
+      ctx.stroke();
+    }
+  }
+
+  // Draw knots for natural wood
+  if (colors.hasKnots && random(100) > 0.75) {
+    const t = random(101) * 0.6 + 0.2;
+    const s = random(102) * 0.6 + 0.2;
+    const knotX = x1 + (x2 - x1) * t + perpX * s;
+    const knotY = y1 + (y2 - y1) * t + perpY * s;
+    const knotRadius = (random(103) * 3 + 2) / scale;
+
+    ctx.fillStyle = colors.knotColor;
+    ctx.beginPath();
+    ctx.ellipse(knotX, knotY, knotRadius * 1.2, knotRadius, Math.PI / 4, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
+  // Draw board edge line
+  ctx.strokeStyle = colors.boardStroke;
+  ctx.lineWidth = Math.max(1, 1.5 / scale);
+  ctx.beginPath();
+  ctx.moveTo(corners[0].x, corners[0].y);
+  ctx.lineTo(corners[1].x, corners[1].y);
+  ctx.stroke();
+}
+
+/**
+ * Parse RGB color string to components
+ */
+function parseRGB(colorStr) {
+  const match = colorStr.match(/rgb\((\d+),\s*(\d+),\s*(\d+)\)/);
+  if (match) {
+    return { r: parseInt(match[1]), g: parseInt(match[2]), b: parseInt(match[3]) };
+  }
+  return { r: 139, g: 105, b: 70 }; // Default brown
+}
+
+/**
+ * Clamp value between min and max
+ */
+function clamp(value, min, max) {
+  return Math.min(Math.max(value, min), max);
+}
+
+/**
+ * Draw picture frame border - actual filled boards around the perimeter
+ */
+function drawPictureFrameBorder(currentCtx, points, pictureFrame, colors, scaledLineWidth) {
+  const boardWidthInches = 5.5;
+  const boardWidthPx = boardWidthInches / 12 * config.PIXELS_PER_FOOT;
+  const gapWidthPx = 0.125 / 12 * config.PIXELS_PER_FOOT; // 1/8" gap between boards
+
+  // Number of border boards
+  const numBoards = pictureFrame === 'double' ? 2 : 1;
+
+  // Board colors - make picture frame boards darker than main boards
+  // Parse the base color and darken it by 30%
+  const baseColor = colors.boardFill || 'rgb(139, 105, 70)';
+  const rgbMatch = baseColor.match(/\d+/g);
+  const darkenFactor = 0.7;
+  const boardFill = rgbMatch
+    ? `rgb(${Math.round(rgbMatch[0] * darkenFactor)}, ${Math.round(rgbMatch[1] * darkenFactor)}, ${Math.round(rgbMatch[2] * darkenFactor)})`
+    : 'rgb(97, 74, 49)';
+  const boardStroke = rgbMatch
+    ? `rgb(${Math.round(rgbMatch[0] * 0.5)}, ${Math.round(rgbMatch[1] * 0.5)}, ${Math.round(rgbMatch[2] * 0.5)})`
+    : 'rgb(70, 53, 35)';
+
+  // Determine polygon winding order to know which way is "inward"
+  // Positive sum = clockwise, negative sum = counter-clockwise
+  let windingSum = 0;
+  for (let i = 0; i < points.length; i++) {
+    const p1 = points[i];
+    const p2 = points[(i + 1) % points.length];
+    windingSum += (p2.x - p1.x) * (p2.y + p1.y);
+  }
+  // For clockwise (positive sum in screen coords), perpendicular points OUTWARD, so negate
+  // For counter-clockwise (negative sum), perpendicular points INWARD
+  const windingSign = windingSum >= 0 ? -1 : 1;
+
+  // Draw picture frame boards along each edge
+  for (let boardNum = 0; boardNum < numBoards; boardNum++) {
+    // Calculate inset for this border layer
+    const outerInset = boardNum * (boardWidthPx + gapWidthPx);
+    const innerInset = (boardNum + 1) * (boardWidthPx + gapWidthPx) - gapWidthPx;
+
+    for (let i = 0; i < points.length; i++) {
+      const p1 = points[i];
+      const p2 = points[(i + 1) % points.length];
+
+      // Calculate edge direction and perpendicular
+      const dx = p2.x - p1.x;
+      const dy = p2.y - p1.y;
+      const len = Math.sqrt(dx * dx + dy * dy);
+      if (len === 0) continue;
+
+      // Unit vectors
+      const edgeX = dx / len;
+      const edgeY = dy / len;
+      // Perpendicular vector pointing inward (adjusted for winding order)
+      const perpX = (-dy / len) * windingSign;
+      const perpY = (dx / len) * windingSign;
+
+      // Calculate the four corners of the picture frame board
+      // Outer edge (at original polygon edge, offset by outerInset)
+      const outer1X = p1.x + perpX * outerInset;
+      const outer1Y = p1.y + perpY * outerInset;
+      const outer2X = p2.x + perpX * outerInset;
+      const outer2Y = p2.y + perpY * outerInset;
+
+      // Inner edge
+      const inner1X = p1.x + perpX * innerInset;
+      const inner1Y = p1.y + perpY * innerInset;
+      const inner2X = p2.x + perpX * innerInset;
+      const inner2Y = p2.y + perpY * innerInset;
+
+      // Draw filled rectangle for the board
+      currentCtx.fillStyle = boardFill;
+      currentCtx.beginPath();
+      currentCtx.moveTo(outer1X, outer1Y);
+      currentCtx.lineTo(outer2X, outer2Y);
+      currentCtx.lineTo(inner2X, inner2Y);
+      currentCtx.lineTo(inner1X, inner1Y);
+      currentCtx.closePath();
+      currentCtx.fill();
+
+      // Draw board outline
+      currentCtx.strokeStyle = boardStroke;
+      currentCtx.lineWidth = scaledLineWidth(1);
+      currentCtx.setLineDash([]);
+      currentCtx.stroke();
+    }
+  }
+
+  // Draw the inner edge line (where main deck boards start)
+  currentCtx.strokeStyle = boardStroke;
+  currentCtx.lineWidth = scaledLineWidth(1.5);
+  for (let i = 0; i < points.length; i++) {
+    const p1 = points[i];
+    const p2 = points[(i + 1) % points.length];
+
+    const dx = p2.x - p1.x;
+    const dy = p2.y - p1.y;
+    const len = Math.sqrt(dx * dx + dy * dy);
+    if (len === 0) continue;
+
+    // Use same winding-adjusted perpendicular
+    const perpX = (-dy / len) * windingSign;
+    const perpY = (dx / len) * windingSign;
+    const totalInset = numBoards * (boardWidthPx + gapWidthPx);
+
+    currentCtx.beginPath();
+    currentCtx.moveTo(p1.x + perpX * totalInset, p1.y + perpY * totalInset);
+    currentCtx.lineTo(p2.x + perpX * totalInset, p2.y + perpY * totalInset);
+    currentCtx.stroke();
+  }
+}
+
+/**
+ * Draw breaker board lines
+ */
+function drawBreakerBoards(currentCtx, breakerBoards, deckDimensions, scale, scaledLineWidth) {
+  const { minX, maxX, minY } = deckDimensions;
+
+  currentCtx.strokeStyle = 'rgba(45, 106, 106, 0.6)'; // Teal color for breaker boards
+  currentCtx.lineWidth = scaledLineWidth(2);
+  currentCtx.setLineDash([scaledLineWidth(8), scaledLineWidth(4)]);
+
+  breakerBoards.forEach(breaker => {
+    const y = minY + (breaker.position * config.PIXELS_PER_FOOT);
+
+    currentCtx.beginPath();
+    currentCtx.moveTo(minX - 5, y);
+    currentCtx.lineTo(maxX + 5, y);
+    currentCtx.stroke();
+
+    // Draw position label
+    const fontSize = Math.max(10, 10 / scale);
+    currentCtx.font = `${fontSize}px Arial`;
+    currentCtx.fillStyle = 'rgba(45, 106, 106, 0.8)';
+    currentCtx.textAlign = 'left';
+    currentCtx.textBaseline = 'bottom';
+    currentCtx.fillText(`${breaker.position.toFixed(1)}'`, maxX + 10, y - 2);
+  });
+
+  currentCtx.setLineDash([]);
+}
+
+// Export the decking drawing function
+export { drawDeckingBoards };

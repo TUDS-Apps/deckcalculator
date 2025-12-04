@@ -1345,7 +1345,7 @@ function isPointOnLineSegment(point, lineStart, lineEnd) {
  * @param {Array<{x: number, y: number}>} polygon - Polygon vertices
  * @returns {boolean} True if point is inside polygon
  */
-function isPointInsidePolygon(point, polygon) {
+export function isPointInsidePolygon(point, polygon) {
   let inside = false;
   
   for (let i = 0, j = polygon.length - 1; i < polygon.length; j = i++) {

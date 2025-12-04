@@ -16,7 +16,21 @@
     <!-- PDF Export Libraries -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
-    <script src="deckCalcjs/app.js?v=9" type="module"></script>
+    <!-- Three.js 3D Library -->
+    <script type="importmap">
+      {
+        "imports": {
+          "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+          "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
+        }
+      }
+    </script>
+    <!-- Firebase SDK -->
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
+    <script src="deckCalcjs/firebase.js"></script>
+    <script src="deckCalcjs/app.js?v=10" type="module"></script>
   </head>
   <body class="bg-gray-200 p-4 md:p-8">
     <div class="container mx-auto max-w-7xl">
@@ -35,6 +49,43 @@
           </div>
         </div>
         <div class="header-actions">
+          <!-- User Auth Button -->
+          <div id="userAuthContainer" class="user-auth-container">
+            <!-- Signed Out State -->
+            <button type="button" id="signInBtn" class="header-action-btn auth-btn" title="Sign In" onclick="openAuthModal()">
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-5 h-5">
+                <path d="M10 8a3 3 0 100-6 3 3 0 000 6zM3.465 14.493a1.23 1.23 0 00.41 1.412A9.957 9.957 0 0010 18c2.31 0 4.438-.784 6.131-2.1.43-.333.604-.903.408-1.41a7.002 7.002 0 00-13.074.003z" />
+              </svg>
+              <span>Sign In</span>
+            </button>
+            <!-- Signed In State (hidden by default) -->
+            <div id="userMenuBtn" class="user-menu hidden">
+              <button type="button" class="header-action-btn user-btn" onclick="toggleUserMenu()">
+                <div class="user-avatar" id="userAvatar">
+                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-5 h-5">
+                    <path d="M10 8a3 3 0 100-6 3 3 0 000 6zM3.465 14.493a1.23 1.23 0 00.41 1.412A9.957 9.957 0 0010 18c2.31 0 4.438-.784 6.131-2.1.43-.333.604-.903.408-1.41a7.002 7.002 0 00-13.074.003z" />
+                  </svg>
+                </div>
+                <span id="userDisplayName" class="user-name">User</span>
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-4 h-4 chevron">
+                  <path fill-rule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 11.168l3.71-3.938a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z" clip-rule="evenodd" />
+                </svg>
+              </button>
+              <div id="userDropdown" class="user-dropdown hidden">
+                <div class="user-dropdown-header">
+                  <span id="userEmail" class="user-email">user@example.com</span>
+                </div>
+                <div class="user-dropdown-divider"></div>
+                <button type="button" class="user-dropdown-item" onclick="handleSignOut()">
+                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-4 h-4">
+                    <path fill-rule="evenodd" d="M3 4.25A2.25 2.25 0 015.25 2h5.5A2.25 2.25 0 0113 4.25v2a.75.75 0 01-1.5 0v-2a.75.75 0 00-.75-.75h-5.5a.75.75 0 00-.75.75v11.5c0 .414.336.75.75.75h5.5a.75.75 0 00.75-.75v-2a.75.75 0 011.5 0v2A2.25 2.25 0 0110.75 18h-5.5A2.25 2.25 0 013 15.75V4.25z" clip-rule="evenodd" />
+                    <path fill-rule="evenodd" d="M6 10a.75.75 0 01.75-.75h9.546l-1.048-.943a.75.75 0 111.004-1.114l2.5 2.25a.75.75 0 010 1.114l-2.5 2.25a.75.75 0 11-1.004-1.114l1.048-.943H6.75A.75.75 0 016 10z" clip-rule="evenodd" />
+                  </svg>
+                  Sign Out
+                </button>
+              </div>
+            </div>
+          </div>
           <button type="button" id="adminBtn" class="header-action-btn" title="Admin Settings" onclick="openAdminLogin()">
             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-5 h-5">
               <path fill-rule="evenodd" d="M7.84 1.804A1 1 0 018.82 1h2.36a1 1 0 01.98.804l.331 1.652a6.993 6.993 0 011.929 1.115l1.598-.54a1 1 0 011.186.447l1.18 2.044a1 1 0 01-.205 1.251l-1.267 1.113a7.047 7.047 0 010 2.228l1.267 1.113a1 1 0 01.206 1.25l-1.18 2.045a1 1 0 01-1.187.447l-1.598-.54a6.993 6.993 0 01-1.929 1.115l-.33 1.652a1 1 0 01-.98.804H8.82a1 1 0 01-.98-.804l-.331-1.652a6.993 6.993 0 01-1.929-1.115l-1.598.54a1 1 0 01-1.186-.447l-1.18-2.044a1 1 0 01.205-1.251l1.267-1.114a7.05 7.05 0 010-2.227L1.821 7.773a1 1 0 01-.206-1.25l1.18-2.045a1 1 0 011.187-.447l1.598.54A6.993 6.993 0 017.51 3.456l.33-1.652zM10 13a3 3 0 100-6 3 3 0 000 6z" clip-rule="evenodd" />
@@ -180,12 +231,39 @@
                     <button type="button" class="template-card" onclick="loadTemplate('bay-window')" title="Bay Window Bump-out">
                       <div class="template-preview">
                         <svg viewBox="0 0 60 40" class="template-svg">
-                          <path d="M8 10 L20 10 L17 6 L43 6 L40 10 L52 10 L52 34 L8 34 Z" fill="none" stroke="currentColor" stroke-width="2"/>
+                          <path d="M8 6 L52 6 L52 28 L40 28 L37 24 L23 24 L20 28 L8 28 Z" fill="none" stroke="currentColor" stroke-width="2"/>
                         </svg>
                       </div>
                       <span class="template-label">Bay Window</span>
                       <span class="template-size">Bump-out</span>
                     </button>
+                  </div>
+                </div>
+
+                <!-- Add Another Tier Button (shown after first shape is closed) -->
+                <div id="addTierContainer" class="add-tier-container hidden">
+                  <button type="button" id="addTierBtn" class="btn btn-secondary btn-full-width" onclick="addAnotherTier()">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="btn-icon">
+                      <path d="M12 5v14M5 12h14"/>
+                    </svg>
+                    <span>Add Another Tier</span>
+                  </button>
+                </div>
+
+                <!-- Tier Selection Tabs (shown when multiple tiers have points) -->
+                <div id="tierControls" class="tier-controls hidden">
+                  <div class="tier-tabs">
+                    <button type="button" id="upperTierTab" class="tier-tab active" onclick="switchActiveTier('upper')">
+                      <span class="tier-tab-dot" style="background: #4A90E2"></span>
+                      Upper Tier
+                    </button>
+                    <button type="button" id="lowerTierTab" class="tier-tab" onclick="switchActiveTier('lower')">
+                      <span class="tier-tab-dot" style="background: #10B981"></span>
+                      Lower Tier
+                    </button>
+                  </div>
+                  <div class="tier-info">
+                    <span id="activeTierLabel">Editing: Upper Tier</span>
                   </div>
                 </div>
 
@@ -232,6 +310,21 @@
             <div id="wizard-step-structure" class="wizard-step-content hidden">
               <h2 class="wizard-step-title">Structure & Height</h2>
 
+              <!-- Tier Selection Tabs (shown in multi-tier mode) -->
+              <div id="structureTierControls" class="tier-controls hidden">
+                <div class="tier-tabs">
+                  <button type="button" id="structureUpperTierTab" class="tier-tab active" onclick="switchActiveTier('upper')">
+                    <span class="tier-tab-dot" style="background: #4A90E2"></span>
+                    Upper Tier
+                  </button>
+                  <button type="button" id="structureLowerTierTab" class="tier-tab" onclick="switchActiveTier('lower')">
+                    <span class="tier-tab-dot" style="background: #10B981"></span>
+                    Lower Tier
+                  </button>
+                </div>
+                <p class="tier-height-hint" id="activeTierHeightLabel">Configure height for the selected tier</p>
+              </div>
+
               <!-- Sub-step indicator -->
               <div class="substep-indicator">
                 <button type="button" class="substep-dot active" data-substep="1" onclick="setStructureSubstep(1)">
@@ -256,32 +349,6 @@
 
                     <!-- Sub-step 1: Foundation -->
                     <div id="structure-substep-1" class="structure-substep active" data-substep="1">
-
-                    <!-- Multi-Tier Toggle -->
-                    <div class="tier-toggle-container">
-                      <label class="tier-toggle-label">
-                        <input type="checkbox" id="tierToggle" onchange="appState.tiersEnabled ? disableMultiTierMode() : enableMultiTierMode()">
-                        <span class="tier-toggle-text">Bi-Level Deck</span>
-                        <span class="tier-toggle-hint">(Main + Lower Walkout)</span>
-                      </label>
-                    </div>
-
-                    <!-- Tier Selection Tabs (shown when bi-level enabled) -->
-                    <div id="tierControls" class="tier-controls hidden">
-                      <div class="tier-tabs">
-                        <button type="button" id="mainTierTab" class="tier-tab active" onclick="switchActiveTier('main')">
-                          <span class="tier-tab-dot" style="background: #4A90E2"></span>
-                          Main Deck
-                        </button>
-                        <button type="button" id="lowerTierTab" class="tier-tab" onclick="switchActiveTier('lower')">
-                          <span class="tier-tab-dot" style="background: #10B981"></span>
-                          Lower Walkout
-                        </button>
-                      </div>
-                      <div class="tier-info">
-                        <span id="activeTierLabel">Editing: Main Deck</span>
-                      </div>
-                    </div>
 
                     <!-- Deck Height Input -->
                     <div class="deck-height-input">
@@ -899,6 +966,40 @@
                         <option value="concrete_pad">Poured Concrete Pad</option>
                       </select>
                     </div>
+                    <!-- Stair Target (for multi-tier decks) -->
+                    <div id="stairTargetContainer" class="visual-selector compact hidden" data-selector="stairTarget">
+                      <div class="visual-selector-label">Stair Destination</div>
+                      <div class="visual-selector-grid two-col">
+                        <div class="visual-option selected" data-value="ground">
+                          <div class="visual-option-icon">
+                            <svg viewBox="0 0 36 36" fill="none" stroke="currentColor" stroke-width="2">
+                              <rect x="4" y="26" width="28" height="6" rx="1" fill="currentColor" opacity="0.2"/>
+                              <path d="M8 26 L8 8 M28 26 L28 8" stroke-dasharray="2 2"/>
+                              <path d="M12 20 L16 16 L20 20 L24 14" stroke-width="1.5"/>
+                            </svg>
+                          </div>
+                          <div class="visual-option-name">Ground</div>
+                          <div class="visual-option-desc">To grade level</div>
+                        </div>
+                        <div class="visual-option" data-value="lower_tier">
+                          <div class="visual-option-icon">
+                            <svg viewBox="0 0 36 36" fill="none" stroke="currentColor" stroke-width="2">
+                              <rect x="4" y="6" width="12" height="6" rx="1" fill="#4A90E2" opacity="0.3"/>
+                              <rect x="20" y="18" width="12" height="6" rx="1" fill="#10B981" opacity="0.3"/>
+                              <path d="M16 12 L20 18" stroke-width="2"/>
+                              <circle cx="16" cy="12" r="2" fill="currentColor"/>
+                              <circle cx="20" cy="18" r="2" fill="currentColor"/>
+                            </svg>
+                          </div>
+                          <div class="visual-option-name">Lower Tier</div>
+                          <div class="visual-option-desc">Connect tiers</div>
+                        </div>
+                      </div>
+                      <select id="stairTarget" name="stairTarget" class="hidden-select" aria-label="Stair destination">
+                        <option value="ground" selected>Ground Level</option>
+                        <option value="lower_tier">Lower Tier</option>
+                      </select>
+                    </div>
                   </form>
                 </div>
 
@@ -931,11 +1032,200 @@
               </div>
             </div>
 
-            <!-- Step 4: Decking (Coming Soon) -->
+            <!-- Step 4: Decking -->
             <div id="wizard-step-decking" class="wizard-step-content hidden">
               <h2 class="wizard-step-title">Decking Materials</h2>
               <div class="panel-content">
-                <p class="text-muted text-center py-8">Decking options coming soon</p>
+
+                <!-- Decking Material Type -->
+                <div class="visual-selector compact" data-selector="deckingMaterial">
+                  <div class="visual-selector-label">Material Type</div>
+                  <div class="visual-selector-grid two-col">
+                    <div class="visual-option selected" data-value="pt">
+                      <div class="visual-option-icon">
+                        <svg viewBox="0 0 36 36" fill="none" stroke="currentColor" stroke-width="1.5">
+                          <!-- Wood grain pattern -->
+                          <rect x="4" y="8" width="28" height="20" rx="1" fill="currentColor" opacity="0.15"/>
+                          <line x1="6" y1="12" x2="12" y2="12" opacity="0.4"/>
+                          <line x1="8" y1="16" x2="16" y2="16" opacity="0.3"/>
+                          <line x1="6" y1="20" x2="14" y2="20" opacity="0.4"/>
+                          <line x1="20" y1="14" x2="30" y2="14" opacity="0.3"/>
+                          <line x1="22" y1="22" x2="30" y2="22" opacity="0.4"/>
+                        </svg>
+                      </div>
+                      <div class="visual-option-name">Pressure Treated</div>
+                      <div class="visual-option-desc">5/4x6 Brown</div>
+                    </div>
+                    <div class="visual-option" data-value="cedar">
+                      <div class="visual-option-icon">
+                        <svg viewBox="0 0 36 36" fill="none" stroke="currentColor" stroke-width="1.5">
+                          <!-- Cedar grain pattern -->
+                          <rect x="4" y="8" width="28" height="20" rx="1" fill="currentColor" opacity="0.2"/>
+                          <line x1="6" y1="11" x2="18" y2="11" opacity="0.5"/>
+                          <line x1="6" y1="15" x2="14" y2="15" opacity="0.4"/>
+                          <line x1="8" y1="19" x2="20" y2="19" opacity="0.5"/>
+                          <line x1="6" y1="23" x2="16" y2="23" opacity="0.4"/>
+                          <line x1="22" y1="13" x2="30" y2="13" opacity="0.4"/>
+                          <line x1="20" y1="21" x2="30" y2="21" opacity="0.5"/>
+                        </svg>
+                      </div>
+                      <div class="visual-option-name">Cedar</div>
+                      <div class="visual-option-desc">Natural wood</div>
+                    </div>
+                  </div>
+                  <select id="deckingMaterial" name="deckingMaterial" class="hidden-select" aria-label="Decking material">
+                    <option value="pt" selected>Pressure Treated</option>
+                    <option value="cedar">Cedar</option>
+                  </select>
+                </div>
+
+                <!-- Board Size (Cedar only shows 5/4x5 option) -->
+                <div id="cedarSizeSelector" class="visual-selector compact hidden" data-selector="cedarBoardSize">
+                  <div class="visual-selector-label">Board Width</div>
+                  <div class="visual-selector-grid two-col">
+                    <div class="visual-option selected" data-value="5.5">
+                      <div class="visual-option-icon">
+                        <svg viewBox="0 0 36 36" fill="none" stroke="currentColor" stroke-width="1.5">
+                          <rect x="4" y="10" width="28" height="16" rx="1"/>
+                          <text x="18" y="21" text-anchor="middle" font-size="8" fill="currentColor">5½"</text>
+                        </svg>
+                      </div>
+                      <div class="visual-option-name">5/4 x 6</div>
+                      <div class="visual-option-desc">5½" wide</div>
+                    </div>
+                    <div class="visual-option" data-value="4.5">
+                      <div class="visual-option-icon">
+                        <svg viewBox="0 0 36 36" fill="none" stroke="currentColor" stroke-width="1.5">
+                          <rect x="6" y="11" width="24" height="14" rx="1"/>
+                          <text x="18" y="21" text-anchor="middle" font-size="8" fill="currentColor">4½"</text>
+                        </svg>
+                      </div>
+                      <div class="visual-option-name">5/4 x 5</div>
+                      <div class="visual-option-desc">4½" wide</div>
+                    </div>
+                  </div>
+                  <select id="cedarBoardSize" name="cedarBoardSize" class="hidden-select" aria-label="Cedar board size">
+                    <option value="5.5" selected>5/4 x 6 (5½" wide)</option>
+                    <option value="4.5">5/4 x 5 (4½" wide)</option>
+                  </select>
+                </div>
+
+                <!-- Board Direction -->
+                <div class="visual-selector compact" data-selector="boardDirection">
+                  <div class="visual-selector-label">Board Direction</div>
+                  <div class="visual-selector-grid two-col">
+                    <div class="visual-option selected" data-value="horizontal">
+                      <div class="visual-option-icon">
+                        <svg viewBox="0 0 36 36" fill="none" stroke="currentColor" stroke-width="1.5">
+                          <!-- Horizontal boards -->
+                          <rect x="4" y="4" width="28" height="28" stroke-dasharray="2 2" opacity="0.4"/>
+                          <line x1="4" y1="8" x2="32" y2="8"/>
+                          <line x1="4" y1="14" x2="32" y2="14"/>
+                          <line x1="4" y1="20" x2="32" y2="20"/>
+                          <line x1="4" y1="26" x2="32" y2="26"/>
+                        </svg>
+                      </div>
+                      <div class="visual-option-name">Horizontal</div>
+                      <div class="visual-option-desc">Standard layout</div>
+                    </div>
+                    <div class="visual-option" data-value="diagonal">
+                      <div class="visual-option-icon">
+                        <svg viewBox="0 0 36 36" fill="none" stroke="currentColor" stroke-width="1.5">
+                          <!-- Diagonal boards at 45° -->
+                          <rect x="4" y="4" width="28" height="28" stroke-dasharray="2 2" opacity="0.4"/>
+                          <line x1="4" y1="12" x2="12" y2="4"/>
+                          <line x1="4" y1="20" x2="20" y2="4"/>
+                          <line x1="4" y1="28" x2="28" y2="4"/>
+                          <line x1="8" y1="32" x2="32" y2="8"/>
+                          <line x1="16" y1="32" x2="32" y2="16"/>
+                          <line x1="24" y1="32" x2="32" y2="24"/>
+                        </svg>
+                      </div>
+                      <div class="visual-option-name">Diagonal</div>
+                      <div class="visual-option-desc">45° angle (+15% material)</div>
+                    </div>
+                  </div>
+                  <select id="boardDirection" name="boardDirection" class="hidden-select" aria-label="Board direction">
+                    <option value="horizontal" selected>Horizontal</option>
+                    <option value="diagonal">Diagonal (45°)</option>
+                  </select>
+                </div>
+
+                <!-- Picture Frame Preview (synced with Structure step) -->
+                <div class="visual-selector compact" data-selector="deckingPictureFrame">
+                  <div class="visual-selector-label">Picture Frame Border</div>
+                  <div class="visual-selector-grid three-col">
+                    <div class="visual-option selected" data-value="none">
+                      <div class="visual-option-icon">
+                        <svg viewBox="0 0 36 36" fill="none" stroke="currentColor" stroke-width="1.5">
+                          <rect x="4" y="4" width="28" height="28" stroke-dasharray="2 2" opacity="0.4"/>
+                          <line x1="4" y1="10" x2="32" y2="10"/>
+                          <line x1="4" y1="18" x2="32" y2="18"/>
+                          <line x1="4" y1="26" x2="32" y2="26"/>
+                        </svg>
+                      </div>
+                      <div class="visual-option-name">None</div>
+                    </div>
+                    <div class="visual-option" data-value="single">
+                      <div class="visual-option-icon">
+                        <svg viewBox="0 0 36 36" fill="none" stroke="currentColor" stroke-width="1.5">
+                          <rect x="4" y="4" width="28" height="28" stroke-width="3"/>
+                          <line x1="8" y1="12" x2="28" y2="12"/>
+                          <line x1="8" y1="18" x2="28" y2="18"/>
+                          <line x1="8" y1="24" x2="28" y2="24"/>
+                        </svg>
+                      </div>
+                      <div class="visual-option-name">Single</div>
+                    </div>
+                    <div class="visual-option" data-value="double">
+                      <div class="visual-option-icon">
+                        <svg viewBox="0 0 36 36" fill="none" stroke="currentColor" stroke-width="1.5">
+                          <rect x="2" y="2" width="32" height="32" stroke-width="2"/>
+                          <rect x="6" y="6" width="24" height="24" stroke-width="2"/>
+                          <line x1="10" y1="14" x2="26" y2="14"/>
+                          <line x1="10" y1="20" x2="26" y2="20"/>
+                        </svg>
+                      </div>
+                      <div class="visual-option-name">Double</div>
+                    </div>
+                  </div>
+                  <select id="deckingPictureFrame" name="deckingPictureFrame" class="hidden-select" aria-label="Picture frame border">
+                    <option value="none" selected>None</option>
+                    <option value="single">Single</option>
+                    <option value="double">Double</option>
+                  </select>
+                </div>
+
+                <!-- Breaker Boards Section -->
+                <div class="breaker-boards-section">
+                  <div class="visual-selector-label">
+                    Breaker Boards
+                    <span class="label-hint">(Seam boards to avoid butt joints)</span>
+                  </div>
+
+                  <div id="breakerBoardInfo" class="breaker-board-info">
+                    <div class="breaker-suggestion" id="breakerSuggestion">
+                      <!-- Populated by JS based on deck dimensions -->
+                    </div>
+                  </div>
+
+                  <div id="breakerBoardsList" class="breaker-boards-list">
+                    <!-- Breaker boards will be listed here -->
+                  </div>
+
+                  <button type="button" id="addBreakerBtn" class="btn btn-secondary btn-sm" onclick="enterBreakerPlacementMode()">
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-4 h-4">
+                      <path d="M10.75 4.75a.75.75 0 00-1.5 0v4.5h-4.5a.75.75 0 000 1.5h4.5v4.5a.75.75 0 001.5 0v-4.5h4.5a.75.75 0 000-1.5h-4.5v-4.5z" />
+                    </svg>
+                    <span>Add Breaker Board</span>
+                  </button>
+                </div>
+
+                <!-- Decking Summary -->
+                <div class="decking-summary" id="deckingSummary">
+                  <div class="summary-label">Estimated Boards</div>
+                  <div class="summary-value" id="deckingBoardCount">--</div>
+                </div>
 
                 <!-- Navigation buttons for Step 4 -->
                 <div class="wizard-step-actions">
@@ -1083,6 +1373,16 @@
                   <div id="canvasContainer" class="relative">
                     <canvas id="deckCanvas"></canvas>
 
+                    <!-- 3D Viewer Container (hidden by default) -->
+                    <div id="viewer3DContainer" class="viewer-3d-container hidden">
+                      <!-- Three.js canvas will be inserted here -->
+                      <div class="viewer-3d-info">
+                        <kbd>Drag</kbd> to rotate &nbsp;|&nbsp; <kbd>Scroll</kbd> to zoom &nbsp;|&nbsp; <kbd>Right-drag</kbd> to pan
+                      </div>
+                    </div>
+
+                    <!-- 3D View Controls removed - 3D Preview modal is accessed from toolbar -->
+
                     <!-- Grid scale indicator -->
                     <div class="grid-scale-indicator">
                       <div class="scale-bar"></div>
@@ -1194,16 +1494,6 @@
                         </svg>
                       </button>
                       <button
-                        id="toggleDecompositionBtn"
-                        class="btn btn-secondary text-xs px-3 py-2 leading-tight shadow-lg"
-                        title="Show Sections"
-                      >
-                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-5 h-5">
-                          <path fill-rule="evenodd" d="M3 4.25A2.25 2.25 0 015.25 2h9.5A2.25 2.25 0 0117 4.25v2.5A2.25 2.25 0 0114.75 9h-9.5A2.25 2.25 0 013 6.75v-2.5zm2.25-.75a.75.75 0 00-.75.75v2.5c0 .414.336.75.75.75h9.5a.75.75 0 00.75-.75v-2.5a.75.75 0 00-.75-.75h-9.5z" clip-rule="evenodd" />
-                          <path fill-rule="evenodd" d="M3 13.25A2.25 2.25 0 015.25 11h9.5A2.25 2.25 0 0117 13.25v2.5A2.25 2.25 0 0114.75 18h-9.5A2.25 2.25 0 013 15.75v-2.5zm2.25-.75a.75.75 0 00-.75.75v2.5c0 .414.336.75.75.75h9.5a.75.75 0 00.75-.75v-2.5a.75.75 0 00-.75-.75h-9.5z" clip-rule="evenodd" />
-                        </svg>
-                      </button>
-                      <button
                         id="cutListModeBtn"
                         class="btn btn-secondary text-xs px-3 py-2 leading-tight shadow-lg"
                         title="Cut List Labels"
@@ -1251,6 +1541,20 @@
                       >
                         <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-5 h-5">
                           <path fill-rule="evenodd" d="M4.5 2A1.5 1.5 0 003 3.5v13A1.5 1.5 0 004.5 18h11a1.5 1.5 0 001.5-1.5V7.621a1.5 1.5 0 00-.44-1.06l-4.12-4.122A1.5 1.5 0 0011.378 2H4.5zm2.25 8.5a.75.75 0 000 1.5h6.5a.75.75 0 000-1.5h-6.5zm0 3a.75.75 0 000 1.5h6.5a.75.75 0 000-1.5h-6.5z" clip-rule="evenodd" />
+                        </svg>
+                      </button>
+                    </div>
+
+                    <!-- Dev Tools (floating right side) -->
+                    <div class="dev-tools-float">
+                      <button
+                        id="toggleDecompositionBtn"
+                        class="dev-tool-btn"
+                        title="Show Sections (Dev)"
+                      >
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-4 h-4">
+                          <path fill-rule="evenodd" d="M3 4.25A2.25 2.25 0 015.25 2h9.5A2.25 2.25 0 0117 4.25v2.5A2.25 2.25 0 0114.75 9h-9.5A2.25 2.25 0 013 6.75v-2.5zm2.25-.75a.75.75 0 00-.75.75v2.5c0 .414.336.75.75.75h9.5a.75.75 0 00.75-.75v-2.5a.75.75 0 00-.75-.75h-9.5z" clip-rule="evenodd" />
+                          <path fill-rule="evenodd" d="M3 13.25A2.25 2.25 0 015.25 11h9.5A2.25 2.25 0 0117 13.25v2.5A2.25 2.25 0 0114.75 18h-9.5A2.25 2.25 0 013 15.75v-2.5zm2.25-.75a.75.75 0 00-.75.75v2.5c0 .414.336.75.75.75h9.5a.75.75 0 00.75-.75v-2.5a.75.75 0 00-.75-.75h-9.5z" clip-rule="evenodd" />
                         </svg>
                       </button>
                     </div>
@@ -1328,6 +1632,19 @@
                 </div>
 
                 <div id="bomSection" class="info-card hidden">
+                  <!-- Gating Notice for Non-Authenticated Users -->
+                  <div id="bomGatingNotice" class="bom-gating-notice hidden">
+                    <div class="gating-notice-content">
+                      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="gating-icon">
+                        <path fill-rule="evenodd" d="M10 1a4.5 4.5 0 00-4.5 4.5V9H5a2 2 0 00-2 2v6a2 2 0 002 2h10a2 2 0 002-2v-6a2 2 0 00-2-2h-.5V5.5A4.5 4.5 0 0010 1zm3 8V5.5a3 3 0 10-6 0V9h6z" clip-rule="evenodd" />
+                      </svg>
+                      <div class="gating-text">
+                        <span class="gating-estimate">Estimated total: <strong id="bomEstimatedTotal">$0</strong></span>
+                        <span class="gating-cta"><a href="#" onclick="openAuthModal(); return false;">Sign in</a> to see exact quantities, export PDFs, and add to cart</span>
+                      </div>
+                    </div>
+                  </div>
+
                   <div class="flex justify-between items-center mb-4">
                     <h2 class="text-xl font-semibold text-[#333333]">
                       Materials List
@@ -1378,7 +1695,8 @@
                         type="button"
                         id="addToCartBtn"
                         class="btn btn-primary px-3 py-1 text-sm hidden"
-                        title="Add all materials to Shopify cart"
+                        title="Add materials to cart"
+                        onclick="openCartOptionsModal()"
                       >
                         <svg
                           xmlns="http://www.w3.org/2000/svg"
@@ -1390,12 +1708,34 @@
                         </svg>
                         Add to Cart
                       </button>
+                      <!-- Button shown when in selection mode -->
+                      <button
+                        type="button"
+                        id="addSelectedToCartBtn"
+                        class="btn btn-primary px-3 py-1 text-sm hidden"
+                        title="Add selected items to cart"
+                        onclick="handleAddSelectedToCart()"
+                      >
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-4 h-4 inline-block mr-1 align-text-bottom">
+                          <path d="M1 1.75A.75.75 0 0 1 1.75 1h1.628a1.75 1.75 0 0 1 1.734 1.51L5.18 3a65.25 65.25 0 0 1 13.36 1.412.75.75 0 0 1 .58.875 48.645 48.645 0 0 1-1.618 6.2.75.75 0 0 1-.712.513H6a2.503 2.503 0 0 0-2.292 1.5H17.25a.75.75 0 0 1 0 1.5H2.76a.75.75 0 0 1-.748-.807 4.002 4.002 0 0 1 2.716-3.486L3.626 2.716a.25.25 0 0 0-.248-.216H1.75A.75.75 0 0 1 1 1.75ZM6 17.5a1.5 1.5 0 1 1-3 0 1.5 1.5 0 0 1 3 0ZM15.5 19a1.5 1.5 0 1 0 0-3 1.5 1.5 0 0 0 0 3Z" />
+                        </svg>
+                        Add Selected
+                      </button>
+                      <button
+                        type="button"
+                        id="cancelSelectionBtn"
+                        class="btn btn-secondary px-3 py-1 text-sm hidden"
+                        onclick="cancelItemSelection()"
+                      >
+                        Cancel
+                      </button>
                     </div>
                   </div>
                   <div class="overflow-x-auto">
                     <table class="w-full bom-table">
                       <thead>
                         <tr>
+                          <th class="checkbox-col hidden"><input type="checkbox" id="bomSelectAll" onchange="toggleAllBomItems(this.checked)" title="Select all"></th>
                           <th class="qty-col">Qty</th>
                           <th>Item</th>
                           <th>Description</th>
@@ -1865,25 +2205,48 @@
         </div>
 
         <div class="projects-modal-body">
+          <!-- Sign-in Section for non-authenticated users (shown at top) -->
+          <div id="projectsSignInSection" class="sign-in-section">
+            <div class="sign-in-section-content">
+              <div class="sign-in-section-icon">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-8 h-8">
+                  <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-5.5-2.5a2.5 2.5 0 11-5 0 2.5 2.5 0 015 0zM10 12a5.99 5.99 0 00-4.793 2.39A6.483 6.483 0 0010 16.5a6.483 6.483 0 004.793-2.11A5.99 5.99 0 0010 12z" clip-rule="evenodd" />
+                </svg>
+              </div>
+              <div class="sign-in-section-text">
+                <h3>Sign in to save your projects</h3>
+                <p>Access your designs from any device and never lose your work</p>
+              </div>
+              <button type="button" class="btn btn-primary" onclick="openAuthModal()">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-4 h-4">
+                  <path fill-rule="evenodd" d="M3 4.25A2.25 2.25 0 015.25 2h5.5A2.25 2.25 0 0113 4.25v2a.75.75 0 01-1.5 0v-2a.75.75 0 00-.75-.75h-5.5a.75.75 0 00-.75.75v11.5c0 .414.336.75.75.75h5.5a.75.75 0 00.75-.75v-2a.75.75 0 011.5 0v2A2.25 2.25 0 0110.75 18h-5.5A2.25 2.25 0 013 15.75V4.25z" clip-rule="evenodd" />
+                  <path fill-rule="evenodd" d="M19 10a.75.75 0 00-.75-.75H8.704l1.048-.943a.75.75 0 10-1.004-1.114l-2.5 2.25a.75.75 0 000 1.114l2.5 2.25a.75.75 0 101.004-1.114l-1.048-.943h9.546A.75.75 0 0019 10z" clip-rule="evenodd" />
+                </svg>
+                Sign In
+              </button>
+            </div>
+          </div>
+
           <!-- Save New Project Section -->
           <div class="save-project-section">
             <h3 class="section-title">
               <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-5 h-5">
                 <path d="M10.75 4.75a.75.75 0 00-1.5 0v4.5h-4.5a.75.75 0 000 1.5h4.5v4.5a.75.75 0 001.5 0v-4.5h4.5a.75.75 0 000-1.5h-4.5v-4.5z" />
               </svg>
-              Save Current Design
+              Start New Project
             </h3>
             <form id="saveProjectForm" class="save-project-form" onsubmit="handleSaveProject(event)">
-              <div class="form-row-group">
+              <!-- Store/Salesperson row - only visible for internal staff -->
+              <div id="storeFieldsRow" class="form-row-group">
                 <div class="form-row form-row-half">
                   <label for="saveProjectStore">Store</label>
-                  <select id="saveProjectStore" required onchange="updateSalespersonDropdown()">
+                  <select id="saveProjectStore" onchange="updateSalespersonDropdown()">
                     <option value="">Select Store...</option>
                   </select>
                 </div>
                 <div class="form-row form-row-half">
                   <label for="saveProjectSalesperson">Salesperson</label>
-                  <select id="saveProjectSalesperson" required>
+                  <select id="saveProjectSalesperson">
                     <option value="">Select Person...</option>
                   </select>
                 </div>
@@ -1926,31 +2289,33 @@
               </div>
               <button type="submit" class="btn btn-primary save-project-btn">
                 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-4 h-4">
-                  <path d="M10.75 2.75a.75.75 0 00-1.5 0v8.614L6.295 8.235a.75.75 0 10-1.09 1.03l4.25 4.5a.75.75 0 001.09 0l4.25-4.5a.75.75 0 00-1.09-1.03l-2.955 3.129V2.75z" />
-                  <path d="M3.5 12.75a.75.75 0 00-1.5 0v2.5A2.75 2.75 0 004.75 18h10.5A2.75 2.75 0 0018 15.25v-2.5a.75.75 0 00-1.5 0v2.5c0 .69-.56 1.25-1.25 1.25H4.75c-.69 0-1.25-.56-1.25-1.25v-2.5z" />
+                  <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 0016 16zm3.857-9.809a.75.75 0 00-1.214-.882l-3.483 4.79-1.88-1.88a.75.75 0 10-1.06 1.061l2.5 2.5a.75.75 0 001.137-.089l4-5.5z" clip-rule="evenodd" />
                 </svg>
-                Save Project
+                Start Project
               </button>
             </form>
           </div>
 
-          <!-- Saved Projects List -->
-          <div class="saved-projects-section">
-            <h3 class="section-title">
-              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-5 h-5">
-                <path fill-rule="evenodd" d="M2 4.75C2 3.784 2.784 3 3.75 3h4.836c.464 0 .909.184 1.237.513l1.414 1.414a.25.25 0 00.177.073h4.836c.966 0 1.75.784 1.75 1.75v8.5A1.75 1.75 0 0116.25 17H3.75A1.75 1.75 0 012 15.25V4.75zm10.25 7a.75.75 0 000 1.5h2a.75.75 0 000-1.5h-2z" clip-rule="evenodd" />
-              </svg>
-              Saved Projects
-              <span id="projectsCount" class="projects-count"></span>
-            </h3>
-            <div class="projects-filters">
+          <!-- Saved Projects List - only shown when signed in -->
+          <div id="savedProjectsSection" class="saved-projects-section hidden">
+            <div class="projects-tabs" id="projectsTabs">
+              <button type="button" class="projects-tab active" data-tab="my" onclick="switchProjectsTab('my')">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-4 h-4">
+                  <path d="M10 8a3 3 0 100-6 3 3 0 000 6zM3.465 14.493a1.23 1.23 0 00.41 1.412A9.957 9.957 0 0010 18c2.31 0 4.438-.784 6.131-2.1.43-.333.604-.903.408-1.41a7.002 7.002 0 00-13.074.003z" />
+                </svg>
+                My Projects
+                <span id="myProjectsCount" class="tab-count"></span>
+              </button>
+              <button type="button" class="projects-tab" data-tab="store" onclick="switchProjectsTab('store')">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-4 h-4">
+                  <path d="M10 9a3 3 0 100-6 3 3 0 000 6zM6 8a2 2 0 11-4 0 2 2 0 014 0zM1.49 15.326a.78.78 0 01-.358-.442 3 3 0 014.308-3.516 6.484 6.484 0 00-1.905 3.959c-.023.222-.014.442.025.654a4.97 4.97 0 01-2.07-.655zM16.44 15.98a4.97 4.97 0 002.07-.654.78.78 0 00.357-.442 3 3 0 00-4.308-3.517 6.484 6.484 0 011.907 3.96 2.32 2.32 0 01-.026.654zM18 8a2 2 0 11-4 0 2 2 0 014 0zM5.304 16.19a.844.844 0 01-.277-.71 5 5 0 019.947 0 .843.843 0 01-.277.71A6.975 6.975 0 0110 18a6.974 6.974 0 01-4.696-1.81z" />
+                </svg>
+                Store Projects
+                <span id="storeProjectsCount" class="tab-count"></span>
+              </button>
+            </div>
+            <div id="projectsFiltersRow" class="projects-filters">
               <div class="filter-row">
-                <div class="filter-group">
-                  <label for="filterStore">Store:</label>
-                  <select id="filterStore" onchange="onStoreFilterChange()">
-                    <option value="all">All Stores</option>
-                  </select>
-                </div>
                 <div class="filter-group">
                   <label for="filterSalesperson">Person:</label>
                   <select id="filterSalesperson" onchange="renderProjectsList()">
@@ -1958,9 +2323,11 @@
                   </select>
                 </div>
                 <div class="filter-group">
-                  <label for="filterYear">Year:</label>
-                  <select id="filterYear" onchange="renderProjectsList()">
-                    <option value="all">All Years</option>
+                  <label for="filterSort">Sort:</label>
+                  <select id="filterSort" onchange="renderProjectsList()">
+                    <option value="newest">Newest First</option>
+                    <option value="oldest">Oldest First</option>
+                    <option value="name">By Name</option>
                   </select>
                 </div>
               </div>
@@ -1978,13 +2345,195 @@
         </div>
 
         <div class="projects-modal-footer">
-          <p class="storage-notice">
-            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-4 h-4">
-              <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a.75.75 0 000 1.5h.253a.25.25 0 01.244.304l-.459 2.066A1.75 1.75 0 0010.747 15H11a.75.75 0 000-1.5h-.253a.25.25 0 01-.244-.304l.459-2.066A1.75 1.75 0 009.253 9H9z" clip-rule="evenodd" />
+          <div class="footer-buttons">
+            <button type="button" class="btn btn-outline-primary btn-exploring" onclick="closeProjectsModal()" title="Start designing without saving">
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-5 h-5">
+                <path fill-rule="evenodd" d="M4.25 5.5a.75.75 0 00-.75.75v8.5c0 .414.336.75.75.75h8.5a.75.75 0 00.75-.75v-4a.75.75 0 011.5 0v4A2.25 2.25 0 0112.75 17h-8.5A2.25 2.25 0 012 14.75v-8.5A2.25 2.25 0 014.25 4h5a.75.75 0 010 1.5h-5z" clip-rule="evenodd" />
+                <path fill-rule="evenodd" d="M6.194 12.753a.75.75 0 001.06.053L16.5 4.44v2.81a.75.75 0 001.5 0v-4.5a.75.75 0 00-.75-.75h-4.5a.75.75 0 000 1.5h2.553l-9.056 8.194a.75.75 0 00-.053 1.06z" clip-rule="evenodd" />
+              </svg>
+              Just exploring - skip to designer
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Auth Modal -->
+    <div id="authModal" class="auth-modal hidden" onclick="if(event.target === this) closeAuthModal()">
+      <div class="auth-modal-content">
+        <div class="auth-modal-header">
+          <div class="auth-modal-title">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-6 h-6">
+              <path d="M10 8a3 3 0 100-6 3 3 0 000 6zM3.465 14.493a1.23 1.23 0 00.41 1.412A9.957 9.957 0 0010 18c2.31 0 4.438-.784 6.131-2.1.43-.333.604-.903.408-1.41a7.002 7.002 0 00-13.074.003z" />
             </svg>
-            Projects are saved to your browser's local storage
+            <h2 id="authModalTitle">Sign In</h2>
+          </div>
+          <button type="button" class="auth-modal-close" onclick="closeAuthModal()" title="Close">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-5 h-5">
+              <path d="M6.28 5.22a.75.75 0 00-1.06 1.06L8.94 10l-3.72 3.72a.75.75 0 101.06 1.06L10 11.06l3.72 3.72a.75.75 0 101.06-1.06L11.06 10l3.72-3.72a.75.75 0 00-1.06-1.06L10 8.94 6.28 5.22z" />
+            </svg>
+          </button>
+        </div>
+
+        <div class="auth-modal-body">
+          <!-- Auth Error Message -->
+          <div id="authError" class="auth-error hidden">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-5 h-5">
+              <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-8-5a.75.75 0 01.75.75v4.5a.75.75 0 01-1.5 0v-4.5A.75.75 0 0110 5zm0 10a1 1 0 100-2 1 1 0 000 2z" clip-rule="evenodd" />
+            </svg>
+            <span id="authErrorText">Error message</span>
+          </div>
+
+          <!-- Google Sign In -->
+          <button type="button" class="btn btn-google" onclick="handleGoogleSignIn()">
+            <svg viewBox="0 0 24 24" class="w-5 h-5">
+              <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
+              <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
+              <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/>
+              <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
+            </svg>
+            Continue with Google
+          </button>
+
+          <div class="auth-divider">
+            <span>or</span>
+          </div>
+
+          <!-- Sign In Form -->
+          <form id="signInForm" class="auth-form" onsubmit="handleEmailSignIn(event)">
+            <div class="form-row">
+              <label for="authEmail">Email</label>
+              <input type="email" id="authEmail" placeholder="you@example.com" required />
+            </div>
+            <div class="form-row">
+              <label for="authPassword">Password</label>
+              <input type="password" id="authPassword" placeholder="Enter your password" required minlength="6" />
+            </div>
+            <div id="signUpNameRow" class="form-row hidden">
+              <label for="authDisplayName">Your Name</label>
+              <input type="text" id="authDisplayName" placeholder="John Smith" />
+            </div>
+            <div id="signUpPhoneRow" class="form-row hidden">
+              <label for="authPhone">Phone Number <span class="required-indicator">*</span></label>
+              <input type="tel" id="authPhone" placeholder="(555) 123-4567" />
+              <span class="form-hint">Required for order updates and support</span>
+            </div>
+            <button type="submit" class="btn btn-primary btn-full-width" id="authSubmitBtn">
+              Sign In
+            </button>
+          </form>
+
+          <!-- Forgot Password Link -->
+          <div id="forgotPasswordLink" class="auth-link">
+            <button type="button" class="btn-link" onclick="handleForgotPassword()">Forgot your password?</button>
+          </div>
+
+          <!-- Toggle Sign In / Sign Up -->
+          <div class="auth-toggle">
+            <span id="authToggleText">Don't have an account?</span>
+            <button type="button" class="btn-link" id="authToggleBtn" onclick="toggleAuthMode()">Sign Up</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Phone Collection Modal (for Google Sign-In users) -->
+    <div id="phoneModal" class="auth-modal hidden" onclick="event.stopPropagation()">
+      <div class="auth-modal-content phone-modal-content">
+        <div class="auth-modal-header">
+          <div class="auth-modal-title">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-6 h-6">
+              <path fill-rule="evenodd" d="M2 3.5A1.5 1.5 0 013.5 2h1.148a1.5 1.5 0 011.465 1.175l.716 3.223a1.5 1.5 0 01-1.052 1.767l-.933.267c-.41.117-.643.555-.48.95a11.542 11.542 0 006.254 6.254c.395.163.833-.07.95-.48l.267-.933a1.5 1.5 0 011.767-1.052l3.223.716A1.5 1.5 0 0118 15.352V16.5a1.5 1.5 0 01-1.5 1.5H15c-1.149 0-2.263-.15-3.326-.43A13.022 13.022 0 012.43 8.326 13.019 13.019 0 012 5V3.5z" clip-rule="evenodd" />
+            </svg>
+            <h2>Complete Your Profile</h2>
+          </div>
+        </div>
+        <div class="auth-modal-body">
+          <p class="phone-modal-description">
+            Please provide your phone number to complete your account setup. This helps us provide order updates and support.
           </p>
-          <button type="button" class="btn btn-secondary" onclick="closeProjectsModal()">Close</button>
+          <div id="phoneError" class="auth-error hidden">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-5 h-5">
+              <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-8-5a.75.75 0 01.75.75v4.5a.75.75 0 01-1.5 0v-4.5A.75.75 0 0110 5zm0 10a1 1 0 100-2 1 1 0 000 2z" clip-rule="evenodd" />
+            </svg>
+            <span id="phoneErrorText">Error message</span>
+          </div>
+          <form id="phoneForm" class="auth-form" onsubmit="handlePhoneSubmit(event)">
+            <div class="form-row">
+              <label for="modalPhone">Phone Number <span class="required-indicator">*</span></label>
+              <input type="tel" id="modalPhone" placeholder="(555) 123-4567" required />
+            </div>
+            <button type="submit" class="btn btn-primary btn-full-width" id="phoneSubmitBtn">
+              Save Phone Number
+            </button>
+          </form>
+        </div>
+      </div>
+    </div>
+
+    <!-- Cart Options Modal -->
+    <div id="cartOptionsModal" class="auth-modal hidden" onclick="if(event.target === this) closeCartOptionsModal()">
+      <div class="auth-modal-content cart-options-modal-content">
+        <div class="auth-modal-header">
+          <div class="auth-modal-title">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-6 h-6">
+              <path d="M1 1.75A.75.75 0 0 1 1.75 1h1.628a1.75 1.75 0 0 1 1.734 1.51L5.18 3a65.25 65.25 0 0 1 13.36 1.412.75.75 0 0 1 .58.875 48.645 48.645 0 0 1-1.618 6.2.75.75 0 0 1-.712.513H6a2.503 2.503 0 0 0-2.292 1.5H17.25a.75.75 0 0 1 0 1.5H2.76a.75.75 0 0 1-.748-.807 4.002 4.002 0 0 1 2.716-3.486L3.626 2.716a.25.25 0 0 0-.248-.216H1.75A.75.75 0 0 1 1 1.75ZM6 17.5a1.5 1.5 0 1 1-3 0 1.5 1.5 0 0 1 3 0ZM15.5 19a1.5 1.5 0 1 0 0-3 1.5 1.5 0 0 0 0 3Z" />
+            </svg>
+            <h2>Add to Cart</h2>
+          </div>
+          <button type="button" class="auth-modal-close" onclick="closeCartOptionsModal()" title="Close">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-5 h-5">
+              <path d="M6.28 5.22a.75.75 0 00-1.06 1.06L8.94 10l-3.72 3.72a.75.75 0 101.06 1.06L10 11.06l3.72 3.72a.75.75 0 101.06-1.06L11.06 10l3.72-3.72a.75.75 0 00-1.06-1.06L10 8.94 6.28 5.22z" />
+            </svg>
+          </button>
+        </div>
+        <div class="auth-modal-body">
+          <p class="cart-options-description">
+            How would you like to order your materials?
+          </p>
+
+          <div class="cart-option-buttons">
+            <!-- Option 1: Full Order -->
+            <button type="button" class="cart-option-btn" onclick="handleAddFullOrder()">
+              <div class="cart-option-icon">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-8 h-8">
+                  <path fill-rule="evenodd" d="M6 5v1H4.667a1.75 1.75 0 00-1.743 1.598l-.826 9.5A1.75 1.75 0 003.84 19H16.16a1.75 1.75 0 001.743-1.902l-.826-9.5A1.75 1.75 0 0015.333 6H14V5a4 4 0 00-8 0zm4-2.5A2.5 2.5 0 007.5 5v1h5V5A2.5 2.5 0 0010 2.5z" clip-rule="evenodd" />
+                </svg>
+              </div>
+              <div class="cart-option-text">
+                <span class="cart-option-title">Add Full Order</span>
+                <span class="cart-option-desc">All materials — pickup or freight delivery</span>
+              </div>
+            </button>
+
+            <!-- Option 2: Shippable Items Only -->
+            <button type="button" class="cart-option-btn" onclick="handleAddShippableOnly()">
+              <div class="cart-option-icon">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-8 h-8">
+                  <path d="M6.5 3c-1.051 0-2.093.04-3.125.117A1.49 1.49 0 002 4.607V10.5h9V4.606c0-.771-.59-1.43-1.375-1.489A41.568 41.568 0 006.5 3zM2 12v2.5A1.5 1.5 0 003.5 16h.041a3 3 0 015.918 0h.791a.75.75 0 00.75-.75V12H2z"/>
+                  <path d="M6.5 18a1.5 1.5 0 100-3 1.5 1.5 0 000 3zM13.25 5a.75.75 0 00-.75.75v8.514a3.001 3.001 0 014.893 1.44c.37-.275.607-.719.607-1.22V6.75a.75.75 0 00-.75-.75h-4z"/>
+                  <path d="M15.5 18a1.5 1.5 0 100-3 1.5 1.5 0 000 3z"/>
+                </svg>
+              </div>
+              <div class="cart-option-text">
+                <span class="cart-option-title">Ship Small Items</span>
+                <span class="cart-option-desc">Hardware & fasteners — I'll source lumber locally</span>
+              </div>
+            </button>
+
+            <!-- Option 3: Choose Items -->
+            <button type="button" class="cart-option-btn cart-option-secondary" onclick="handleChooseItems()">
+              <div class="cart-option-icon">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-8 h-8">
+                  <path fill-rule="evenodd" d="M16.704 4.153a.75.75 0 01.143 1.052l-8 10.5a.75.75 0 01-1.127.075l-4.5-4.5a.75.75 0 011.06-1.06l3.894 3.893 7.48-9.817a.75.75 0 011.05-.143z" clip-rule="evenodd" />
+                </svg>
+              </div>
+              <div class="cart-option-text">
+                <span class="cart-option-title">Let Me Choose</span>
+                <span class="cart-option-desc">Select specific items from the list</span>
+              </div>
+            </button>
+          </div>
         </div>
       </div>
     </div>
@@ -2035,6 +2584,43 @@
             <span>Deleting a salesperson won't delete their projects. Projects will show as "Unknown" until reassigned.</span>
           </div>
 
+          <!-- Store Memberships Section (Cloud) -->
+          <div class="settings-section settings-section-memberships">
+            <h3 class="settings-section-title">
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-5 h-5">
+                <path d="M10 9a3 3 0 100-6 3 3 0 000 6zM6 8a2 2 0 11-4 0 2 2 0 014 0zM1.49 15.326a.78.78 0 01-.358-.442 3 3 0 014.308-3.516 6.484 6.484 0 00-1.905 3.959c-.023.222-.014.442.025.654a4.97 4.97 0 01-2.07-.655zM16.44 15.98a4.97 4.97 0 002.07-.654.78.78 0 00.357-.442 3 3 0 00-4.308-3.517 6.484 6.484 0 011.907 3.96 2.32 2.32 0 01-.026.654zM18 8a2 2 0 11-4 0 2 2 0 014 0zM5.304 16.19a.844.844 0 01-.277-.71 5 5 0 019.947 0 .843.843 0 01-.277.71A6.975 6.975 0 0110 18a6.974 6.974 0 01-4.696-1.81z" />
+              </svg>
+              Store Memberships (Cloud)
+            </h3>
+            <p class="settings-section-description">
+              Add users by email to give them internal staff access. Users with @tuds.ca emails are auto-added.
+            </p>
+            <div class="membership-store-select">
+              <label for="membershipStoreSelect">Select Store:</label>
+              <select id="membershipStoreSelect" onchange="loadStoreMembersAdmin()">
+                <option value="">Choose a store...</option>
+              </select>
+            </div>
+            <div id="storeMembersList" class="store-members-list">
+              <p class="no-store-selected">Select a store above to manage members</p>
+            </div>
+            <div id="addMemberSection" class="add-member-section hidden">
+              <input type="email" id="newMemberEmail" placeholder="user@example.com" aria-label="User email to add" />
+              <button type="button" class="btn btn-secondary btn-sm" onclick="handleAddStoreMember()">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-4 h-4">
+                  <path d="M11 5a3 3 0 11-6 0 3 3 0 016 0zM2.046 15.253c-.058.468.172.92.57 1.175A9.953 9.953 0 008 18c1.982 0 3.83-.578 5.384-1.573.398-.254.628-.707.57-1.175a6.001 6.001 0 00-11.908 0zM12.75 7.75a.75.75 0 000 1.5h3.5a.75.75 0 000-1.5h-3.5z" />
+                </svg>
+                Add Member
+              </button>
+            </div>
+            <div class="settings-notice membership-notice">
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-4 h-4">
+                <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a.75.75 0 000 1.5h.253a.25.25 0 01.244.304l-.459 2.066A1.75 1.75 0 0010.747 15H11a.75.75 0 000-1.5h-.253a.25.25 0 01-.244-.304l.459-2.066A1.75 1.75 0 009.253 9H9z" clip-rule="evenodd" />
+              </svg>
+              <span>Store members can see each other's projects. Requires Firebase setup.</span>
+            </div>
+          </div>
+
           <div class="settings-section settings-section-password">
             <h3 class="settings-section-title">
               <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-5 h-5">
@@ -2060,5 +2646,29 @@
         </div>
       </div>
     </div>
+
+    <!-- Mobile Bottom Navigation (shown only on mobile) -->
+    <nav id="mobileBottomNav" class="mobile-bottom-nav" aria-label="Wizard Steps">
+      <button type="button" class="mobile-nav-item active" data-step="draw" onclick="navigateToStep('draw')">
+        <span class="nav-step-number">1</span>
+        <span class="nav-label">Draw</span>
+      </button>
+      <button type="button" class="mobile-nav-item" data-step="structure" onclick="navigateToStep('structure')">
+        <span class="nav-step-number">2</span>
+        <span class="nav-label">Structure</span>
+      </button>
+      <button type="button" class="mobile-nav-item" data-step="stairs" onclick="navigateToStep('stairs')">
+        <span class="nav-step-number">3</span>
+        <span class="nav-label">Stairs</span>
+      </button>
+      <button type="button" class="mobile-nav-item" data-step="materials" onclick="navigateToStep('materials')">
+        <span class="nav-step-number">4</span>
+        <span class="nav-label">Materials</span>
+      </button>
+      <button type="button" class="mobile-nav-item" data-step="summary" onclick="navigateToStep('summary')">
+        <span class="nav-step-number">5</span>
+        <span class="nav-label">Summary</span>
+      </button>
+    </nav>
   </body>
 </html>

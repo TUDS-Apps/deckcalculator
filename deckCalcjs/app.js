@@ -12,6 +12,7 @@ import * as bomCalculations from "./bomCalculations.js?v=8";
 import * as shapeValidator from "./shapeValidator.js?v=8";
 import * as shapeDecomposer from "./shapeDecomposer.js?v=8";
 import * as shopifyService from "./shopifyService.js?v=8";
+import { DeckViewer3D } from "./deckViewer3D.js";
 
 import * as multiSectionCalculations from "./multiSectionCalculations.js?v=8";
 
@@ -22,7 +23,7 @@ const WIZARD_STEPS = [
   { id: 'draw', name: 'Draw Shape', shortName: 'Draw', icon: 'pencil' },
   { id: 'structure', name: 'Structure', shortName: 'Structure', icon: 'grid' },
   { id: 'stairs', name: 'Stairs', shortName: 'Stairs', icon: 'stairs' },
-  { id: 'decking', name: 'Decking', shortName: 'Decking', icon: 'boards', comingSoon: true },
+  { id: 'decking', name: 'Decking', shortName: 'Decking', icon: 'boards' },
   { id: 'railing', name: 'Railing', shortName: 'Railing', icon: 'fence', comingSoon: true },
   { id: 'review', name: 'Review & Save', shortName: 'Review', icon: 'clipboard' }
 ];
@@ -45,6 +46,12 @@ const appState = {
   dragStartY: 0, // For stair dragging (view space)
   dragInitialStairX: 0, // model space
   dragInitialStairY: 0, // model space
+
+  // Shape dragging state (for repositioning entire shapes)
+  isDraggingShape: false,
+  shapeDragStartMouse: null, // Model coordinates where drag started
+  shapeDragInitialPoints: [], // Copy of points when drag started
+
   deckDimensions: null,
   structuralComponents: null,
   stairs: [],
@@ -74,6 +81,10 @@ const appState = {
   // Blueprint mode state
   isBlueprintMode: false, // Toggle between simple lines and to-scale components
 
+  // 3D Viewer state
+  viewMode: '2d', // '2d' or '3d'
+  viewer3D: null, // DeckViewer3D instance
+
   // Measurement tool state
   isMeasureMode: false, // Whether measurement mode is active
   measurePoint1: null, // First measurement point {x, y}
@@ -88,7 +99,8 @@ const appState = {
     posts: true,
     blocking: true,
     dimensions: true,
-    stairs: true
+    stairs: true,
+    decking: true
   },
 
   // Layer unlock state (progressive - unlocked by completing steps)
@@ -100,7 +112,8 @@ const appState = {
     beams: false,       // Unlocked by completing Structure step
     posts: false,       // Unlocked by completing Structure step
     blocking: false,    // Unlocked by completing Structure step
-    stairs: false       // Unlocked when first stair is placed
+    stairs: false,      // Unlocked when first stair is placed
+    decking: false      // Unlocked when entering Decking step
   },
 
   // Contextual panel state (legacy - being replaced by wizard)
@@ -117,14 +130,27 @@ const appState = {
   isUndoRedoAction: false, // Flag to prevent saving during undo/redo
 
   // ================================================
+  // DECKING STATE
+  // ================================================
+  decking: {
+    material: 'pt',           // 'pt' | 'cedar' | 'composite'
+    cedarSize: '5/4x6',       // '5/4x6' | '5/4x5' (only for cedar)
+    boardDirection: 'horizontal', // 'horizontal' | 'diagonal'
+    pictureFrame: 'none',     // 'none' | 'single' | 'double'
+    breakerBoards: [],        // Array of {position: number (feet from ledger), id: string}
+    breakerPlacementMode: false, // Whether user is placing a breaker board
+    showBoardLines: true      // Show individual board lines on canvas
+  },
+
+  // ================================================
   // MULTI-TIER DECK STATE
   // ================================================
-  tiersEnabled: false,           // Feature flag for bi-level mode
-  activeTierId: 'main',          // Currently active tier for editing
+  tiersEnabled: true,            // Multi-tier mode always enabled
+  activeTierId: 'upper',          // Currently active tier for editing
   tiers: {
-    main: {
-      id: 'main',
-      name: 'Main Deck',
+    upper: {
+      id: 'upper',
+      name: 'Upper Tier',
       heightFeet: 4,
       heightInches: 0,
       points: [],
@@ -132,12 +158,14 @@ const appState = {
       structuralComponents: null,
       rectangularSections: [],
       deckDimensions: null,
-      color: '#4A90E2',          // Blue for main tier
+      isShapeClosed: false,      // Whether the tier's shape is complete
+      isDrawing: false,           // Whether currently drawing this tier
+      color: '#4A90E2',          // Blue for upper tier
       zOrder: 1                   // Rendered on top
     },
     lower: {
       id: 'lower',
-      name: 'Lower Walkout',
+      name: 'Lower Tier',
       heightFeet: 1,
       heightInches: 6,
       points: [],
@@ -145,6 +173,8 @@ const appState = {
       structuralComponents: null,
       rectangularSections: [],
       deckDimensions: null,
+      isShapeClosed: false,      // Whether the tier's shape is complete
+      isDrawing: false,           // Whether currently drawing this tier
       color: '#10B981',          // Green for lower tier
       zOrder: 0                   // Rendered below
     }
@@ -163,18 +193,20 @@ window.appState = appState;
  * This allows existing calculation code to work unchanged.
  */
 function syncActiveTierToLegacy() {
-  if (!appState.tiersEnabled) return;
-
   const tier = appState.tiers[appState.activeTierId];
   if (!tier) return;
 
-  appState.points = tier.points;
-  appState.selectedWallIndices = tier.selectedWallIndices;
+  appState.points = tier.points || [];
+  appState.selectedWallIndices = tier.selectedWallIndices || [];
   appState.structuralComponents = tier.structuralComponents;
-  appState.rectangularSections = tier.rectangularSections;
+  appState.rectangularSections = tier.rectangularSections || [];
   appState.deckDimensions = tier.deckDimensions;
 
-  console.log(`[TIER SYNC] Synced tier '${tier.name}' to legacy state`);
+  // Sync drawing state
+  appState.isShapeClosed = tier.isShapeClosed || false;
+  appState.isDrawing = tier.isDrawing || false;
+
+  console.log(`[TIER SYNC] Synced tier '${tier.name}' to legacy state (closed: ${appState.isShapeClosed}, points: ${appState.points.length})`);
 }
 
 /**
@@ -182,8 +214,6 @@ function syncActiveTierToLegacy() {
  * Called after calculations or edits modify the legacy fields.
  */
 function syncLegacyToActiveTier() {
-  if (!appState.tiersEnabled) return;
-
   const tier = appState.tiers[appState.activeTierId];
   if (!tier) return;
 
@@ -193,15 +223,18 @@ function syncLegacyToActiveTier() {
   tier.rectangularSections = appState.rectangularSections;
   tier.deckDimensions = appState.deckDimensions;
 
-  console.log(`[TIER SYNC] Synced legacy state back to tier '${tier.name}'`);
+  // Sync drawing state
+  tier.isShapeClosed = appState.isShapeClosed;
+  tier.isDrawing = appState.isDrawing;
+
+  console.log(`[TIER SYNC] Synced legacy state back to tier '${tier.name}' (closed: ${tier.isShapeClosed}, points: ${tier.points.length})`);
 }
 
 /**
  * Switches the active tier and syncs data.
- * @param {string} tierId - The tier ID to switch to ('main' or 'lower')
+ * @param {string} tierId - The tier ID to switch to ('upper' or 'lower')
  */
 function switchActiveTier(tierId) {
-  if (!appState.tiersEnabled) return;
   if (!appState.tiers[tierId]) {
     console.error(`[TIER] Invalid tier ID: ${tierId}`);
     return;
@@ -216,6 +249,31 @@ function switchActiveTier(tierId) {
   // Load new tier's state into legacy fields
   syncActiveTierToLegacy();
 
+  // Reset edit modes when switching tiers
+  appState.shapeEditMode = false;
+  appState.wallSelectionMode = false;
+  appState.stairPlacementMode = false;
+  appState.hoveredVertexIndex = -1;
+  appState.hoveredEdgeIndex = -1;
+
+  // Update canvas status and cursor based on tier state
+  const tier = appState.tiers[tierId];
+  const canvas = document.getElementById('mainCanvas');
+
+  if (!tier.points || tier.points.length === 0) {
+    uiController.updateCanvasStatus(`Drawing ${tier.name}. Click to place first point.`);
+    // Set crosshair cursor for drawing
+    if (canvas) canvas.style.cursor = 'crosshair';
+  } else if (!tier.isShapeClosed) {
+    uiController.updateCanvasStatus(`Continue drawing ${tier.name}. Click to add points, click near start to close.`);
+    // Set crosshair cursor for drawing
+    if (canvas) canvas.style.cursor = 'crosshair';
+  } else {
+    uiController.updateCanvasStatus(`${tier.name} selected. Use Edit Mode to modify shape.`);
+    // Reset cursor for completed shape
+    if (canvas) canvas.style.cursor = 'default';
+  }
+
   // Update UI to reflect tier change
   updateTierUI();
   redrawApp();
@@ -229,29 +287,33 @@ function switchActiveTier(tierId) {
 function enableMultiTierMode() {
   if (appState.tiersEnabled) return;
 
-  // Copy current deck data to main tier
-  appState.tiers.main.points = [...appState.points];
-  appState.tiers.main.selectedWallIndices = [...appState.selectedWallIndices];
-  appState.tiers.main.structuralComponents = appState.structuralComponents;
-  appState.tiers.main.rectangularSections = [...appState.rectangularSections];
-  appState.tiers.main.deckDimensions = appState.deckDimensions ? { ...appState.deckDimensions } : null;
+  // Copy current deck data to upper tier
+  appState.tiers.upper.points = [...appState.points];
+  appState.tiers.upper.selectedWallIndices = [...appState.selectedWallIndices];
+  appState.tiers.upper.structuralComponents = appState.structuralComponents;
+  appState.tiers.upper.rectangularSections = [...appState.rectangularSections];
+  appState.tiers.upper.deckDimensions = appState.deckDimensions ? { ...appState.deckDimensions } : null;
+  appState.tiers.upper.isShapeClosed = appState.isShapeClosed;
+  appState.tiers.upper.isDrawing = appState.isDrawing;
 
   // Get current deck height from form inputs
   const inputs = uiController.getFormInputs();
   if (inputs.deckHeight) {
-    appState.tiers.main.heightFeet = Math.floor(inputs.deckHeight);
-    appState.tiers.main.heightInches = Math.round((inputs.deckHeight % 1) * 12);
+    appState.tiers.upper.heightFeet = Math.floor(inputs.deckHeight);
+    appState.tiers.upper.heightInches = Math.round((inputs.deckHeight % 1) * 12);
   }
 
-  // Clear lower tier
+  // Clear lower tier - ready for drawing
   appState.tiers.lower.points = [];
   appState.tiers.lower.selectedWallIndices = [];
   appState.tiers.lower.structuralComponents = null;
   appState.tiers.lower.rectangularSections = [];
   appState.tiers.lower.deckDimensions = null;
+  appState.tiers.lower.isShapeClosed = false;
+  appState.tiers.lower.isDrawing = false;
 
   appState.tiersEnabled = true;
-  appState.activeTierId = 'main';
+  appState.activeTierId = 'upper';
 
   updateTierUI();
   redrawApp();
@@ -260,27 +322,27 @@ function enableMultiTierMode() {
 }
 
 /**
- * Disables multi-tier mode and keeps the main tier data.
+ * Disables multi-tier mode and keeps the upper tier data.
  */
 function disableMultiTierMode() {
   if (!appState.tiersEnabled) return;
 
-  // Ensure main tier has the latest data
-  if (appState.activeTierId !== 'main') {
-    switchActiveTier('main');
+  // Ensure upper tier has the latest data
+  if (appState.activeTierId !== 'upper') {
+    switchActiveTier('upper');
   }
   syncLegacyToActiveTier();
 
-  // Copy main tier data to legacy fields
-  const mainTier = appState.tiers.main;
-  appState.points = mainTier.points;
-  appState.selectedWallIndices = mainTier.selectedWallIndices;
-  appState.structuralComponents = mainTier.structuralComponents;
-  appState.rectangularSections = mainTier.rectangularSections;
-  appState.deckDimensions = mainTier.deckDimensions;
+  // Copy upper tier data to legacy fields
+  const upperTier = appState.tiers.upper;
+  appState.points = upperTier.points;
+  appState.selectedWallIndices = upperTier.selectedWallIndices;
+  appState.structuralComponents = upperTier.structuralComponents;
+  appState.rectangularSections = upperTier.rectangularSections;
+  appState.deckDimensions = upperTier.deckDimensions;
 
   appState.tiersEnabled = false;
-  appState.activeTierId = 'main';
+  appState.activeTierId = 'upper';
 
   updateTierUI();
   redrawApp();
@@ -289,25 +351,142 @@ function disableMultiTierMode() {
 }
 
 /**
+ * Adds another tier and switches to it for drawing.
+ * Called when user clicks "Add Another Tier" button.
+ */
+function addAnotherTier() {
+  // Save current tier state
+  syncLegacyToActiveTier();
+
+  // Switch to lower tier
+  appState.activeTierId = 'lower';
+
+  // Initialize lower tier for fresh drawing
+  appState.tiers.lower.points = [];
+  appState.tiers.lower.selectedWallIndices = [];
+  appState.tiers.lower.structuralComponents = null;
+  appState.tiers.lower.rectangularSections = [];
+  appState.tiers.lower.deckDimensions = null;
+  appState.tiers.lower.isShapeClosed = false;
+  appState.tiers.lower.isDrawing = false;
+
+  // Reset legacy fields for new drawing
+  appState.points = [];
+  appState.selectedWallIndices = [];
+  appState.structuralComponents = null;
+  appState.rectangularSections = [];
+  appState.deckDimensions = null;
+  appState.isShapeClosed = false;
+  appState.isDrawing = false;
+
+  // Reset edit modes
+  appState.shapeEditMode = false;
+  appState.wallSelectionMode = false;
+  appState.stairPlacementMode = false;
+  appState.hoveredVertexIndex = -1;
+  appState.hoveredEdgeIndex = -1;
+
+  // Set crosshair cursor on canvas
+  const canvas = document.getElementById('mainCanvas');
+  if (canvas) {
+    canvas.style.cursor = 'crosshair';
+  }
+
+  // Update UI
+  uiController.updateCanvasStatus('Drawing Lower Tier. Click to place first point.');
+  updateTierUI();
+  redrawApp();
+
+  console.log('[TIER] Added new tier and ready to draw');
+}
+
+// Make addAnotherTier available globally
+window.addAnotherTier = addAnotherTier;
+
+/**
  * Updates the tier UI elements to reflect current state.
  */
 function updateTierUI() {
-  const tierToggle = document.getElementById('tierToggle');
   const tierControls = document.getElementById('tierControls');
-  const mainTierTab = document.getElementById('mainTierTab');
+  const upperTierTab = document.getElementById('upperTierTab');
   const lowerTierTab = document.getElementById('lowerTierTab');
+  const activeTierLabel = document.getElementById('activeTierLabel');
+  const addTierContainer = document.getElementById('addTierContainer');
 
-  if (tierToggle) {
-    tierToggle.checked = appState.tiersEnabled;
+  // Structure step tier controls
+  const structureTierControls = document.getElementById('structureTierControls');
+  const structureUpperTierTab = document.getElementById('structureUpperTierTab');
+  const structureLowerTierTab = document.getElementById('structureLowerTierTab');
+  const activeTierHeightLabel = document.getElementById('activeTierHeightLabel');
+
+  // Check if multiple tiers have points
+  const upperHasPoints = appState.tiers.upper?.points?.length > 0;
+  const lowerHasPoints = appState.tiers.lower?.points?.length > 0;
+  const hasMultipleTiers = upperHasPoints && lowerHasPoints;
+
+  // Check if first tier is closed (ready to add another)
+  const firstTierClosed = appState.tiers.upper?.isShapeClosed || false;
+  const canAddAnotherTier = firstTierClosed && !lowerHasPoints;
+
+  // Show "Add Another Tier" button when first shape is closed and no second tier exists
+  if (addTierContainer) {
+    addTierContainer.classList.toggle('hidden', !canAddAnotherTier);
   }
 
+  // Show tier tabs only when multiple tiers have points
   if (tierControls) {
-    tierControls.classList.toggle('hidden', !appState.tiersEnabled);
+    tierControls.classList.toggle('hidden', !hasMultipleTiers);
   }
 
-  if (mainTierTab && lowerTierTab) {
-    mainTierTab.classList.toggle('active', appState.activeTierId === 'main');
+  // Structure step tier controls - show when multiple tiers exist
+  if (structureTierControls) {
+    structureTierControls.classList.toggle('hidden', !hasMultipleTiers);
+  }
+
+  // Update Draw step tier tabs
+  if (upperTierTab && lowerTierTab) {
+    upperTierTab.classList.toggle('active', appState.activeTierId === 'upper');
     lowerTierTab.classList.toggle('active', appState.activeTierId === 'lower');
+  }
+
+  // Update Structure step tier tabs
+  if (structureUpperTierTab && structureLowerTierTab) {
+    structureUpperTierTab.classList.toggle('active', appState.activeTierId === 'upper');
+    structureLowerTierTab.classList.toggle('active', appState.activeTierId === 'lower');
+  }
+
+  if (activeTierLabel) {
+    const tierName = appState.tiers[appState.activeTierId]?.name || 'Upper Tier';
+    activeTierLabel.textContent = `Editing: ${tierName}`;
+  }
+
+  // Update height hint in Structure step
+  if (activeTierHeightLabel && hasMultipleTiers) {
+    const tierName = appState.tiers[appState.activeTierId]?.name || 'Upper Tier';
+    activeTierHeightLabel.textContent = `Setting height for: ${tierName}`;
+  }
+
+  // Sync height values to form if we have tiers
+  if (appState.tiers[appState.activeTierId]) {
+    const tier = appState.tiers[appState.activeTierId];
+    const heightFeetInput = document.getElementById('deckHeightFeet');
+    const heightInchesInput = document.getElementById('deckHeightInchesInput');
+
+    if (heightFeetInput && tier.heightFeet !== undefined) {
+      heightFeetInput.value = String(tier.heightFeet);
+    }
+    if (heightInchesInput && tier.heightInches !== undefined) {
+      heightInchesInput.value = String(tier.heightInches);
+    }
+  }
+
+  // Show stair target dropdown when both tiers are closed (can connect them with stairs)
+  const stairTargetContainer = document.getElementById('stairTargetContainer');
+  if (stairTargetContainer) {
+    const upperClosed = appState.tiers.upper?.isShapeClosed || false;
+    const lowerClosed = appState.tiers.lower?.isShapeClosed || false;
+    const canConnectTiers = upperClosed && lowerClosed && appState.activeTierId === 'upper';
+    stairTargetContainer.classList.toggle('hidden', !canConnectTiers);
   }
 }
 
@@ -492,22 +671,45 @@ function createProjectData(projectName, store, salesperson, customerInfo = null)
 }
 
 // Save current project
-function saveProject(projectName, store, salesperson, customerInfo = null) {
+async function saveProject(projectName, store, salesperson, customerInfo = null) {
   if (!projectName || projectName.trim() === '') {
     alert('Please enter a project name.');
     return false;
   }
 
-  if (!store || !salesperson) {
-    alert('Please select a store and salesperson.');
-    return false;
+  // Store/salesperson are optional for public users
+  const projectData = createProjectData(projectName.trim(), store || null, salesperson || null, customerInfo);
+
+  // Save user preferences for next time (only if provided)
+  if (store && salesperson) {
+    saveUserPrefs({ lastStore: store, lastSalesperson: salesperson });
   }
 
-  const projects = getSavedProjects();
-  const projectData = createProjectData(projectName.trim(), store, salesperson, customerInfo);
+  // Check if signed in - use cloud storage
+  if (window.firebaseService?.isSignedIn()) {
+    try {
+      // Add storeId for cloud storage (used for team sharing) - null is OK for public users
+      projectData.storeId = store || null;
 
-  // Save user preferences for next time
-  saveUserPrefs({ lastStore: store, lastSalesperson: salesperson });
+      const result = await window.firebaseService.saveProjectToCloud(projectData);
+      if (result.success) {
+        uiController.updateCanvasStatus(`Project "${projectName}" saved to cloud!`);
+        // Refresh cloud projects cache
+        await loadCloudProjects(true);
+        return true;
+      } else {
+        alert('Error saving to cloud: ' + result.error);
+        return false;
+      }
+    } catch (error) {
+      console.error('[Projects] Cloud save error:', error);
+      alert('Error saving project. Please try again.');
+      return false;
+    }
+  }
+
+  // Fall back to localStorage
+  const projects = getSavedProjects();
 
   // Check if project with same name exists
   const existingIndex = projects.findIndex(p => p.name.toLowerCase() === projectName.trim().toLowerCase());
@@ -531,9 +733,33 @@ function saveProject(projectName, store, salesperson, customerInfo = null) {
 }
 
 // Load a saved project
-function loadProject(projectId) {
-  const projects = getSavedProjects();
-  const project = projects.find(p => p.id === projectId);
+async function loadProject(projectId) {
+  let project = null;
+
+  // Check if signed in - try cloud first
+  if (window.firebaseService?.isSignedIn()) {
+    // Look in cached projects first
+    project = cachedCloudProjects.my.find(p => p.id === projectId) ||
+              cachedCloudProjects.store.find(p => p.id === projectId);
+
+    // If not in cache, load from cloud
+    if (!project) {
+      try {
+        const result = await window.firebaseService.loadProjectFromCloud(projectId);
+        if (result.success) {
+          project = result.project;
+        }
+      } catch (error) {
+        console.error('[Projects] Cloud load error:', error);
+      }
+    }
+  }
+
+  // Fall back to localStorage
+  if (!project) {
+    const projects = getSavedProjects();
+    project = projects.find(p => p.id === projectId);
+  }
 
   if (!project) {
     alert('Project not found.');
@@ -573,6 +799,7 @@ function loadProject(projectId) {
     } else {
       appState.wallSelectionMode = true;
       setPanelMode('wall-selection');
+      updateWizardNextButton('draw'); // Disable Next button until wall selected
     }
   }
 
@@ -582,18 +809,50 @@ function loadProject(projectId) {
 }
 
 // Delete a saved project
-function deleteProject(projectId) {
-  const projects = getSavedProjects();
-  const project = projects.find(p => p.id === projectId);
+async function deleteProject(projectId) {
+  let project = null;
+  const isSignedIn = window.firebaseService?.isSignedIn();
+
+  // Find the project
+  if (isSignedIn) {
+    project = cachedCloudProjects.my.find(p => p.id === projectId) ||
+              cachedCloudProjects.store.find(p => p.id === projectId);
+  } else {
+    const projects = getSavedProjects();
+    project = projects.find(p => p.id === projectId);
+  }
 
   if (!project) return false;
 
   if (confirm(`Are you sure you want to delete "${project.name}"?`)) {
-    const filtered = projects.filter(p => p.id !== projectId);
-    if (saveProjectsToStorage(filtered)) {
-      renderProjectsList();
-      uiController.updateCanvasStatus(`Project "${project.name}" deleted.`);
-      return true;
+    if (isSignedIn) {
+      // Delete from cloud
+      try {
+        const result = await window.firebaseService.deleteProjectFromCloud(projectId);
+        if (result.success) {
+          // Refresh cache
+          await loadCloudProjects(true);
+          renderProjectsList();
+          uiController.updateCanvasStatus(`Project "${project.name}" deleted.`);
+          return true;
+        } else {
+          alert('Error deleting project: ' + result.error);
+          return false;
+        }
+      } catch (error) {
+        console.error('[Projects] Cloud delete error:', error);
+        alert('Error deleting project. Please try again.');
+        return false;
+      }
+    } else {
+      // Delete from localStorage
+      const projects = getSavedProjects();
+      const filtered = projects.filter(p => p.id !== projectId);
+      if (saveProjectsToStorage(filtered)) {
+        renderProjectsList();
+        uiController.updateCanvasStatus(`Project "${project.name}" deleted.`);
+        return true;
+      }
     }
   }
   return false;
@@ -603,34 +862,33 @@ function deleteProject(projectId) {
 // Get current filter values
 function getCurrentFilters() {
   return {
-    store: document.getElementById('filterStore')?.value || 'all',
     salesperson: document.getElementById('filterSalesperson')?.value || 'all',
-    year: document.getElementById('filterYear')?.value || 'all'
+    sort: document.getElementById('filterSort')?.value || 'newest'
   };
 }
 
-// Filter projects based on current filters
+// Filter and sort projects based on current filters
 function filterProjects(projects, filters) {
-  return projects.filter(p => {
-    if (filters.store && filters.store !== 'all' && p.store !== filters.store) return false;
+  // Filter first
+  let filtered = projects.filter(p => {
     if (filters.salesperson && filters.salesperson !== 'all' && p.salesperson !== filters.salesperson) return false;
-    if (filters.year && filters.year !== 'all') {
-      const projectYear = new Date(p.createdAt).getFullYear().toString();
-      if (projectYear !== filters.year) return false;
-    }
     return true;
   });
-}
 
-// Get unique years from projects
-function getProjectYears(projects) {
-  const years = new Set();
-  projects.forEach(p => {
-    if (p.createdAt) {
-      years.add(new Date(p.createdAt).getFullYear().toString());
+  // Then sort
+  filtered.sort((a, b) => {
+    switch (filters.sort) {
+      case 'oldest':
+        return new Date(a.createdAt || 0) - new Date(b.createdAt || 0);
+      case 'name':
+        return (a.name || '').localeCompare(b.name || '');
+      case 'newest':
+      default:
+        return new Date(b.createdAt || 0) - new Date(a.createdAt || 0);
     }
   });
-  return Array.from(years).sort().reverse();
+
+  return filtered;
 }
 
 // Get store badge HTML
@@ -639,17 +897,44 @@ function getStoreBadgeHtml(store) {
   return `<span class="store-badge" style="background-color: ${colors.bg}; color: ${colors.text}">${escapeHtml(store || 'Unknown')}</span>`;
 }
 
-function renderProjectsList() {
+async function renderProjectsList() {
   const listContainer = document.getElementById('projectsList');
   const countSpan = document.getElementById('projectsCount');
   if (!listContainer) return;
 
-  const allProjects = getSavedProjects();
+  const isSignedIn = window.firebaseService?.isSignedIn();
+  let allProjects = [];
+
+  // Get projects based on auth state
+  if (isSignedIn) {
+    // Use cloud projects
+    if (isLoadingCloudProjects) {
+      listContainer.innerHTML = `
+        <div class="no-projects">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" class="w-12 h-12 loading-spinner">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+          </svg>
+          <p>Loading projects...</p>
+        </div>
+      `;
+      return;
+    }
+
+    // Load from cache or fetch
+    await loadCloudProjects();
+
+    // Get projects for current tab
+    allProjects = currentProjectsTab === 'my' ? cachedCloudProjects.my : cachedCloudProjects.store;
+  } else {
+    // Use localStorage
+    allProjects = getSavedProjects();
+  }
+
   const filters = getCurrentFilters();
   const projects = filterProjects(allProjects, filters);
 
-  // Update count display
-  if (countSpan) {
+  // Update count display (for localStorage mode)
+  if (countSpan && !isSignedIn) {
     if (allProjects.length === 0) {
       countSpan.textContent = '';
     } else if (projects.length === allProjects.length) {
@@ -657,16 +942,22 @@ function renderProjectsList() {
     } else {
       countSpan.textContent = `(${projects.length} of ${allProjects.length})`;
     }
+  } else if (countSpan) {
+    countSpan.textContent = ''; // Hide count in cloud mode (shown in tabs)
   }
 
   if (allProjects.length === 0) {
+    const emptyMessage = isSignedIn && currentProjectsTab === 'store'
+      ? { title: 'No team projects yet', subtitle: 'Projects from your store teammates will appear here' }
+      : { title: 'No saved projects yet', subtitle: 'Save your current design to access it later' };
+
     listContainer.innerHTML = `
       <div class="no-projects">
         <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-12 h-12">
           <path d="M2 4.75C2 3.784 2.784 3 3.75 3h4.836c.464 0 .909.184 1.237.513l1.414 1.414a.25.25 0 00.177.073h4.836c.966 0 1.75.784 1.75 1.75v8.5A1.75 1.75 0 0116.25 17H3.75A1.75 1.75 0 012 15.25V4.75z" />
         </svg>
-        <p>No saved projects yet</p>
-        <span>Save your current design to access it later</span>
+        <p>${emptyMessage.title}</p>
+        <span>${emptyMessage.subtitle}</span>
       </div>
     `;
     return;
@@ -693,8 +984,8 @@ function renderProjectsList() {
     const hasCustomer = customerInfo && (customerInfo.name || customerInfo.phone || customerInfo.email);
 
     // Build store/salesperson meta line
-    const storeBadge = getStoreBadgeHtml(project.store);
-    const salespersonName = project.salesperson || 'Unknown';
+    const storeBadge = getStoreBadgeHtml(project.store || project.storeId);
+    const salespersonName = project.salesperson || project.createdByName || 'Unknown';
     const metaHtml = `<div class="project-card-meta">${storeBadge}<span class="project-salesperson">${escapeHtml(salespersonName)}</span><span class="project-date">${date}</span></div>`;
 
     // Build customer info section if available
@@ -708,6 +999,19 @@ function renderProjectsList() {
       customerHtml = `<div class="project-card-customer">${parts.join(' • ')}</div>`;
     }
 
+    // Determine if user can delete (only own projects)
+    const isOwnProject = isSignedIn
+      ? project.createdByEmail?.toLowerCase() === window.firebaseService.getCurrentUser()?.email?.toLowerCase()
+      : true;
+
+    const deleteBtn = isOwnProject ? `
+      <button type="button" class="btn btn-delete" onclick="deleteProject('${project.id}')" title="Delete project">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+          <path fill-rule="evenodd" d="M8.75 1A2.75 2.75 0 006 3.75v.443c-.795.077-1.584.176-2.365.298a.75.75 0 10.23 1.482l.149-.022.841 10.518A2.75 2.75 0 007.596 19h4.807a2.75 2.75 0 002.742-2.53l.841-10.519.149.023a.75.75 0 00.23-1.482A41.03 41.03 0 0014 4.193V3.75A2.75 2.75 0 0011.25 1h-2.5zM10 4c.84 0 1.673.025 2.5.075V3.75c0-.69-.56-1.25-1.25-1.25h-2.5c-.69 0-1.25.56-1.25 1.25v.325C8.327 4.025 9.16 4 10 4zM8.58 7.72a.75.75 0 00-1.5.06l.3 7.5a.75.75 0 101.5-.06l-.3-7.5zm4.34.06a.75.75 0 10-1.5-.06l-.3 7.5a.75.75 0 101.5.06l.3-7.5z" clip-rule="evenodd" />
+        </svg>
+      </button>
+    ` : '';
+
     return `
       <div class="project-card" data-project-id="${project.id}">
         <div class="project-card-header">
@@ -719,11 +1023,7 @@ function renderProjectsList() {
             <button type="button" class="btn btn-primary btn-sm" onclick="loadProject('${project.id}')">
               Load
             </button>
-            <button type="button" class="btn btn-delete" onclick="deleteProject('${project.id}')" title="Delete project">
-              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
-                <path fill-rule="evenodd" d="M8.75 1A2.75 2.75 0 006 3.75v.443c-.795.077-1.584.176-2.365.298a.75.75 0 10.23 1.482l.149-.022.841 10.518A2.75 2.75 0 007.596 19h4.807a2.75 2.75 0 002.742-2.53l.841-10.519.149.023a.75.75 0 00.23-1.482A41.03 41.03 0 0014 4.193V3.75A2.75 2.75 0 0011.25 1h-2.5zM10 4c.84 0 1.673.025 2.5.075V3.75c0-.69-.56-1.25-1.25-1.25h-2.5c-.69 0-1.25.56-1.25 1.25v.325C8.327 4.025 9.16 4 10 4zM8.58 7.72a.75.75 0 00-1.5.06l.3 7.5a.75.75 0 101.5-.06l-.3-7.5zm4.34.06a.75.75 0 10-1.5-.06l-.3 7.5a.75.75 0 101.5.06l.3-7.5z" clip-rule="evenodd" />
-              </svg>
-            </button>
+            ${deleteBtn}
           </div>
         </div>
         ${customerHtml}
@@ -782,60 +1082,24 @@ function updateSalespersonDropdown() {
 
 // Populate filter dropdowns
 function populateFilterDropdowns() {
-  const config = getStoreConfig();
-  const projects = getSavedProjects();
-  const years = getProjectYears(projects);
-
-  // Store filter
-  const storeFilter = document.getElementById('filterStore');
-  if (storeFilter) {
-    const currentValue = storeFilter.value;
-    storeFilter.innerHTML = '<option value="all">All Stores</option>' +
-      config.stores.map(store =>
-        `<option value="${escapeHtml(store)}">${escapeHtml(store)}</option>`
-      ).join('');
-    if (currentValue && config.stores.includes(currentValue)) {
-      storeFilter.value = currentValue;
-    }
-  }
-
-  // Update salesperson filter based on store filter
+  // Update salesperson filter (for Store Projects tab)
   updateSalespersonFilter();
-
-  // Year filter
-  const yearFilter = document.getElementById('filterYear');
-  if (yearFilter) {
-    const currentValue = yearFilter.value;
-    yearFilter.innerHTML = '<option value="all">All Years</option>' +
-      years.map(year =>
-        `<option value="${year}">${year}</option>`
-      ).join('');
-    if (currentValue && years.includes(currentValue)) {
-      yearFilter.value = currentValue;
-    }
-  }
 }
 
-// Update salesperson filter based on store filter selection
+// Update salesperson filter with all team members
 function updateSalespersonFilter() {
-  const storeFilter = document.getElementById('filterStore');
   const salespersonFilter = document.getElementById('filterSalesperson');
   if (!salespersonFilter) return;
 
   const config = getStoreConfig();
-  const selectedStore = storeFilter?.value;
   const currentValue = salespersonFilter.value;
 
+  // Show all salespeople from all stores
   let people = [];
-  if (!selectedStore || selectedStore === 'all') {
-    // Show all salespeople from all stores
-    Object.values(config.salespeople).forEach(storePeople => {
-      people = people.concat(storePeople);
-    });
-    people = [...new Set(people)]; // Remove duplicates
-  } else {
-    people = config.salespeople[selectedStore] || [];
-  }
+  Object.values(config.salespeople).forEach(storePeople => {
+    people = people.concat(storePeople);
+  });
+  people = [...new Set(people)].sort(); // Remove duplicates and sort
 
   salespersonFilter.innerHTML = '<option value="all">All</option>' +
     people.map(person =>
@@ -847,19 +1111,29 @@ function updateSalespersonFilter() {
   }
 }
 
-// Handle store filter change
-function onStoreFilterChange() {
-  updateSalespersonFilter();
-  renderProjectsList();
-}
-
 // Open projects modal
-function openProjectsModal() {
+async function openProjectsModal() {
   const modal = document.getElementById('projectsModal');
   if (modal) {
     modal.classList.remove('hidden');
     populateSaveStoreDropdown();
     populateFilterDropdowns();
+
+    // Update UI based on auth state
+    const isSignedIn = window.firebaseService?.isSignedIn();
+    updateProjectsUIForAuth(isSignedIn ? window.firebaseService.getCurrentUser() : null);
+
+    // Reset to "My Projects" tab when opening
+    currentProjectsTab = 'my';
+    document.querySelectorAll('.projects-tab').forEach(btn => {
+      btn.classList.toggle('active', btn.dataset.tab === 'my');
+    });
+
+    // Load cloud projects if signed in
+    if (isSignedIn) {
+      await loadCloudProjects(true); // Force refresh when opening modal
+    }
+
     renderProjectsList();
     document.getElementById('saveProjectName')?.focus();
   }
@@ -874,31 +1148,40 @@ function closeProjectsModal() {
 }
 
 // Handle save project form submission
-function handleSaveProject(e) {
+async function handleSaveProject(e) {
   if (e) e.preventDefault();
   const nameInput = document.getElementById('saveProjectName');
-  const storeSelect = document.getElementById('saveProjectStore');
-  const salespersonSelect = document.getElementById('saveProjectSalesperson');
 
   const name = nameInput?.value?.trim();
-  const store = storeSelect?.value;
-  const salesperson = salespersonSelect?.value;
+
+  if (!name) {
+    alert('Please enter a project name.');
+    nameInput?.focus();
+    return;
+  }
 
   if (!appState.points || appState.points.length < 3) {
     alert('Please draw a deck shape first before saving.');
     return;
   }
 
-  if (!store) {
-    alert('Please select a store.');
-    storeSelect?.focus();
-    return;
-  }
+  // Auto-populate store and salesperson from logged-in user's profile
+  let store = null;
+  let salesperson = null;
 
-  if (!salesperson) {
-    alert('Please select a salesperson.');
-    salespersonSelect?.focus();
-    return;
+  const isSignedIn = window.firebaseService?.isSignedIn();
+  if (isSignedIn) {
+    const userProfile = window.firebaseService?.getCurrentUserProfile?.();
+    const userStores = window.firebaseService?.getUserStores?.() || [];
+    const currentUser = window.firebaseService?.getCurrentUser?.();
+
+    // Use the user's first store (primary store)
+    if (userStores.length > 0) {
+      store = userStores[0];
+    }
+
+    // Use the user's display name or email as salesperson
+    salesperson = currentUser?.displayName || userProfile?.displayName || currentUser?.email || null;
   }
 
   // Collect customer info if checkbox is checked
@@ -917,7 +1200,8 @@ function handleSaveProject(e) {
     }
   }
 
-  if (saveProject(name, store, salesperson, customerInfo)) {
+  const saved = await saveProject(name, store, salesperson, customerInfo);
+  if (saved) {
     // Clear form fields
     nameInput.value = '';
     const customerNameInput = document.getElementById('customerName');
@@ -982,6 +1266,7 @@ function openSettingsModal() {
   if (modal) {
     modal.classList.remove('hidden');
     renderStoresList();
+    populateMembershipStoreDropdown();
   }
 }
 
@@ -992,6 +1277,179 @@ function closeSettingsModal() {
     modal.classList.add('hidden');
   }
 }
+
+// ============================================
+// CLOUD MEMBERSHIP MANAGEMENT (ADMIN)
+// ============================================
+
+// Populate the membership store dropdown with cloud stores
+async function populateMembershipStoreDropdown() {
+  const dropdown = document.getElementById('membershipStoreSelect');
+  if (!dropdown) return;
+
+  // Check if user is signed in
+  if (!window.firebaseService?.isSignedIn()) {
+    dropdown.innerHTML = '<option value="">Sign in to manage memberships</option>';
+    dropdown.disabled = true;
+    document.getElementById('storeMembersList').innerHTML =
+      '<p class="no-members">Sign in to view and manage store memberships.</p>';
+    document.getElementById('addMemberSection')?.classList.add('hidden');
+    return;
+  }
+
+  dropdown.disabled = false;
+  dropdown.innerHTML = '<option value="">Loading stores...</option>';
+
+  try {
+    const result = await window.firebaseService.loadStores();
+    if (result.success && result.stores.length > 0) {
+      dropdown.innerHTML = '<option value="">Select a store...</option>' +
+        result.stores.map(store =>
+          `<option value="${escapeHtml(store.id)}">${escapeHtml(store.name)}</option>`
+        ).join('');
+      document.getElementById('storeMembersList').innerHTML =
+        '<p class="no-members">Select a store to view its members.</p>';
+    } else {
+      dropdown.innerHTML = '<option value="">No cloud stores found</option>';
+      document.getElementById('storeMembersList').innerHTML =
+        '<p class="no-members">No cloud stores configured. Create a store in Firebase first.</p>';
+    }
+  } catch (error) {
+    console.error('Error loading cloud stores:', error);
+    dropdown.innerHTML = '<option value="">Error loading stores</option>';
+  }
+}
+
+// Load members for the selected store
+async function loadStoreMembersAdmin() {
+  const dropdown = document.getElementById('membershipStoreSelect');
+  const storeId = dropdown?.value;
+  const membersList = document.getElementById('storeMembersList');
+  const addSection = document.getElementById('addMemberSection');
+
+  if (!storeId) {
+    membersList.innerHTML = '<p class="no-members">Select a store to view its members.</p>';
+    addSection?.classList.add('hidden');
+    return;
+  }
+
+  membersList.innerHTML = '<p class="loading-members">Loading members...</p>';
+
+  try {
+    const result = await window.firebaseService.getStoreMembers(storeId);
+
+    if (result.success) {
+      const members = result.members || [];
+
+      if (members.length === 0) {
+        membersList.innerHTML = '<p class="no-members">No members in this store yet.</p>';
+      } else {
+        membersList.innerHTML = members.map(email => `
+          <div class="member-item">
+            <span class="member-email">${escapeHtml(email)}</span>
+            <button type="button" class="btn-icon btn-delete-small" onclick="handleRemoveStoreMember('${escapeHtml(email)}')" title="Remove member">
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-4 h-4">
+                <path fill-rule="evenodd" d="M8.75 1A2.75 2.75 0 006 3.75v.443c-.795.077-1.584.176-2.365.298a.75.75 0 10.23 1.482l.149-.022.841 10.518A2.75 2.75 0 007.596 19h4.807a2.75 2.75 0 002.742-2.53l.841-10.519.149.023a.75.75 0 00.23-1.482A41.03 41.03 0 0014 4.193V3.75A2.75 2.75 0 0011.25 1h-2.5zM10 4c.84 0 1.673.025 2.5.075V3.75c0-.69-.56-1.25-1.25-1.25h-2.5c-.69 0-1.25.56-1.25 1.25v.325C8.327 4.025 9.16 4 10 4zM8.58 7.72a.75.75 0 00-1.5.06l.3 7.5a.75.75 0 101.5-.06l-.3-7.5zm4.34.06a.75.75 0 10-1.5-.06l-.3 7.5a.75.75 0 101.5.06l.3-7.5z" clip-rule="evenodd" />
+              </svg>
+            </button>
+          </div>
+        `).join('');
+      }
+
+      // Show add member section
+      addSection?.classList.remove('hidden');
+    } else {
+      membersList.innerHTML = `<p class="no-members error">Error: ${escapeHtml(result.error)}</p>`;
+      addSection?.classList.add('hidden');
+    }
+  } catch (error) {
+    console.error('Error loading store members:', error);
+    membersList.innerHTML = '<p class="no-members error">Error loading members.</p>';
+    addSection?.classList.add('hidden');
+  }
+}
+
+// Add a member to the currently selected store
+async function handleAddStoreMember() {
+  const dropdown = document.getElementById('membershipStoreSelect');
+  const storeId = dropdown?.value;
+  const input = document.getElementById('newMemberEmail');
+  const email = input?.value?.trim().toLowerCase();
+
+  if (!storeId) {
+    alert('Please select a store first.');
+    return;
+  }
+
+  if (!email) {
+    alert('Please enter an email address.');
+    input?.focus();
+    return;
+  }
+
+  // Basic email validation
+  if (!email.includes('@') || !email.includes('.')) {
+    alert('Please enter a valid email address.');
+    input?.focus();
+    return;
+  }
+
+  const addBtn = document.querySelector('#addMemberSection .btn-primary');
+  const originalText = addBtn?.textContent;
+  if (addBtn) {
+    addBtn.disabled = true;
+    addBtn.textContent = 'Adding...';
+  }
+
+  try {
+    const result = await window.firebaseService.addUserToStore(storeId, email);
+
+    if (result.success) {
+      input.value = '';
+      await loadStoreMembersAdmin(); // Refresh the list
+    } else {
+      alert(`Failed to add member: ${result.error}`);
+    }
+  } catch (error) {
+    console.error('Error adding store member:', error);
+    alert('An error occurred while adding the member.');
+  } finally {
+    if (addBtn) {
+      addBtn.disabled = false;
+      addBtn.textContent = originalText;
+    }
+  }
+}
+
+// Remove a member from the currently selected store
+async function handleRemoveStoreMember(email) {
+  const dropdown = document.getElementById('membershipStoreSelect');
+  const storeId = dropdown?.value;
+
+  if (!storeId || !email) return;
+
+  if (!confirm(`Remove ${email} from this store?\n\nThey will no longer have access to store projects.`)) {
+    return;
+  }
+
+  try {
+    const result = await window.firebaseService.removeUserFromStore(storeId, email);
+
+    if (result.success) {
+      await loadStoreMembersAdmin(); // Refresh the list
+    } else {
+      alert(`Failed to remove member: ${result.error}`);
+    }
+  } catch (error) {
+    console.error('Error removing store member:', error);
+    alert('An error occurred while removing the member.');
+  }
+}
+
+// Expose functions to window for onclick handlers
+window.loadStoreMembersAdmin = loadStoreMembersAdmin;
+window.handleAddStoreMember = handleAddStoreMember;
+window.handleRemoveStoreMember = handleRemoveStoreMember;
 
 // Render the stores list in the settings modal
 function renderStoresList() {
@@ -1516,7 +1974,6 @@ window.exportToPDF = exportToPDF;
 
 // Store/Salesperson dropdown functions
 window.updateSalespersonDropdown = updateSalespersonDropdown;
-window.onStoreFilterChange = onStoreFilterChange;
 window.renderProjectsList = renderProjectsList;
 
 // Admin login and settings modal functions
@@ -1633,18 +2090,22 @@ function initializeViewport() {
     console.error("Canvas or container not ready for viewport initialization.");
     return;
   }
-  appState.viewportScale = 1.0;
+
+  // Slightly zoomed out default for more working room
+  appState.viewportScale = 0.85;
+
   const canvasWidth = deckCanvas.width;
   const canvasHeight = deckCanvas.height;
-  const initialViewModelWidth =
-    config.INITIAL_VIEW_WIDTH_FEET * config.PIXELS_PER_FOOT;
-  const initialViewModelHeight =
-    config.INITIAL_VIEW_HEIGHT_FEET * config.PIXELS_PER_FOOT;
+
+  // Center on the middle of the model space (not the top-left corner)
+  // This gives equal working room on all sides when zooming out
+  const modelCenterX = (config.MODEL_WIDTH_FEET * config.PIXELS_PER_FOOT) / 2;
+  const modelCenterY = (config.MODEL_HEIGHT_FEET * config.PIXELS_PER_FOOT) / 2;
 
   appState.viewportOffsetX =
-    (canvasWidth - initialViewModelWidth * appState.viewportScale) / 2;
+    canvasWidth / 2 - modelCenterX * appState.viewportScale;
   appState.viewportOffsetY =
-    (canvasHeight - initialViewModelHeight * appState.viewportScale) / 2;
+    canvasHeight / 2 - modelCenterY * appState.viewportScale;
 }
 
 
@@ -1692,28 +2153,40 @@ function isLayerVisible(layerId) {
 
 // Unlock layers when a step is completed
 function onStepComplete(stepId) {
-  console.log(`[onStepComplete] Step "${stepId}" completed, unlocking layers...`);
+  // Check if layers are already unlocked to prevent unnecessary redraws
+  let needsRedraw = false;
 
   switch(stepId) {
     case 'draw':
       // No new layers (outline/dimensions always visible)
       break;
     case 'structure':
-      // Unlock all framing layers
-      appState.unlockedLayers.ledger = true;
-      appState.unlockedLayers.joists = true;
-      appState.unlockedLayers.beams = true;
-      appState.unlockedLayers.posts = true;
-      appState.unlockedLayers.blocking = true;
-      console.log('[onStepComplete] Framing layers unlocked');
+      // Unlock all framing layers (only if not already unlocked)
+      if (!appState.unlockedLayers.ledger) {
+        appState.unlockedLayers.ledger = true;
+        appState.unlockedLayers.joists = true;
+        appState.unlockedLayers.beams = true;
+        appState.unlockedLayers.posts = true;
+        appState.unlockedLayers.blocking = true;
+        console.log('[onStepComplete] Step "structure" completed, unlocking layers...');
+        console.log('[onStepComplete] Framing layers unlocked');
+        needsRedraw = true;
+      }
       break;
     case 'stairs':
-      appState.unlockedLayers.stairs = true;
-      console.log('[onStepComplete] Stairs layer unlocked');
+      if (!appState.unlockedLayers.stairs) {
+        appState.unlockedLayers.stairs = true;
+        console.log('[onStepComplete] Step "stairs" completed, unlocking layers...');
+        console.log('[onStepComplete] Stairs layer unlocked');
+        needsRedraw = true;
+      }
       break;
     // Future: decking, railing
   }
-  redrawApp();
+
+  if (needsRedraw) {
+    redrawApp();
+  }
 }
 
 // Update BOM visibility based on current step
@@ -1766,6 +2239,9 @@ function setWizardStep(stepId) {
   showWizardStepContent(stepId);
   renderWizardStepList();
 
+  // Update mobile bottom navigation
+  updateMobileBottomNav(stepId);
+
   // Update BOM visibility based on step (PROGRESSIVE RENDERING)
   updateBOMVisibility(stepId);
 
@@ -1775,8 +2251,55 @@ function setWizardStep(stepId) {
   return true;
 }
 
+/**
+ * Navigate to step (called from mobile bottom nav)
+ * Exposed globally via window.navigateToStep
+ */
+function navigateToStep(stepId) {
+  return setWizardStep(stepId);
+}
+
+/**
+ * Update mobile bottom navigation to reflect current step
+ */
+function updateMobileBottomNav(activeStepId) {
+  const mobileNav = document.getElementById('mobileBottomNav');
+  if (!mobileNav) return;
+
+  const navItems = mobileNav.querySelectorAll('.mobile-nav-item');
+  const stepOrder = ['draw', 'structure', 'stairs', 'materials', 'summary'];
+
+  navItems.forEach(item => {
+    const itemStep = item.dataset.step;
+    const itemIndex = stepOrder.indexOf(itemStep);
+    const activeIndex = stepOrder.indexOf(activeStepId);
+
+    // Remove all state classes
+    item.classList.remove('active', 'complete', 'unavailable');
+
+    if (itemStep === activeStepId) {
+      // Current step
+      item.classList.add('active');
+    } else if (itemIndex < activeIndex && appState.isShapeClosed) {
+      // Previous steps that are complete
+      item.classList.add('complete');
+    } else if (!isStepAvailable(itemStep)) {
+      // Unavailable steps
+      item.classList.add('unavailable');
+    }
+  });
+}
+
+// Expose navigateToStep globally for onclick handlers
+window.navigateToStep = navigateToStep;
+
 // Handle special logic when entering a step
 function handleStepEntry(stepId, previousStep) {
+  // Cleanup previous step if needed
+  if (previousStep === 'decking' && stepId !== 'decking') {
+    cleanupDeckingStep();
+  }
+
   switch(stepId) {
     case 'draw':
       // Ensure edit shape panel visibility is updated when returning to draw step
@@ -1811,6 +2334,9 @@ function handleStepEntry(stepId, previousStep) {
       redrawApp();
       break;
     case 'decking':
+      // Initialize decking step
+      initializeDeckingStep();
+      break;
     case 'railing':
       // Coming soon - just show placeholder
       break;
@@ -1960,13 +2486,76 @@ function triggerAutoCalculation() {
     return;
   }
 
+  // Get form inputs (same for all tiers)
+  const formInputs = uiController.getFormInputs();
+
+  // MULTI-TIER: Calculate structure for ALL tiers with closed shapes
+  if (appState.tiersEnabled && appState.tiers) {
+    const originalActiveTierId = appState.activeTierId;
+    let anyCalculated = false;
+
+    // Calculate for each tier
+    Object.keys(appState.tiers).forEach(tierId => {
+      const tier = appState.tiers[tierId];
+
+      // Skip tiers without closed shapes
+      if (!tier.isShapeClosed || !tier.points || tier.points.length < 3) {
+        console.log(`[triggerAutoCalculation] Skipping tier '${tier.name}' - shape not closed`);
+        return;
+      }
+
+      console.log(`[triggerAutoCalculation] Calculating structure for tier '${tier.name}'...`);
+
+      // Temporarily sync this tier to legacy state for calculation
+      appState.points = tier.points || [];
+      appState.selectedWallIndices = tier.selectedWallIndices || [];
+      appState.rectangularSections = tier.rectangularSections || [];
+      appState.deckDimensions = tier.deckDimensions;
+      appState.isShapeClosed = tier.isShapeClosed;
+
+      // Calculate deck dimensions for this tier if needed
+      if (!appState.deckDimensions) {
+        calculateAndUpdateDeckDimensions();
+        tier.deckDimensions = appState.deckDimensions;
+      }
+
+      // Auto-select first edge as default ledger wall if needed
+      if (formInputs.attachmentType === 'house_rim' && appState.selectedWallIndices.length === 0) {
+        appState.selectedWallIndices = [0];
+        tier.selectedWallIndices = [0];
+        console.log(`[triggerAutoCalculation] Auto-selected edge 0 as default ledger for tier '${tier.name}'`);
+      }
+
+      // Perform structural calculation for this tier
+      try {
+        const result = calculateStructuralComponents(formInputs);
+        if (result && !result.error) {
+          tier.structuralComponents = result;
+          anyCalculated = true;
+          console.log(`[triggerAutoCalculation] Structure generated for tier '${tier.name}'`);
+        } else if (result?.error) {
+          console.error(`[triggerAutoCalculation] Error for tier '${tier.name}':`, result.error);
+        }
+      } catch (error) {
+        console.error(`[triggerAutoCalculation] Exception for tier '${tier.name}':`, error);
+      }
+    });
+
+    // Restore active tier's state to legacy fields
+    syncActiveTierToLegacy();
+
+    if (anyCalculated) {
+      recalculateAndUpdateBOM();
+      redrawApp();
+    }
+    return;
+  }
+
+  // SINGLE-TIER FALLBACK: Original logic for non-multi-tier mode
   // Only calculate if we have a closed shape
   if (!appState.isShapeClosed || appState.points.length < 3) {
     return;
   }
-
-  // Get form inputs
-  const formInputs = uiController.getFormInputs();
 
   // Calculate deck dimensions if not done
   if (!appState.deckDimensions) {
@@ -1975,8 +2564,10 @@ function triggerAutoCalculation() {
 
   // Check if we need walls for house_rim (ledger) attachment
   if (formInputs.attachmentType === 'house_rim' && appState.selectedWallIndices.length === 0) {
-    // Can't calculate without wall selection
-    return;
+    // Auto-select first edge (top edge for rectangles) as default wall
+    // This allows BOM to generate even if user didn't explicitly click a wall
+    appState.selectedWallIndices = [0];
+    console.log('[triggerAutoCalculation] Auto-selected edge 0 as default ledger wall');
   }
 
   // Perform structural calculation
@@ -2334,7 +2925,18 @@ function updateUIClasses() {
   }
 }
 
+// Throttle flag for redrawApp
+let isRedrawing = false;
+let pendingRedraw = false;
+
 function redrawApp() {
+  // Throttle to prevent rapid successive redraws
+  if (isRedrawing) {
+    pendingRedraw = true;
+    return;
+  }
+  isRedrawing = true;
+
   // Update the blueprint mode UI elements
   updateBlueprintModeUI();
 
@@ -2388,6 +2990,14 @@ function redrawApp() {
   
   // Update stair management UI
   updateStairList();
+
+  // Clear throttle flag and handle pending redraw
+  isRedrawing = false;
+  if (pendingRedraw) {
+    pendingRedraw = false;
+    // Use requestAnimationFrame to batch pending redraws
+    requestAnimationFrame(() => redrawApp());
+  }
 }
 
 // Update Blueprint Mode UI elements
@@ -2659,11 +3269,16 @@ function handleDimensionInputApply() {
       calculateAndUpdateDeckDimensions();
       appState.wallSelectionMode = true;
       saveHistoryState('Close shape');
+      syncLegacyToActiveTier(); // Sync closed shape to tier
+      updateTierUI(); // Update tier UI to show "Add Another Tier" button
+      updateWizardNextButton('draw'); // Update Next button state (disabled until wall selected)
       uiController.updateCanvasStatus("Shape closed. Select the wall attached to structure.");
     } else {
+      syncLegacyToActiveTier(); // Sync point addition to tier
       uiController.updateCanvasStatus("Next point or click near start to close.");
     }
   } else {
+    syncLegacyToActiveTier(); // Sync point addition to tier
     uiController.updateCanvasStatus("Next point or click near start to close.");
   }
   
@@ -2679,35 +3294,137 @@ function handleDimensionInputApply() {
 }
 
 function recalculateAndUpdateBOM() {
-  if (appState.structuralComponents && !appState.structuralComponents.error) {
-    const currentInputs = uiController.getFormInputs();
-    const bomResult = bomCalculations.calculateBOM(
-      appState.structuralComponents,
-      currentInputs,
-      appState.stairs,
-      appState.deckDimensions
-    );
-    if (bomResult.error) {
+  const currentInputs = uiController.getFormInputs();
+
+  // Multi-tier mode: aggregate BOM across all tiers
+  if (appState.tiersEnabled && appState.tiers) {
+    let combinedBom = [];
+    let hasError = false;
+    let errorMsg = null;
+
+    for (const tierId in appState.tiers) {
+      const tier = appState.tiers[tierId];
+      if (tier.structuralComponents && !tier.structuralComponents.error) {
+        // Create inputs with tier-specific height
+        const tierInputs = {
+          ...currentInputs,
+          deckHeight: tier.heightFeet + (tier.heightInches || 0) / 12
+        };
+
+        const tierBom = bomCalculations.calculateBOM(
+          tier.structuralComponents,
+          tierInputs,
+          appState.stairs.filter(s => s.sourceTierId === tierId || (!s.sourceTierId && tierId === 'upper')),
+          tier.deckDimensions,
+          appState.decking
+        );
+
+        if (tierBom.error) {
+          hasError = true;
+          errorMsg = tierBom.error;
+        } else {
+          // Tag BOM items with tier ID for tracking
+          tierBom.forEach(item => {
+            item.tierId = tierId;
+            item.tierName = tier.name;
+          });
+          combinedBom = combinedBom.concat(tierBom);
+        }
+      }
+    }
+
+    if (hasError) {
       appState.bom = [];
-      console.error("BOM Calculation Error:", bomResult.error);
-      uiController.populateBOMTable(null, bomResult.error);
-    } else {
-      // Enrich BOM with live Shopify prices if available
+      console.error("BOM Calculation Error:", errorMsg);
+      uiController.populateBOMTable(null, errorMsg);
+    } else if (combinedBom.length > 0) {
+      // Aggregate similar items across tiers
+      appState.bom = aggregateBomItems(combinedBom);
+      // Enrich with Shopify prices
       appState.bom = shopifyService.isLoaded()
-        ? shopifyService.enrichBomWithShopifyData(bomResult)
-        : bomResult;
+        ? shopifyService.enrichBomWithShopifyData(appState.bom)
+        : appState.bom;
+      uiController.populateBOMTable(appState.bom);
+    } else {
+      appState.bom = [];
       uiController.populateBOMTable(appState.bom);
     }
+
+    // Show summary for active tier
+    const activeTier = appState.tiers[appState.activeTierId];
     uiController.populateSummaryCard(
-      appState.structuralComponents,
+      activeTier?.structuralComponents,
       currentInputs,
-      appState.deckDimensions,
+      activeTier?.deckDimensions,
       appState.stairs
     );
   } else {
-    appState.bom = [];
-    uiController.populateBOMTable(appState.bom);
+    // Single-tier mode: original logic
+    if (appState.structuralComponents && !appState.structuralComponents.error) {
+      const bomResult = bomCalculations.calculateBOM(
+        appState.structuralComponents,
+        currentInputs,
+        appState.stairs,
+        appState.deckDimensions,
+        appState.decking
+      );
+      if (bomResult.error) {
+        appState.bom = [];
+        console.error("BOM Calculation Error:", bomResult.error);
+        uiController.populateBOMTable(null, bomResult.error);
+      } else {
+        // Enrich BOM with live Shopify prices if available
+        appState.bom = shopifyService.isLoaded()
+          ? shopifyService.enrichBomWithShopifyData(bomResult)
+          : bomResult;
+        uiController.populateBOMTable(appState.bom);
+
+        // Apply gating based on auth state
+        updateBOMGating(window.firebaseService?.isSignedIn?.() || false);
+      }
+      uiController.populateSummaryCard(
+        appState.structuralComponents,
+        currentInputs,
+        appState.deckDimensions,
+        appState.stairs
+      );
+    } else {
+      appState.bom = [];
+      uiController.populateBOMTable(appState.bom);
+    }
   }
+}
+
+/**
+ * Aggregate BOM items by combining quantities of identical items.
+ * @param {Array} bomItems - Array of BOM items potentially from multiple tiers
+ * @returns {Array} Aggregated BOM items
+ */
+function aggregateBomItems(bomItems) {
+  const aggregated = {};
+
+  bomItems.forEach(item => {
+    // Create a key based on item properties that identify unique items
+    const key = `${item.sku || item.item}-${item.size || ''}-${item.material || ''}`;
+
+    if (aggregated[key]) {
+      // Combine quantities
+      aggregated[key].quantity += item.quantity || 0;
+      // Track tier breakdown for display
+      if (!aggregated[key].tierBreakdown) {
+        aggregated[key].tierBreakdown = {};
+      }
+      aggregated[key].tierBreakdown[item.tierId] =
+        (aggregated[key].tierBreakdown[item.tierId] || 0) + (item.quantity || 0);
+    } else {
+      aggregated[key] = {
+        ...item,
+        tierBreakdown: { [item.tierId]: item.quantity || 0 }
+      };
+    }
+  });
+
+  return Object.values(aggregated);
 }
 
 // --- Event Handler Functions ---
@@ -2763,7 +3480,10 @@ function handleGeneratePlan() {
     
     // Log calculation results for debugging
     console.log("Structural calculation result:", appState.structuralComponents);
-    
+
+    // Sync structural components back to active tier
+    syncLegacyToActiveTier();
+
     if (appState.structuralComponents && !appState.structuralComponents.error) {
       recalculateAndUpdateBOM();
     } else {
@@ -2775,7 +3495,10 @@ function handleGeneratePlan() {
       uiController.populateSummaryCard(null, inputs, null, null, errorMsg);
     }
     redrawApp();
-    
+
+    // Update 3D view if active
+    update3DView();
+
     // Update contextual panel if plan generation was successful
     if (appState.structuralComponents && !appState.structuralComponents.error) {
       // Disable wall selection mode after successful plan generation
@@ -3014,6 +3737,31 @@ function handleCanvasClick(viewMouseX, viewMouseY) {
     return; // Skip placing a point on this click
   }
 
+  // Handle tier selection clicks (multi-tier mode)
+  // Allow clicking on an inactive tier's shape to switch to it
+  // BUT only if the active tier's shape is already closed (not currently drawing)
+  if (appState.tiersEnabled && appState.wizardStep === 'draw' && appState.tiers) {
+    const activeTierId = appState.activeTierId || 'upper';
+    const activeTier = appState.tiers[activeTierId];
+
+    // Only allow tier switching if the active tier is closed (not drawing)
+    // This prevents tier switches from intercepting drawing clicks
+    if (activeTier && activeTier.isShapeClosed) {
+      for (const tierId in appState.tiers) {
+        if (tierId === activeTierId) continue; // Skip active tier
+        const tier = appState.tiers[tierId];
+        if (tier.points && tier.points.length >= 3) {
+          // Check if click is inside this tier's shape
+          if (shapeDecomposer.isPointInsidePolygon(modelMouse, tier.points)) {
+            switchActiveTier(tierId);
+            uiController.updateCanvasStatus(`Switched to ${tier.name}`);
+            return;
+          }
+        }
+      }
+    }
+  }
+
   // Handle measurement tool clicks
   if (appState.isMeasureMode) {
     if (handleMeasureClick(modelMouse.x, modelMouse.y)) {
@@ -3021,7 +3769,15 @@ function handleCanvasClick(viewMouseX, viewMouseY) {
     }
   }
 
-  if (appState.stairPlacementMode) {
+  // Handle breaker board placement clicks
+  if (appState.decking && appState.decking.breakerPlacementMode) {
+    if (handleBreakerPlacement(modelMouse.x, modelMouse.y)) {
+      return; // Breaker placement handled the click
+    }
+  }
+
+  // Skip stair placement if breaker placement mode is active
+  if (appState.stairPlacementMode && !(appState.decking && appState.decking.breakerPlacementMode)) {
     handleStairPlacementClick(modelMouse.x, modelMouse.y);
     return;
   }
@@ -3180,6 +3936,18 @@ function handleCanvasClick(viewMouseX, viewMouseY) {
       appState.bom = [];
       uiController.resetUIOutputs();
       updateContextualPanel();
+      updateWizardNextButton('draw'); // Disable Next button until wall selected
+    }
+  }
+
+  // Ensure legacy state reflects active tier before checking drawing conditions
+  // This prevents state desync issues when drawing on secondary tiers
+  if (appState.tiersEnabled && appState.tiers[appState.activeTierId]) {
+    const activeTier = appState.tiers[appState.activeTierId];
+    if (!activeTier.isShapeClosed) {
+      // Active tier is not closed - ensure legacy state matches for drawing
+      appState.isShapeClosed = false;
+      appState.wallSelectionMode = false;
     }
   }
 
@@ -3389,6 +4157,8 @@ function handleCanvasClick(viewMouseX, viewMouseY) {
       updateWizardNextButton(appState.wizardStep);
 
       saveHistoryState('Close shape');
+      syncLegacyToActiveTier(); // Sync closed shape to tier
+      updateTierUI(); // Update tier UI (show tabs if multiple tiers, etc.)
       updateContextualPanel();
     } else if (appState.points.length >= 3) {
       // 3+ points but not a closing click - add another point
@@ -3396,6 +4166,7 @@ function handleCanvasClick(viewMouseX, viewMouseY) {
         appState.points.push(snappedModelPos);
         appState.isDrawing = true;
         saveHistoryState('Add point');
+        syncLegacyToActiveTier(); // Sync point to tier
         updateContextualPanel();
       }
     } else {
@@ -3410,6 +4181,7 @@ function handleCanvasClick(viewMouseX, viewMouseY) {
         appState.points.push(snappedModelPos);
         appState.isDrawing = true;
         saveHistoryState('Add point');
+        syncLegacyToActiveTier(); // Sync point to tier
         updateContextualPanel();
       }
     }
@@ -3436,7 +4208,38 @@ function handleStairPlacementClick(modelMouseX, modelMouseY) {
   if (clickedRimIndex !== -1) {
     const clickedRim = appState.structuralComponents.rimJoists[clickedRimIndex];
     const inputs = uiController.getFormInputs();
-    const deckHeight = inputs.deckHeight;
+
+    // Get deck height - use tier height in multi-tier mode
+    let deckHeight = inputs.deckHeight;
+    let sourceTierId = null;
+    let targetTierId = null;
+
+    if (appState.tiersEnabled && appState.activeTierId && appState.tiers[appState.activeTierId]) {
+      const sourceTier = appState.tiers[appState.activeTierId];
+      const sourceHeightFeet = sourceTier.heightFeet + (sourceTier.heightInches || 0) / 12;
+      sourceTierId = appState.activeTierId;
+
+      // Check stair target selection
+      const stairTarget = inputs.stairTarget || 'ground';
+
+      if (stairTarget === 'lower_tier' && appState.activeTierId === 'upper' && appState.tiers.lower?.isShapeClosed) {
+        // Tier-to-tier stairs: height is difference between tiers
+        const targetTier = appState.tiers.lower;
+        const targetHeightFeet = targetTier.heightFeet + (targetTier.heightInches || 0) / 12;
+        deckHeight = sourceHeightFeet - targetHeightFeet;
+        targetTierId = 'lower';
+
+        if (deckHeight <= 0) {
+          uiController.updateCanvasStatus("Error: Upper tier must be higher than lower tier for tier-to-tier stairs.");
+          return;
+        }
+      } else {
+        // Ground-level stairs
+        deckHeight = sourceHeightFeet;
+        targetTierId = null;
+      }
+    }
+
     if (typeof deckHeight !== "number" || deckHeight <= 0) {
       uiController.updateCanvasStatus(
         "Error: Please select a valid Deck Height."
@@ -3454,6 +4257,9 @@ function handleStairPlacementClick(modelMouseX, modelMouseY) {
       landingType: inputs.landingType,
       positionX: (clickedRim.p1.x + clickedRim.p2.x) / 2,
       positionY: (clickedRim.p1.y + clickedRim.p2.y) / 2,
+      // Tier-to-tier stair support
+      sourceTierId: sourceTierId,
+      targetTierId: targetTierId,
     };
     stairCalculations.calculateStairDetails(newStair, deckHeight);
     if (newStair.calculationError) {
@@ -3502,6 +4308,53 @@ function handleCanvasMouseMove(viewMouseX, viewMouseY) {
     appState.viewportOffsetY = appState.panInitialViewportOffsetY + deltaViewY;
     redrawApp();
     return; // Don't do other mouse move logic while panning
+  }
+
+  // Shape dragging - move entire shape
+  if (appState.isDraggingShape && appState.shapeDragStartMouse && appState.shapeDragInitialPoints.length > 0) {
+    const deltaX = modelMouse.x - appState.shapeDragStartMouse.x;
+    const deltaY = modelMouse.y - appState.shapeDragStartMouse.y;
+
+    // Update all points by the delta
+    for (let i = 0; i < appState.shapeDragInitialPoints.length; i++) {
+      appState.points[i] = {
+        x: appState.shapeDragInitialPoints[i].x + deltaX,
+        y: appState.shapeDragInitialPoints[i].y + deltaY
+      };
+    }
+
+    redrawApp();
+    return;
+  }
+
+  // Tier hover detection (multi-tier mode)
+  // Show hover effect on inactive tiers to indicate they're clickable
+  if (appState.tiersEnabled && appState.wizardStep === 'draw' && appState.tiers) {
+    const activeTierId = appState.activeTierId || 'upper';
+    let newHoveredTierId = null;
+    for (const tierId in appState.tiers) {
+      if (tierId === activeTierId) continue;
+      const tier = appState.tiers[tierId];
+      if (tier.points && tier.points.length >= 3) {
+        if (shapeDecomposer.isPointInsidePolygon(modelMouse, tier.points)) {
+          newHoveredTierId = tierId;
+          break;
+        }
+      }
+    }
+    if (newHoveredTierId !== appState.hoveredTierId) {
+      appState.hoveredTierId = newHoveredTierId;
+      // Change cursor to indicate clickable tier
+      const deckCanvas = document.getElementById('deckCanvas');
+      if (deckCanvas) {
+        deckCanvas.style.cursor = newHoveredTierId ? 'pointer' : 'default';
+      }
+      redrawApp();
+    }
+  } else if (appState.hoveredTierId) {
+    appState.hoveredTierId = null;
+    const deckCanvas = document.getElementById('deckCanvas');
+    if (deckCanvas) deckCanvas.style.cursor = 'default';
   }
 
   if (appState.isDraggingStairs && appState.draggedStairIndex !== -1) {
@@ -3559,7 +4412,12 @@ function handleCanvasMouseMove(viewMouseX, viewMouseY) {
   if (appState.vertexEditMode === 'edge-dragging' && appState.draggedEdgeIndex >= 0) {
     const edgeIdx = appState.draggedEdgeIndex;
     const p1Idx = edgeIdx;
-    const p2Idx = (edgeIdx + 1) % (appState.points.length - 1);
+    // Check if last point is a closing point
+    const firstP = appState.points[0];
+    const lastP = appState.points[appState.points.length - 1];
+    const hasClosingPoint = Math.abs(firstP.x - lastP.x) < 1 && Math.abs(firstP.y - lastP.y) < 1;
+    const numUniqueVertices = hasClosingPoint ? appState.points.length - 1 : appState.points.length;
+    const p2Idx = (edgeIdx + 1) % numUniqueVertices;
 
     // Get edge direction and perpendicular
     const edgeDx = appState.edgeDragStartP2.x - appState.edgeDragStartP1.x;
@@ -3624,7 +4482,13 @@ function handleCanvasMouseMove(viewMouseX, viewMouseY) {
     const iconOffsetX = 14;
     const iconOffsetY = -14;
     const scale = appState.viewportScale;
-    const canDelete = appState.points.length > 5;
+
+    // Check if last point is a closing point (same as first point)
+    const firstP = appState.points[0];
+    const lastP = appState.points[appState.points.length - 1];
+    const hasClosingPoint = Math.abs(firstP.x - lastP.x) < 1 && Math.abs(firstP.y - lastP.y) < 1;
+    const numUniqueVertices = hasClosingPoint ? appState.points.length - 1 : appState.points.length;
+    const canDelete = numUniqueVertices > 4;
 
     // Check icon hovers FIRST (icons have priority for clicks)
     let newHoveredIconType = null;
@@ -3632,11 +4496,12 @@ function handleCanvasMouseMove(viewMouseX, viewMouseY) {
     let iconEdgeIndex = -1;
 
     // Check delete icons near all vertices
+    // Correct formula: screenPos = modelPos * scale + offset
     if (canDelete) {
-      for (let i = 0; i < appState.points.length - 1; i++) {
+      for (let i = 0; i < numUniqueVertices; i++) {
         const p = appState.points[i];
-        const vertexViewX = (p.x + appState.viewportOffsetX) * scale;
-        const vertexViewY = (p.y + appState.viewportOffsetY) * scale;
+        const vertexViewX = p.x * scale + appState.viewportOffsetX;
+        const vertexViewY = p.y * scale + appState.viewportOffsetY;
         const iconX = vertexViewX + iconOffsetX;
         const iconY = vertexViewY + iconOffsetY;
         const dx = viewMouseX - iconX;
@@ -3650,12 +4515,13 @@ function handleCanvasMouseMove(viewMouseX, viewMouseY) {
     }
 
     // Check add icons at all edge midpoints (only if no delete icon hovered)
+    // Correct formula: screenPos = modelPos * scale + offset
     if (!newHoveredIconType) {
-      for (let i = 0; i < appState.points.length - 1; i++) {
+      for (let i = 0; i < numUniqueVertices; i++) {
         const p1 = appState.points[i];
-        const p2 = appState.points[(i + 1) % (appState.points.length - 1)];
-        const midX = ((p1.x + p2.x) / 2 + appState.viewportOffsetX) * scale;
-        const midY = ((p1.y + p2.y) / 2 + appState.viewportOffsetY) * scale;
+        const p2 = appState.points[(i + 1) % numUniqueVertices];
+        const midX = (p1.x + p2.x) / 2 * scale + appState.viewportOffsetX;
+        const midY = (p1.y + p2.y) / 2 * scale + appState.viewportOffsetY;
         const iconX = midX + iconOffsetX;
         const iconY = midY + iconOffsetY;
         const dx = viewMouseX - iconX;
@@ -3717,6 +4583,31 @@ function handleCanvasMouseMove(viewMouseX, viewMouseY) {
     }
   }
 
+  // Wall selection mode hover detection - show which edge will be clicked
+  if (appState.wallSelectionMode && appState.isShapeClosed && !appState.shapeEditMode) {
+    const hoveredWall = canvasLogic.findClickedWallIndex(
+      modelMouse.x,
+      modelMouse.y,
+      appState.points,
+      appState.viewportScale
+    );
+
+    if (hoveredWall !== appState.hoveredWallIndex) {
+      appState.hoveredWallIndex = hoveredWall;
+
+      // Update cursor to indicate clickable edge
+      if (deckCanvas) {
+        deckCanvas.style.cursor = hoveredWall >= 0 ? 'pointer' : 'default';
+      }
+
+      redrawApp();
+      return;
+    }
+  } else if (appState.hoveredWallIndex !== -1) {
+    // Reset wall hover when not in wall selection mode
+    appState.hoveredWallIndex = -1;
+  }
+
   // Update hovered stair index when not dragging
   if (!appState.isDraggingStairs && !appState.stairPlacementMode && appState.isShapeClosed) {
     let newHoveredIndex = -1;
@@ -3735,7 +4626,8 @@ function handleCanvasMouseMove(viewMouseX, viewMouseY) {
       appState.hoveredStairIndex = newHoveredIndex;
       
       // Set cursor to pointer when hovering over stairs for selection
-      if (deckCanvas) {
+      // But don't override cursor if breaker placement mode is active
+      if (deckCanvas && !(appState.decking && appState.decking.breakerPlacementMode)) {
         deckCanvas.style.cursor = newHoveredIndex >= 0 ? "pointer" : "default";
       }
       
@@ -3744,10 +4636,25 @@ function handleCanvasMouseMove(viewMouseX, viewMouseY) {
     }
   }
 
+  // Update cursor for shape dragging (when hovering over draggable shape)
+  if (appState.isShapeClosed &&
+      !appState.shapeEditMode &&
+      !appState.wallSelectionMode &&
+      !appState.isDraggingShape &&
+      !appState.isDraggingStairs &&
+      appState.points.length >= 3 &&
+      appState.wizardStep === 'draw') {
+    const isInsideShape = shapeDecomposer.isPointInsidePolygon(modelMouse, appState.points);
+    if (isInsideShape && deckCanvas) {
+      deckCanvas.style.cursor = 'move';
+    }
+  }
+
   if (
     appState.isDrawing ||
     appState.wallSelectionMode ||
     appState.isDraggingStairs ||
+    appState.isDraggingShape ||
     appState.stairPlacementMode ||
     appState.selectedStairIndex !== -1 ||
     appState.hoveredStairIndex !== -1 ||
@@ -3843,7 +4750,12 @@ function handleCanvasMouseDown(viewMouseX, viewMouseY, event) {
     appState.draggedEdgeIndex = appState.hoveredEdgeIndex;
     // Store initial positions for both vertices
     const p1 = appState.points[appState.hoveredEdgeIndex];
-    const p2Idx = (appState.hoveredEdgeIndex + 1) % (appState.points.length - 1);
+    // Check if last point is a closing point
+    const firstP = appState.points[0];
+    const lastP = appState.points[appState.points.length - 1];
+    const hasClosingPoint = Math.abs(firstP.x - lastP.x) < 1 && Math.abs(firstP.y - lastP.y) < 1;
+    const numUniqueVertices = hasClosingPoint ? appState.points.length - 1 : appState.points.length;
+    const p2Idx = (appState.hoveredEdgeIndex + 1) % numUniqueVertices;
     const p2 = appState.points[p2Idx];
     appState.edgeDragStartP1 = { ...p1 };
     appState.edgeDragStartP2 = { ...p2 };
@@ -3879,13 +4791,32 @@ function handleCanvasMouseDown(viewMouseX, viewMouseY, event) {
       }
     }
   }
+
+  // Start shape dragging (for repositioning entire deck shape)
+  // Only when shape is closed, NOT in edit mode, and click is inside the shape
+  if (appState.isShapeClosed &&
+      !appState.shapeEditMode &&
+      !appState.wallSelectionMode &&
+      appState.points.length >= 3 &&
+      appState.wizardStep === 'draw') {
+    // Check if click is inside the shape
+    if (shapeDecomposer.isPointInsidePolygon(modelMouse, appState.points)) {
+      appState.isDraggingShape = true;
+      appState.shapeDragStartMouse = { ...modelMouse };
+      // Deep copy the points array
+      appState.shapeDragInitialPoints = appState.points.map(p => ({ ...p }));
+      if (deckCanvas) deckCanvas.style.cursor = 'move';
+      event.preventDefault();
+      return;
+    }
+  }
 }
 
 function handleCanvasMouseUp(event) {
   appState.wasPanningOnMouseUp = appState.isPanning; // Flag to prevent click after pan
 
-  // Flag to prevent click after vertex/edge drag
-  appState.wasEditingOnMouseUp = (appState.vertexEditMode === 'dragging' || appState.vertexEditMode === 'edge-dragging');
+  // Flag to prevent click after vertex/edge/shape drag
+  appState.wasEditingOnMouseUp = (appState.vertexEditMode === 'dragging' || appState.vertexEditMode === 'edge-dragging' || appState.isDraggingShape);
 
   if (appState.isPanning) {
     appState.isPanning = false;
@@ -3922,6 +4853,23 @@ function handleCanvasMouseUp(event) {
 
     // Save to history
     saveHistoryState('Move edge');
+
+    redrawApp();
+  }
+
+  // Complete shape dragging
+  if (appState.isDraggingShape) {
+    appState.isDraggingShape = false;
+    appState.shapeDragStartMouse = null;
+    appState.shapeDragInitialPoints = [];
+    if (deckCanvas) deckCanvas.style.cursor = 'default';
+
+    // Recalculate dimensions and sync to tier
+    calculateAndUpdateDeckDimensions();
+    syncLegacyToActiveTier();
+
+    // Save to history
+    saveHistoryState('Move shape');
 
     redrawApp();
   }
@@ -4008,6 +4956,48 @@ function handleZoom(zoomIn) {
   appState.viewportOffsetY =
     canvasCenterY - modelPtAtCanvasCenterY * appState.viewportScale;
 
+  redrawApp();
+}
+
+/**
+ * Handle pinch-to-zoom gesture from touch devices
+ * @param {number} scaleFactor - Relative scale change (>1 = zoom in, <1 = zoom out)
+ * @param {number} centerX - Center X of pinch in canvas coordinates
+ * @param {number} centerY - Center Y of pinch in canvas coordinates
+ */
+function handlePinchZoom(scaleFactor, centerX, centerY) {
+  const oldScale = appState.viewportScale;
+  let newScale = oldScale * scaleFactor;
+
+  // Calculate minimum zoom scale to keep 100ft x 100ft area visible
+  const minUsableScale = calculateMinUsableScale();
+
+  newScale = Math.max(
+    minUsableScale,
+    Math.min(newScale, config.MAX_ZOOM_SCALE)
+  );
+
+  if (Math.abs(newScale - oldScale) < config.EPSILON / 100) return;
+
+  // Zoom centered on pinch point
+  const modelPtAtPinchX = (centerX - appState.viewportOffsetX) / oldScale;
+  const modelPtAtPinchY = (centerY - appState.viewportOffsetY) / oldScale;
+
+  appState.viewportScale = newScale;
+  appState.viewportOffsetX = centerX - modelPtAtPinchX * newScale;
+  appState.viewportOffsetY = centerY - modelPtAtPinchY * newScale;
+
+  redrawApp();
+}
+
+/**
+ * Handle two-finger pan gesture from touch devices
+ * @param {number} deltaX - Horizontal pan delta in pixels
+ * @param {number} deltaY - Vertical pan delta in pixels
+ */
+function handleTwoFingerPan(deltaX, deltaY) {
+  appState.viewportOffsetX += deltaX;
+  appState.viewportOffsetY += deltaY;
   redrawApp();
 }
 
@@ -4252,6 +5242,244 @@ async function handleAddToCart() {
   }
 }
 
+// --- Cart Options Modal ---
+function openCartOptionsModal() {
+  if (!shopifyService.isLoaded()) {
+    alert("Shopify is not available. Please try again in a moment.");
+    return;
+  }
+
+  if (!appState.bom || appState.bom.length === 0) {
+    alert("No materials to add. Please generate a deck plan first.");
+    return;
+  }
+
+  const modal = document.getElementById('cartOptionsModal');
+  if (modal) modal.classList.remove('hidden');
+}
+
+function closeCartOptionsModal() {
+  const modal = document.getElementById('cartOptionsModal');
+  if (modal) modal.classList.add('hidden');
+}
+
+// --- Cart Option 1: Add Full Order ---
+async function handleAddFullOrder() {
+  closeCartOptionsModal();
+  await createCheckoutWithItems(appState.bom.filter(item =>
+    item.shopifyVariantId && item.shopifyStatus === 'available' && item.qty > 0
+  ), "full order");
+}
+
+// --- Cart Option 2: Add Shippable Items Only ---
+async function handleAddShippableOnly() {
+  closeCartOptionsModal();
+  const shippableItems = appState.bom.filter(item =>
+    item.shopifyVariantId &&
+    item.shopifyStatus === 'available' &&
+    item.qty > 0 &&
+    item.shippingType === 'standard'
+  );
+
+  if (shippableItems.length === 0) {
+    alert("No shippable items found. All items may be oversized or require freight shipping.");
+    return;
+  }
+
+  await createCheckoutWithItems(shippableItems, "shippable items");
+}
+
+// --- Cart Option 3: Let Me Choose ---
+// Track selected items for custom cart
+let selectedBomIndices = new Set();
+
+function handleChooseItems() {
+  closeCartOptionsModal();
+  enterSelectionMode();
+}
+
+function enterSelectionMode() {
+  selectedBomIndices.clear();
+
+  // Show checkbox column
+  const bomTable = document.querySelector('.bom-table');
+  if (bomTable) bomTable.classList.add('selection-mode');
+
+  // Show all checkbox cells
+  document.querySelectorAll('.bom-table .checkbox-col').forEach(cell => {
+    cell.classList.remove('hidden');
+  });
+
+  // Show selection mode buttons, hide regular add to cart
+  const addToCartBtn = document.getElementById('addToCartBtn');
+  const addSelectedBtn = document.getElementById('addSelectedToCartBtn');
+  const cancelBtn = document.getElementById('cancelSelectionBtn');
+
+  if (addToCartBtn) addToCartBtn.classList.add('hidden');
+  if (addSelectedBtn) addSelectedBtn.classList.remove('hidden');
+  if (cancelBtn) cancelBtn.classList.remove('hidden');
+
+  // Uncheck the "select all" checkbox
+  const selectAllCheckbox = document.getElementById('bomSelectAll');
+  if (selectAllCheckbox) selectAllCheckbox.checked = false;
+
+  uiController.updateCanvasStatus("Select items to add to cart, then click 'Add Selected'");
+}
+
+function cancelItemSelection() {
+  exitSelectionMode();
+  uiController.updateCanvasStatus("Selection cancelled");
+}
+
+function exitSelectionMode() {
+  selectedBomIndices.clear();
+
+  // Hide checkbox column
+  const bomTable = document.querySelector('.bom-table');
+  if (bomTable) bomTable.classList.remove('selection-mode');
+
+  // Hide all checkbox cells
+  document.querySelectorAll('.bom-table .checkbox-col').forEach(cell => {
+    cell.classList.add('hidden');
+  });
+
+  // Uncheck all checkboxes
+  document.querySelectorAll('.bom-table input[type="checkbox"]').forEach(cb => {
+    cb.checked = false;
+  });
+
+  // Remove selection highlighting
+  document.querySelectorAll('.bom-table tr.item-selected').forEach(row => {
+    row.classList.remove('item-selected');
+  });
+
+  // Show regular button, hide selection mode buttons
+  const addToCartBtn = document.getElementById('addToCartBtn');
+  const addSelectedBtn = document.getElementById('addSelectedToCartBtn');
+  const cancelBtn = document.getElementById('cancelSelectionBtn');
+
+  if (addToCartBtn) addToCartBtn.classList.remove('hidden');
+  if (addSelectedBtn) addSelectedBtn.classList.add('hidden');
+  if (cancelBtn) cancelBtn.classList.add('hidden');
+}
+
+function handleBomItemSelect(index, isChecked) {
+  if (isChecked) {
+    selectedBomIndices.add(index);
+  } else {
+    selectedBomIndices.delete(index);
+  }
+
+  // Update row highlighting
+  const row = document.querySelector(`.bom-table tr[data-global-index="${index}"]`);
+  if (row) {
+    if (isChecked) {
+      row.classList.add('item-selected');
+    } else {
+      row.classList.remove('item-selected');
+    }
+  }
+
+  // Update "select all" checkbox state
+  updateSelectAllCheckbox();
+}
+
+function toggleAllBomItems(selectAll) {
+  const checkboxes = document.querySelectorAll('.bom-table tbody input[type="checkbox"]:not(:disabled)');
+
+  checkboxes.forEach(cb => {
+    const index = parseInt(cb.dataset.index);
+    cb.checked = selectAll;
+
+    if (selectAll) {
+      selectedBomIndices.add(index);
+    } else {
+      selectedBomIndices.delete(index);
+    }
+
+    // Update row highlighting
+    const row = document.querySelector(`.bom-table tr[data-global-index="${index}"]`);
+    if (row) {
+      if (selectAll) {
+        row.classList.add('item-selected');
+      } else {
+        row.classList.remove('item-selected');
+      }
+    }
+  });
+}
+
+function updateSelectAllCheckbox() {
+  const selectAllCheckbox = document.getElementById('bomSelectAll');
+  const allCheckboxes = document.querySelectorAll('.bom-table tbody input[type="checkbox"]:not(:disabled)');
+  const checkedCount = document.querySelectorAll('.bom-table tbody input[type="checkbox"]:checked').length;
+
+  if (selectAllCheckbox) {
+    selectAllCheckbox.checked = checkedCount === allCheckboxes.length && allCheckboxes.length > 0;
+    selectAllCheckbox.indeterminate = checkedCount > 0 && checkedCount < allCheckboxes.length;
+  }
+}
+
+async function handleAddSelectedToCart() {
+  if (selectedBomIndices.size === 0) {
+    alert("Please select at least one item to add to cart.");
+    return;
+  }
+
+  // Get selected items from BOM
+  const selectedItems = appState.bom.filter((item, index) =>
+    selectedBomIndices.has(index) &&
+    item.shopifyVariantId &&
+    item.shopifyStatus === 'available' &&
+    item.qty > 0
+  );
+
+  if (selectedItems.length === 0) {
+    alert("None of the selected items are available in Shopify.");
+    return;
+  }
+
+  exitSelectionMode();
+  await createCheckoutWithItems(selectedItems, "selected items");
+}
+
+// --- Shared Checkout Creation ---
+async function createCheckoutWithItems(items, description) {
+  if (items.length === 0) {
+    alert("No items available to add to cart.");
+    return;
+  }
+
+  const addToCartBtn = document.getElementById('addToCartBtn');
+  const originalText = addToCartBtn?.innerHTML || '';
+
+  // Show loading state
+  if (addToCartBtn) {
+    addToCartBtn.innerHTML = `
+      <svg class="animate-spin w-4 h-4 inline-block mr-1" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+      </svg>
+      Creating Cart...
+    `;
+    addToCartBtn.disabled = true;
+  }
+
+  try {
+    const checkout = await shopifyService.createCheckout(items);
+    window.open(checkout.webUrl, '_blank');
+    uiController.updateCanvasStatus(`Cart created with ${items.length} ${description}. Opening checkout...`);
+  } catch (error) {
+    console.error("Error creating checkout:", error);
+    alert(`Error creating cart: ${error.message}`);
+  } finally {
+    if (addToCartBtn) {
+      addToCartBtn.innerHTML = originalText;
+      addToCartBtn.disabled = false;
+    }
+  }
+}
+
 function afterPrintHandler() {
   appState.isPrinting = false;
   
@@ -4304,6 +5532,84 @@ function handleBlueprintToggle() {
     btn.classList.remove('ripple-effect');
   }, 500);
 }
+
+// --- 3D View Mode Toggle ---
+function setViewMode(mode) {
+  if (mode === appState.viewMode) return;
+
+  const canvas = document.getElementById('deckCanvas');
+  const viewer3DContainer = document.getElementById('viewer3DContainer');
+  const view2DBtn = document.getElementById('view2DBtn');
+  const view3DBtn = document.getElementById('view3DBtn');
+  const view3DControls = document.getElementById('view3DControls');
+  const floatingControls = document.querySelector('.floating-controls');
+
+  appState.viewMode = mode;
+
+  if (mode === '3d') {
+    // Switch to 3D view
+    canvas.classList.add('hidden');
+    viewer3DContainer.classList.remove('hidden');
+    view2DBtn.classList.remove('active');
+    view3DBtn.classList.add('active');
+    if (view3DControls) view3DControls.classList.remove('hidden');
+    if (floatingControls) floatingControls.classList.add('hidden');
+
+    // Initialize 3D viewer if not already done
+    if (!appState.viewer3D) {
+      appState.viewer3D = new DeckViewer3D('viewer3DContainer');
+      if (appState.viewer3D.init()) {
+        appState.viewer3D.start();
+      }
+    } else {
+      // Restart animation if viewer already exists
+      appState.viewer3D.start();
+    }
+
+    // Build/rebuild the 3D deck
+    if (appState.viewer3D && appState.structuralComponents) {
+      appState.viewer3D.buildDeck(appState);
+    } else if (appState.viewer3D && !appState.structuralComponents) {
+      uiController.updateCanvasStatus("3D View: Generate a plan first to see the 3D model");
+      return;
+    }
+
+    uiController.updateCanvasStatus("3D View: Click and drag to rotate, scroll to zoom");
+  } else {
+    // Switch to 2D view
+    canvas.classList.remove('hidden');
+    viewer3DContainer.classList.add('hidden');
+    view2DBtn.classList.add('active');
+    view3DBtn.classList.remove('active');
+    if (view3DControls) view3DControls.classList.add('hidden');
+    if (floatingControls) floatingControls.classList.remove('hidden');
+
+    // Stop 3D animation when not visible
+    if (appState.viewer3D) {
+      appState.viewer3D.stop();
+    }
+
+    uiController.updateCanvasStatus("2D Plan View");
+    redrawApp();
+  }
+}
+
+function set3DViewPreset(preset) {
+  if (appState.viewer3D) {
+    appState.viewer3D.setViewPreset(preset);
+  }
+}
+
+// Update 3D view when deck changes (call this after recalculating structure)
+function update3DView() {
+  if (appState.viewMode === '3d' && appState.viewer3D && appState.structuralComponents) {
+    appState.viewer3D.buildDeck(appState);
+  }
+}
+
+// Expose to window for onclick handlers
+window.setViewMode = setViewMode;
+window.set3DViewPreset = set3DViewPreset;
 
 // --- Decomposition Visualization Toggle ---
 function handleToggleDecomposition() {
@@ -4477,6 +5783,11 @@ function initializeVisualSelectors() {
     options.forEach(option => {
       option.addEventListener('click', (e) => {
         e.stopPropagation(); // Prevent event bubbling
+        e.preventDefault();
+
+        // Debounce guard - prevent rapid repeated clicks
+        if (selector.dataset.processing === 'true') return;
+        selector.dataset.processing = 'true';
 
         // Remove selected from all options in this selector
         options.forEach(opt => opt.classList.remove('selected'));
@@ -4486,13 +5797,18 @@ function initializeVisualSelectors() {
 
         // Update hidden select value
         const value = option.dataset.value;
-        if (hiddenSelect) {
+        if (hiddenSelect && hiddenSelect.value !== value) {
           hiddenSelect.value = value;
           // Dispatch change event for any listeners
-          hiddenSelect.dispatchEvent(new Event('change', { bubbles: true }));
+          hiddenSelect.dispatchEvent(new Event('change', { bubbles: false }));
         }
 
         console.log(`[Visual Selector] ${selectorName}: ${value}`);
+
+        // Clear processing flag after a short delay
+        setTimeout(() => {
+          selector.dataset.processing = 'false';
+        }, 50);
       });
     });
 
@@ -4542,7 +5858,7 @@ document.addEventListener("DOMContentLoaded", () => {
     if (result.success) {
       console.log(`Shopify loaded: ${result.productCount} products`);
 
-      // Show the Add to Cart button when Shopify is available
+      // Show the cart buttons when Shopify is available
       const addToCartBtn = document.getElementById("addToCartBtn");
       if (addToCartBtn) addToCartBtn.classList.remove("hidden");
 
@@ -4564,7 +5880,9 @@ document.addEventListener("DOMContentLoaded", () => {
       handleCanvasMouseMove,
       handleCanvasMouseDown,
       handleCanvasMouseUp,
-      handleCanvasResize
+      handleCanvasResize,
+      handlePinchZoom,      // Touch: pinch-to-zoom
+      handleTwoFingerPan    // Touch: two-finger pan
     );
     // initializeViewport is called within resetAppState after canvas might have initial size
   } else {
@@ -4605,6 +5923,28 @@ document.addEventListener("DOMContentLoaded", () => {
 
   // Initialize visual selectors
   initializeVisualSelectors();
+
+  // Add height input change handlers for multi-tier mode
+  const heightFeetInput = document.getElementById('deckHeightFeet');
+  const heightInchesInput = document.getElementById('deckHeightInchesInput');
+
+  function handleHeightChange() {
+    if (!appState.tiersEnabled) return;
+
+    const tier = appState.tiers[appState.activeTierId];
+    if (!tier) return;
+
+    const feet = parseInt(heightFeetInput?.value || '4', 10);
+    const inches = parseInt(heightInchesInput?.value || '0', 10);
+
+    tier.heightFeet = feet;
+    tier.heightInches = inches;
+
+    console.log(`[TIER] Updated ${tier.name} height to ${feet}' ${inches}"`);
+  }
+
+  if (heightFeetInput) heightFeetInput.addEventListener('change', handleHeightChange);
+  if (heightInchesInput) heightInchesInput.addEventListener('change', handleHeightChange);
 
   // Initialize wizard step navigation
   initializeWizard();
@@ -4948,24 +6288,32 @@ function createStairListItem(stair, index) {
   const item = document.createElement('div');
   item.className = `stair-item ${appState.selectedStairIndex === index ? 'selected' : ''}`;
   item.dataset.stairIndex = index;
-  
+
   // Format stair information
   const widthText = `${stair.widthFt || 4}' wide`;
   const stepInfo = stair.calculatedNumSteps ? `${stair.calculatedNumSteps} steps` : 'Steps: TBD';
   const stringerInfo = stair.calculatedStringerQty ? `${stair.calculatedStringerQty} stringers` : 'Stringers: TBD';
-  
+
+  // Format tier info for multi-tier decks
+  let tierInfo = '';
+  if (stair.sourceTierId || stair.targetTierId) {
+    const sourceName = stair.sourceTierId ? appState.tiers[stair.sourceTierId]?.name || stair.sourceTierId : 'Deck';
+    const targetName = stair.targetTierId ? appState.tiers[stair.targetTierId]?.name || stair.targetTierId : 'Ground';
+    tierInfo = `<div class="stair-tier-info">${sourceName} → ${targetName}</div>`;
+  }
+
   item.innerHTML = `
     <div class="stair-item-header">
       <div class="stair-item-title">Stairs ${index + 1}</div>
       <div class="stair-item-actions">
-        <button class="btn btn-secondary btn-icon stair-action-btn" 
+        <button class="btn btn-secondary btn-icon stair-action-btn"
                 data-action="edit" data-stair-index="${index}"
                 title="Edit stair properties">
           <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
           </svg>
         </button>
-        <button class="btn btn-danger btn-icon stair-action-btn" 
+        <button class="btn btn-danger btn-icon stair-action-btn"
                 data-action="delete" data-stair-index="${index}"
                 title="Delete this stair set">
           <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -4974,6 +6322,7 @@ function createStairListItem(stair, index) {
         </button>
       </div>
     </div>
+    ${tierInfo}
     <div class="stair-item-info">
       ${widthText} • ${stepInfo} • ${stringerInfo}
     </div>
@@ -5187,18 +6536,18 @@ const DECK_TEMPLATES = {
   },
   'bay-window': {
     name: 'Bay Window Bump-out',
-    description: 'Rectangle with 45° bay window on ledger side',
-    // 16ft wide x 12ft deep with a 4ft wide bay that bumps out 2ft
-    // Bay is centered on ledger, with 45° angles (dx=dy=2)
+    description: 'Rectangle with bay window indent on the far side',
+    // 14ft wide x 7ft deep rectangle with a centered bay indent that goes 1.5ft INTO the shape
+    // Bay indent is on the far side (opposite ledger), with 45° angles
     points: [
       { x: 0, y: 0 },      // Top-left (ledger start)
-      { x: 6, y: 0 },      // Before bay (left side)
-      { x: 4, y: -2 },     // Bay corner left (45° out, dx=2, dy=2)
-      { x: 12, y: -2 },    // Bay flat section
-      { x: 10, y: 0 },     // Bay corner right (45° back)
-      { x: 16, y: 0 },     // After bay (ledger end)
-      { x: 16, y: 12 },    // Bottom-right
-      { x: 0, y: 12 },     // Bottom-left
+      { x: 14, y: 0 },     // Top-right (ledger end)
+      { x: 14, y: 7 },     // Bottom-right corner
+      { x: 10.5, y: 7 },   // Before indent on right
+      { x: 9, y: 5.5 },    // Indent corner right (45° UP into shape)
+      { x: 5, y: 5.5 },    // Indent flat section (4ft wide)
+      { x: 3.5, y: 7 },    // Indent corner left (45° back down)
+      { x: 0, y: 7 },      // Bottom-left corner
     ]
   }
 };
@@ -5214,6 +6563,7 @@ appState.draggedEdgeIndex = -1;       // Index of edge being dragged
 appState.draggedVertexIndex = -1;     // Currently dragged vertex
 appState.hoveredVertexIndex = -1;     // Vertex under mouse
 appState.hoveredEdgeIndex = -1;       // Edge under mouse (for add vertex)
+appState.hoveredWallIndex = -1;       // Wall under mouse (for wall selection mode)
 appState.hoveredIconType = null;      // 'delete' | 'add' | null - which icon is being hovered
 
 // Note: selectDrawMethod removed - all input methods are now always visible
@@ -5309,6 +6659,9 @@ window.createRectangleFromDimensions = function() {
   // Update the wizard Next button state
   updateWizardNextButton(appState.wizardStep);
 
+  // Sync changes to active tier in multi-tier mode
+  syncLegacyToActiveTier();
+
   // Save initial state for undo
   saveHistoryState('Create deck from dimensions');
 
@@ -5327,8 +6680,14 @@ function findNearestVertex(modelPos, tolerancePixels) {
 
   const tolerance = tolerancePixels / appState.viewportScale;
 
-  // Check all vertices except the closing duplicate
-  for (let i = 0; i < appState.points.length - 1; i++) {
+  // Check if last point is a closing point (same as first point)
+  const firstP = appState.points[0];
+  const lastP = appState.points[appState.points.length - 1];
+  const hasClosingPoint = Math.abs(firstP.x - lastP.x) < 1 && Math.abs(firstP.y - lastP.y) < 1;
+  const numUniqueVertices = hasClosingPoint ? appState.points.length - 1 : appState.points.length;
+
+  // Check all unique vertices
+  for (let i = 0; i < numUniqueVertices; i++) {
     const dx = modelPos.x - appState.points[i].x;
     const dy = modelPos.y - appState.points[i].y;
     const dist = Math.sqrt(dx * dx + dy * dy);
@@ -5345,10 +6704,16 @@ function findNearestEdge(modelPos, tolerancePixels) {
 
   const tolerance = tolerancePixels / appState.viewportScale;
 
+  // Check if last point is a closing point (same as first point)
+  const firstP = appState.points[0];
+  const lastP = appState.points[appState.points.length - 1];
+  const hasClosingPoint = Math.abs(firstP.x - lastP.x) < 1 && Math.abs(firstP.y - lastP.y) < 1;
+  const numUniqueVertices = hasClosingPoint ? appState.points.length - 1 : appState.points.length;
+
   // Check all edges
-  for (let i = 0; i < appState.points.length - 1; i++) {
+  for (let i = 0; i < numUniqueVertices; i++) {
     const p1 = appState.points[i];
-    const p2 = appState.points[(i + 1) % (appState.points.length - 1)];
+    const p2 = appState.points[(i + 1) % numUniqueVertices];
 
     // Calculate distance from point to line segment
     const dist = pointToLineSegmentDistance(modelPos, p1, p2);
@@ -5386,8 +6751,14 @@ function pointToLineSegmentDistance(point, lineStart, lineEnd) {
 
 // Insert a new vertex on an edge
 function insertVertexOnEdge(edgeIndex, clickModelPos) {
+  // Check if last point is a closing point
+  const firstP = appState.points[0];
+  const lastP = appState.points[appState.points.length - 1];
+  const hasClosingPoint = Math.abs(firstP.x - lastP.x) < 1 && Math.abs(firstP.y - lastP.y) < 1;
+  const numUniqueVertices = hasClosingPoint ? appState.points.length - 1 : appState.points.length;
+
   const p1 = appState.points[edgeIndex];
-  const p2 = appState.points[(edgeIndex + 1) % (appState.points.length - 1)];
+  const p2 = appState.points[(edgeIndex + 1) % numUniqueVertices];
 
   // Project click position onto edge
   const dx = p2.x - p1.x;
@@ -5469,6 +6840,9 @@ function recalculateShapeAfterEdit() {
 
   // Keep wall selection mode active if it was before
   // (user still needs to select walls for ledger attachment)
+
+  // Sync changes back to active tier in multi-tier mode
+  syncLegacyToActiveTier();
 }
 
 // Reset vertex editing state
@@ -5496,7 +6870,15 @@ function drawVertexEditHandles(ctx) {
   const scale = appState.viewportScale;
   const offsetX = appState.viewportOffsetX;
   const offsetY = appState.viewportOffsetY;
-  const canDelete = appState.points.length > 5; // Need at least 4 unique vertices (5 with closing point)
+
+  // Check if last point is a closing point (same as first point)
+  const firstP = appState.points[0];
+  const lastP = appState.points[appState.points.length - 1];
+  const hasClosingPoint = Math.abs(firstP.x - lastP.x) < 1 && Math.abs(firstP.y - lastP.y) < 1;
+
+  // Number of unique vertices (exclude closing point if present)
+  const numUniqueVertices = hasClosingPoint ? appState.points.length - 1 : appState.points.length;
+  const canDelete = numUniqueVertices > 4; // Need at least 4 unique vertices
 
   // Helper to convert model coords to screen coords
   // Canvas transform: translate(offset) then scale, so screenPos = modelPos * scale + offset
@@ -5505,8 +6887,8 @@ function drawVertexEditHandles(ctx) {
     y: y * scale + offsetY
   });
 
-  // Draw vertex handles
-  for (let i = 0; i < appState.points.length - 1; i++) {
+  // Draw vertex handles for all unique vertices
+  for (let i = 0; i < numUniqueVertices; i++) {
     const p = appState.points[i];
     const screenPos = toScreen(p.x, p.y);
     const viewX = screenPos.x;
@@ -5569,7 +6951,7 @@ function drawVertexEditHandles(ctx) {
   if (appState.hoveredEdgeIndex >= 0 && appState.hoveredVertexIndex === -1) {
     const i = appState.hoveredEdgeIndex;
     const p1 = appState.points[i];
-    const p2 = appState.points[(i + 1) % (appState.points.length - 1)];
+    const p2 = appState.points[(i + 1) % numUniqueVertices];
 
     const p1View = toScreen(p1.x, p1.y);
     const p2View = toScreen(p2.x, p2.y);
@@ -5747,9 +7129,24 @@ window.loadTemplate = function(templateId) {
   appState.isBlueprintMode = false;
 
   // Convert template points from feet to model coordinates (pixels)
-  // Add offset so shape is nicely positioned on canvas
-  const offsetX = 5; // 5 feet from left edge
-  const offsetY = 5; // 5 feet from top edge
+  // Center the template in the model space so it has room on all sides
+
+  // First, find the template's bounding box
+  const minX = Math.min(...template.points.map(p => p.x));
+  const maxX = Math.max(...template.points.map(p => p.x));
+  const minY = Math.min(...template.points.map(p => p.y));
+  const maxY = Math.max(...template.points.map(p => p.y));
+
+  const templateWidth = maxX - minX;
+  const templateHeight = maxY - minY;
+
+  // Center of the model space (in feet)
+  const modelCenterX = config.MODEL_WIDTH_FEET / 2;
+  const modelCenterY = config.MODEL_HEIGHT_FEET / 2;
+
+  // Offset to center the template in model space
+  const offsetX = modelCenterX - (minX + templateWidth / 2);
+  const offsetY = modelCenterY - (minY + templateHeight / 2);
 
   template.points.forEach(pt => {
     appState.points.push({
@@ -5798,6 +7195,10 @@ window.loadTemplate = function(templateId) {
 
   // Update the wizard Next button state
   updateWizardNextButton(appState.wizardStep);
+
+  // Sync changes to active tier in multi-tier mode
+  syncLegacyToActiveTier();
+  updateTierUI(); // Update tier UI to show "Add Another Tier" button
 
   // Save initial state for undo
   saveHistoryState('Load template');
@@ -6466,7 +7867,18 @@ function checkFirstTimeUser() {
     setTimeout(() => {
       startHelpWizard();
     }, 1000);
+  } else {
+    // Returning user - show projects modal after a short delay
+    setTimeout(() => {
+      showInitialProjectsModal();
+    }, 500);
   }
+}
+
+// Show the projects modal on initial page load
+function showInitialProjectsModal() {
+  console.log('[Projects] Showing initial projects modal');
+  openProjectsModal();
 }
 
 // Start the help wizard
@@ -6522,6 +7934,11 @@ window.endHelpWizard = function() {
     spotlight.classList.remove('active');
     spotlight.style.cssText = '';
   }
+
+  // Show projects modal after wizard ends
+  setTimeout(() => {
+    showInitialProjectsModal();
+  }, 300);
 };
 
 // Navigate to next step
@@ -7289,5 +8706,1089 @@ window.download3DPreview = function() {
 
   console.log('[3D Preview] Image downloaded');
 };
+
+// ================================================
+// DECKING STEP FUNCTIONS
+// ================================================
+
+/**
+ * Initialize the decking step when entering
+ */
+function initializeDeckingStep() {
+  console.log('[Decking] Initializing decking step');
+
+  // Unlock decking layer
+  appState.unlockedLayers.decking = true;
+
+  // Save current framing visibility to restore later
+  appState.savedFramingVisibility = {
+    joists: appState.layerVisibility.joists,
+    beams: appState.layerVisibility.beams,
+    posts: appState.layerVisibility.posts,
+    blocking: appState.layerVisibility.blocking,
+    ledger: appState.layerVisibility.ledger
+  };
+
+  // Hide framing layers to focus on decking view
+  appState.layerVisibility.joists = false;
+  appState.layerVisibility.beams = false;
+  appState.layerVisibility.posts = false;
+  appState.layerVisibility.blocking = false;
+  appState.layerVisibility.ledger = false;
+
+  // Update layer checkboxes in UI
+  updateLayerCheckboxes();
+
+  // Initialize visual selectors for decking
+  initializeVisualSelectors();
+
+  // Set up material change listener
+  setupDeckingMaterialListener();
+
+  // Update cedar size visibility based on current material
+  updateCedarSizeVisibility();
+
+  // Calculate and show breaker board suggestions
+  updateBreakerSuggestion();
+
+  // Update the decking summary
+  updateDeckingSummary();
+
+  // Render breaker boards list
+  renderBreakerBoardsList();
+
+  // Redraw canvas to show decking boards
+  redrawApp();
+}
+
+/**
+ * Cleanup when leaving the decking step
+ */
+function cleanupDeckingStep() {
+  // Restore framing visibility if it was saved
+  if (appState.savedFramingVisibility) {
+    appState.layerVisibility.joists = appState.savedFramingVisibility.joists;
+    appState.layerVisibility.beams = appState.savedFramingVisibility.beams;
+    appState.layerVisibility.posts = appState.savedFramingVisibility.posts;
+    appState.layerVisibility.blocking = appState.savedFramingVisibility.blocking;
+    appState.layerVisibility.ledger = appState.savedFramingVisibility.ledger;
+    delete appState.savedFramingVisibility;
+
+    // Update layer checkboxes in UI
+    updateLayerCheckboxes();
+  }
+
+  // Exit breaker placement mode if active
+  if (appState.decking && appState.decking.breakerPlacementMode) {
+    exitBreakerPlacementMode();
+  }
+}
+
+/**
+ * Update layer visibility checkboxes in the UI
+ */
+function updateLayerCheckboxes() {
+  Object.keys(appState.layerVisibility).forEach(layer => {
+    const checkbox = document.getElementById(`layer-${layer}`);
+    if (checkbox) {
+      checkbox.checked = appState.layerVisibility[layer];
+    }
+  });
+}
+
+/**
+ * Set up listener for decking material changes
+ */
+function setupDeckingMaterialListener() {
+  const materialSelect = document.getElementById('deckingMaterial');
+  if (materialSelect && !materialSelect.dataset.deckingListenerAdded) {
+    materialSelect.addEventListener('change', (e) => {
+      appState.decking.material = e.target.value;
+      updateCedarSizeVisibility();
+      updateDeckingSummary();
+      redrawApp();
+      console.log(`[Decking] Material changed to: ${e.target.value}`);
+    });
+    materialSelect.dataset.deckingListenerAdded = 'true';
+  }
+
+  // Board direction listener
+  const directionSelect = document.getElementById('boardDirection');
+  if (directionSelect && !directionSelect.dataset.deckingListenerAdded) {
+    directionSelect.addEventListener('change', (e) => {
+      // Debounce guard to prevent infinite loops from visual selector
+      if (directionSelect.dataset.processing === 'true') return;
+      if (appState.decking.boardDirection === e.target.value) return; // No change
+
+      directionSelect.dataset.processing = 'true';
+      appState.decking.boardDirection = e.target.value;
+      updateDeckingSummary();
+      redrawApp();
+      console.log(`[Decking] Direction changed to: ${e.target.value}`);
+
+      // Clear processing flag after a short delay
+      setTimeout(() => {
+        directionSelect.dataset.processing = 'false';
+      }, 100);
+    });
+    directionSelect.dataset.deckingListenerAdded = 'true';
+  }
+
+  // Picture frame listener
+  const pictureFrameSelect = document.getElementById('deckingPictureFrame');
+  if (pictureFrameSelect && !pictureFrameSelect.dataset.deckingListenerAdded) {
+    pictureFrameSelect.addEventListener('change', (e) => {
+      // Debounce guard to prevent infinite loops from visual selector
+      if (pictureFrameSelect.dataset.processing === 'true') return;
+      if (appState.decking.pictureFrame === e.target.value) return; // No change
+
+      pictureFrameSelect.dataset.processing = 'true';
+      appState.decking.pictureFrame = e.target.value;
+      updateDeckingSummary();
+      redrawApp();
+      console.log(`[Decking] Picture frame changed to: ${e.target.value}`);
+
+      // Clear processing flag after a short delay
+      setTimeout(() => {
+        pictureFrameSelect.dataset.processing = 'false';
+      }, 100);
+    });
+    pictureFrameSelect.dataset.deckingListenerAdded = 'true';
+  }
+
+  // Cedar size listener
+  const cedarSizeSelect = document.getElementById('cedarBoardSize');
+  if (cedarSizeSelect && !cedarSizeSelect.dataset.deckingListenerAdded) {
+    cedarSizeSelect.addEventListener('change', (e) => {
+      appState.decking.cedarSize = e.target.value;
+      updateDeckingSummary();
+      redrawApp();
+      console.log(`[Decking] Cedar size changed to: ${e.target.value}`);
+    });
+    cedarSizeSelect.dataset.deckingListenerAdded = 'true';
+  }
+}
+
+/**
+ * Show/hide cedar size selector based on material selection
+ */
+function updateCedarSizeVisibility() {
+  const cedarSizeSection = document.getElementById('cedarSizeSelector');
+  if (cedarSizeSection) {
+    if (appState.decking.material === 'cedar') {
+      cedarSizeSection.classList.remove('hidden');
+    } else {
+      cedarSizeSection.classList.add('hidden');
+    }
+  }
+}
+
+/**
+ * Calculate optimal breaker board positions based on deck dimensions
+ */
+function calculateBreakerSuggestion() {
+  if (!appState.deckDimensions) return null;
+
+  // Get the deck depth (perpendicular to joists, parallel to boards)
+  const deckWidth = appState.deckDimensions.widthFeet || appState.deckDimensions.width || 0; // In feet
+
+  // Available board lengths (8' to 16' standard)
+  const standardLengths = [8, 10, 12, 14, 16];
+
+  // If deck is 16' or less, no breaker needed
+  if (deckWidth <= 16) {
+    return null;
+  }
+
+  // Find optimal breaker positions
+  // Goal: Use longest boards possible, minimize waste
+  const suggestions = [];
+
+  if (deckWidth <= 24) {
+    // One breaker in the middle
+    const breakerPos = deckWidth / 2;
+    const boardLength = Math.ceil(breakerPos);
+    suggestions.push({
+      position: breakerPos,
+      boardLength: findBestBoardLength(breakerPos, standardLengths),
+      reason: `Split ${deckWidth.toFixed(1)}' deck into two ${(deckWidth/2).toFixed(1)}' sections`
+    });
+  } else if (deckWidth <= 32) {
+    // Two breakers for three sections
+    const section = deckWidth / 3;
+    suggestions.push({
+      position: section,
+      boardLength: findBestBoardLength(section, standardLengths),
+      reason: `First breaker at ${section.toFixed(1)}' from ledger`
+    });
+    suggestions.push({
+      position: section * 2,
+      boardLength: findBestBoardLength(section, standardLengths),
+      reason: `Second breaker at ${(section * 2).toFixed(1)}' from ledger`
+    });
+  }
+
+  return suggestions.length > 0 ? suggestions : null;
+}
+
+/**
+ * Find the best standard board length for a given span
+ */
+function findBestBoardLength(span, standardLengths) {
+  // Find the smallest standard length that covers the span
+  for (const length of standardLengths) {
+    if (length >= span) {
+      return length;
+    }
+  }
+  return standardLengths[standardLengths.length - 1]; // Return longest if span exceeds all
+}
+
+/**
+ * Update breaker suggestion UI
+ */
+function updateBreakerSuggestion() {
+  const suggestionDiv = document.getElementById('breakerSuggestion');
+  if (!suggestionDiv) return;
+
+  const suggestions = calculateBreakerSuggestion();
+
+  if (!suggestions || suggestions.length === 0) {
+    suggestionDiv.classList.remove('active');
+    suggestionDiv.innerHTML = '';
+    return;
+  }
+
+  // Show suggestion
+  suggestionDiv.classList.add('active');
+
+  const firstSuggestion = suggestions[0];
+  suggestionDiv.innerHTML = `
+    <div class="breaker-suggestion-content">
+      <svg class="breaker-suggestion-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"/>
+      </svg>
+      <div class="breaker-suggestion-text">
+        <strong>Suggested Breaker Board</strong>
+        <p>${firstSuggestion.reason}. Use ${firstSuggestion.boardLength}' boards.</p>
+        <div class="breaker-suggestion-actions">
+          <button class="breaker-accept-btn" onclick="acceptBreakerSuggestion()">Accept</button>
+          <button class="breaker-dismiss-btn" onclick="dismissBreakerSuggestion()">Dismiss</button>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+/**
+ * Accept the suggested breaker board positions
+ */
+window.acceptBreakerSuggestion = function() {
+  const suggestions = calculateBreakerSuggestion();
+  if (!suggestions) return;
+
+  suggestions.forEach(suggestion => {
+    addBreakerBoard(suggestion.position);
+  });
+
+  // Hide suggestion after accepting
+  const suggestionDiv = document.getElementById('breakerSuggestion');
+  if (suggestionDiv) {
+    suggestionDiv.classList.remove('active');
+  }
+
+  updateDeckingSummary();
+  redrawApp();
+  console.log('[Decking] Accepted breaker suggestions');
+};
+
+/**
+ * Dismiss the breaker suggestion
+ */
+window.dismissBreakerSuggestion = function() {
+  const suggestionDiv = document.getElementById('breakerSuggestion');
+  if (suggestionDiv) {
+    suggestionDiv.classList.remove('active');
+  }
+  console.log('[Decking] Dismissed breaker suggestion');
+};
+
+/**
+ * Add a breaker board at a specific position
+ */
+function addBreakerBoard(position) {
+  const id = `breaker-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+  appState.decking.breakerBoards.push({
+    id: id,
+    position: position // Distance from ledger in feet
+  });
+
+  renderBreakerBoardsList();
+  console.log(`[Decking] Added breaker board at ${position}'`);
+}
+
+/**
+ * Remove a breaker board by ID
+ */
+window.removeBreakerBoard = function(id) {
+  appState.decking.breakerBoards = appState.decking.breakerBoards.filter(b => b.id !== id);
+  renderBreakerBoardsList();
+  updateDeckingSummary();
+  redrawApp();
+  console.log(`[Decking] Removed breaker board ${id}`);
+};
+
+/**
+ * Render the list of breaker boards
+ */
+function renderBreakerBoardsList() {
+  const listDiv = document.getElementById('breakerBoardsList');
+  if (!listDiv) return;
+
+  if (appState.decking.breakerBoards.length === 0) {
+    listDiv.innerHTML = '<div class="breaker-empty-state">No breaker boards added</div>';
+    return;
+  }
+
+  // Sort by position
+  const sorted = [...appState.decking.breakerBoards].sort((a, b) => a.position - b.position);
+
+  listDiv.innerHTML = sorted.map(breaker => `
+    <div class="breaker-board-item" data-id="${breaker.id}">
+      <div class="breaker-board-info">
+        <div class="breaker-board-marker"></div>
+        <span class="breaker-board-position">${breaker.position.toFixed(1)}' from ledger</span>
+      </div>
+      <button class="breaker-remove-btn" onclick="removeBreakerBoard('${breaker.id}')">Remove</button>
+    </div>
+  `).join('');
+}
+
+/**
+ * Enter breaker placement mode for manual placement
+ */
+window.enterBreakerPlacementMode = function() {
+  appState.decking.breakerPlacementMode = true;
+
+  const btn = document.getElementById('addBreakerBtn');
+  if (btn) {
+    btn.classList.add('active');
+    btn.textContent = 'Click on canvas to place breaker...';
+  }
+
+  // Set crosshair cursor on canvas
+  const canvas = document.getElementById('deckCanvas');
+  if (canvas) {
+    canvas.style.cursor = 'crosshair';
+  }
+
+  // Show floating indicator
+  showBreakerPlacementIndicator(true);
+
+  console.log('[Decking] Entered breaker placement mode');
+};
+
+/**
+ * Exit breaker placement mode
+ */
+function exitBreakerPlacementMode() {
+  appState.decking.breakerPlacementMode = false;
+
+  const btn = document.getElementById('addBreakerBtn');
+  if (btn) {
+    btn.classList.remove('active');
+    btn.innerHTML = `
+      <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
+      </svg>
+      Add Breaker Board
+    `;
+  }
+
+  // Hide floating indicator
+  showBreakerPlacementIndicator(false);
+
+  // Reset cursor on canvas
+  const canvas = document.getElementById('deckCanvas');
+  if (canvas) {
+    canvas.style.cursor = 'default';
+  }
+
+  console.log('[Decking] Exited breaker placement mode');
+}
+
+/**
+ * Show/hide the breaker placement indicator
+ */
+function showBreakerPlacementIndicator(show) {
+  let indicator = document.querySelector('.breaker-placement-active');
+
+  if (!indicator && show) {
+    indicator = document.createElement('div');
+    indicator.className = 'breaker-placement-active';
+    indicator.innerHTML = `
+      <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
+      </svg>
+      Click canvas to place breaker board (ESC to cancel)
+    `;
+    document.body.appendChild(indicator);
+  }
+
+  if (indicator) {
+    indicator.classList.toggle('active', show);
+  }
+}
+
+/**
+ * Handle canvas click during breaker placement
+ */
+function handleBreakerPlacement(modelX, modelY) {
+  if (!appState.decking.breakerPlacementMode) return false;
+  if (!appState.deckDimensions) return false;
+
+  // Calculate position from ledger (assuming ledger is at top/y=0 in model space)
+  // This is simplified - in reality we'd need to consider deck orientation
+  const position = Math.abs(modelY) / config.PIXELS_PER_FOOT;
+
+  // Clamp to deck bounds
+  const maxPosition = appState.deckDimensions.widthFeet || appState.deckDimensions.width || 20;
+  const clampedPosition = Math.max(1, Math.min(position, maxPosition - 1));
+
+  addBreakerBoard(clampedPosition);
+  exitBreakerPlacementMode();
+  updateDeckingSummary();
+  redrawApp();
+
+  return true;
+}
+
+// Add keyboard handler for ESC to cancel breaker placement
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape' && appState.decking.breakerPlacementMode) {
+    exitBreakerPlacementMode();
+  }
+});
+
+/**
+ * Update the decking summary display
+ */
+function updateDeckingSummary() {
+  const summaryDiv = document.getElementById('deckingSummary');
+  if (!summaryDiv) return;
+
+  const material = appState.decking.material;
+  const direction = appState.decking.boardDirection;
+  const pictureFrame = appState.decking.pictureFrame;
+  const breakerCount = appState.decking.breakerBoards.length;
+
+  // Calculate estimated board count based on deck area
+  let boardCount = '--';
+  let sqft = '--';
+
+  if (appState.deckDimensions) {
+    const area = appState.deckDimensions.actualAreaSqFt || appState.deckDimensions.area || 0;
+    sqft = area.toFixed(0);
+
+    // Estimate boards: 5.5" coverage per board = 0.458 sq ft per linear foot
+    // Add 10% waste for horizontal, 15% for diagonal
+    const wasteMultiplier = direction === 'diagonal' ? 1.15 : 1.10;
+    const boardCoverage = 5.5 / 12; // feet per board width
+
+    // This is a rough estimate - actual calculation would be more complex
+    const estimatedLinearFeet = area / boardCoverage * wasteMultiplier;
+    boardCount = Math.ceil(estimatedLinearFeet / 12); // Assuming 12' average board length
+  }
+
+  // Material display name
+  const materialNames = {
+    'pt': 'Pressure Treated',
+    'cedar': 'Cedar',
+    'composite': 'Composite'
+  };
+
+  summaryDiv.innerHTML = `
+    <div class="decking-summary-header">
+      <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 17V7m0 10a2 2 0 01-2 2H5a2 2 0 01-2-2V7a2 2 0 012-2h2a2 2 0 012 2m0 10a2 2 0 002 2h2a2 2 0 002-2M9 7a2 2 0 012-2h2a2 2 0 012 2m0 10V7m0 10a2 2 0 002 2h2a2 2 0 002-2V7a2 2 0 00-2-2h-2a2 2 0 00-2 2"/>
+      </svg>
+      <h4>Decking Summary</h4>
+    </div>
+    <div class="decking-summary-grid">
+      <div class="decking-summary-item">
+        <span class="decking-summary-label">Material</span>
+        <span class="decking-summary-value">${materialNames[material] || material}</span>
+      </div>
+      <div class="decking-summary-item">
+        <span class="decking-summary-label">Area</span>
+        <span class="decking-summary-value">${sqft} sq ft</span>
+      </div>
+      <div class="decking-summary-item">
+        <span class="decking-summary-label">Direction</span>
+        <span class="decking-summary-value">${direction === 'diagonal' ? 'Diagonal (45°)' : 'Horizontal'}</span>
+      </div>
+      <div class="decking-summary-item">
+        <span class="decking-summary-label">Picture Frame</span>
+        <span class="decking-summary-value">${pictureFrame === 'none' ? 'None' : pictureFrame.charAt(0).toUpperCase() + pictureFrame.slice(1)}</span>
+      </div>
+      ${breakerCount > 0 ? `
+      <div class="decking-summary-item">
+        <span class="decking-summary-label">Breaker Boards</span>
+        <span class="decking-summary-value">${breakerCount}</span>
+      </div>
+      ` : ''}
+    </div>
+  `;
+}
+
+// Export decking functions for use in other modules
+window.initializeDeckingStep = initializeDeckingStep;
+window.cleanupDeckingStep = cleanupDeckingStep;
+window.updateLayerCheckboxes = updateLayerCheckboxes;
+window.handleBreakerPlacement = handleBreakerPlacement;
+window.updateDeckingSummary = updateDeckingSummary;
+
+// ==========================================
+// Firebase Authentication UI
+// ==========================================
+
+let authMode = 'signin'; // 'signin' or 'signup'
+let currentProjectsTab = 'my'; // 'my' or 'store'
+let cachedCloudProjects = { my: [], store: [] };
+let isLoadingCloudProjects = false;
+
+// Initialize Firebase when the page loads
+document.addEventListener('DOMContentLoaded', () => {
+  // Initialize Firebase after a short delay to ensure SDK is loaded
+  setTimeout(() => {
+    if (typeof window.firebaseService !== 'undefined') {
+      window.firebaseService.initializeFirebase();
+
+      // Listen for auth state changes
+      window.firebaseService.onAuthStateChanged((user) => {
+        updateAuthUI(user);
+        updateProjectsUIForAuth(user);
+      });
+    } else {
+      console.warn('[Auth] Firebase service not loaded');
+    }
+  }, 100);
+});
+
+// Update UI based on auth state
+function updateAuthUI(user) {
+  const signInBtn = document.getElementById('signInBtn');
+  const userMenu = document.getElementById('userMenuBtn');
+  const userDisplayName = document.getElementById('userDisplayName');
+  const userEmail = document.getElementById('userEmail');
+  const userAvatar = document.getElementById('userAvatar');
+
+  if (user) {
+    // User is signed in
+    if (signInBtn) signInBtn.classList.add('hidden');
+    if (userMenu) userMenu.classList.remove('hidden');
+
+    // Update display name
+    const displayName = user.displayName || user.email?.split('@')[0] || 'User';
+    if (userDisplayName) userDisplayName.textContent = displayName;
+    if (userEmail) userEmail.textContent = user.email;
+
+    // Update avatar
+    if (userAvatar) {
+      if (user.photoURL) {
+        userAvatar.innerHTML = `<img src="${user.photoURL}" alt="${displayName}">`;
+      } else {
+        // Show initials
+        const initials = displayName.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2);
+        userAvatar.innerHTML = initials;
+      }
+    }
+
+    console.log('[Auth] User signed in:', user.email);
+  } else {
+    // User is signed out
+    if (signInBtn) signInBtn.classList.remove('hidden');
+    if (userMenu) {
+      userMenu.classList.add('hidden');
+      userMenu.classList.remove('open');
+    }
+
+    // Close dropdown if open
+    const dropdown = document.getElementById('userDropdown');
+    if (dropdown) dropdown.classList.add('hidden');
+
+    console.log('[Auth] User signed out');
+  }
+}
+
+// Update projects UI based on auth state
+function updateProjectsUIForAuth(user) {
+  const signInSection = document.getElementById('projectsSignInSection');
+  const savedProjectsSection = document.getElementById('savedProjectsSection');
+  const projectsTabs = document.getElementById('projectsTabs');
+  const storeFieldsRow = document.getElementById('storeFieldsRow');
+  const storeTab = document.querySelector('.projects-tab[data-tab="store"]');
+  const projectsFiltersRow = document.getElementById('projectsFiltersRow');
+
+  // Check if user is internal staff (has store membership)
+  const isInternal = window.firebaseService?.isInternalStaff?.() || false;
+
+  if (user) {
+    // Signed in - hide sign-in section, show saved projects
+    if (signInSection) signInSection.classList.add('hidden');
+    if (savedProjectsSection) savedProjectsSection.classList.remove('hidden');
+
+    // ALWAYS hide store/salesperson fields when logged in
+    // The system knows who you are and what store you're from
+    if (storeFieldsRow) storeFieldsRow.style.display = 'none';
+
+    // Show/hide store-specific UI based on internal staff status
+    if (isInternal) {
+      // Internal staff - show tabs and Store Projects tab
+      if (projectsTabs) projectsTabs.style.display = 'flex';
+      if (storeTab) storeTab.style.display = 'flex';
+      // Filters only shown on Store Projects tab (handled by switchProjectsTab)
+      updateProjectsFiltersVisibility();
+    } else {
+      // Public user - simplified UI, no store features
+      if (projectsTabs) projectsTabs.style.display = 'flex';
+      if (storeTab) storeTab.style.display = 'none';
+      if (projectsFiltersRow) projectsFiltersRow.style.display = 'none';
+    }
+
+    // Clear cached projects and reload
+    cachedCloudProjects = { my: [], store: [] };
+  } else {
+    // Signed out - show sign-in section, hide saved projects
+    if (signInSection) signInSection.classList.remove('hidden');
+    if (savedProjectsSection) savedProjectsSection.classList.add('hidden');
+
+    // Hide store fields for non-signed-in users
+    if (storeFieldsRow) storeFieldsRow.style.display = 'none';
+    if (projectsFiltersRow) projectsFiltersRow.style.display = 'none';
+
+    // Clear cloud cache
+    cachedCloudProjects = { my: [], store: [] };
+  }
+
+  // Also update BOM gating
+  updateBOMGating(!!user);
+}
+
+/**
+ * Update filters visibility based on current tab
+ * Filters only shown in "Store Projects" tab, not in "My Projects"
+ */
+function updateProjectsFiltersVisibility() {
+  const projectsFiltersRow = document.getElementById('projectsFiltersRow');
+  const isInternal = window.firebaseService?.isInternalStaff?.() || false;
+
+  if (projectsFiltersRow) {
+    // Only show filters on Store Projects tab for internal staff
+    const showFilters = isInternal && currentProjectsTab === 'store';
+    projectsFiltersRow.style.display = showFilters ? 'block' : 'none';
+  }
+}
+
+// Update BOM section gating based on auth state
+function updateBOMGating(isAuthenticated) {
+  const gatingNotice = document.getElementById('bomGatingNotice');
+  const bomTable = document.querySelector('.bom-table');
+  const printBtn = document.getElementById('printBomBtn');
+  const addToCartBtn = document.getElementById('addToCartBtn');
+
+  if (isAuthenticated) {
+    // Full access - hide gating, show quantities
+    if (gatingNotice) gatingNotice.classList.add('hidden');
+    if (bomTable) bomTable.classList.remove('gated');
+    if (printBtn) printBtn.classList.remove('gated-disabled');
+    if (addToCartBtn) addToCartBtn.classList.remove('gated-disabled');
+  } else {
+    // Gated - show notice, blur quantities, disable buttons
+    if (gatingNotice) gatingNotice.classList.remove('hidden');
+    if (bomTable) bomTable.classList.add('gated');
+    if (printBtn) printBtn.classList.add('gated-disabled');
+    if (addToCartBtn) addToCartBtn.classList.add('gated-disabled');
+
+    // Update the estimated total
+    updateEstimatedTotal();
+  }
+}
+
+// Calculate and display estimated total (rounded)
+function updateEstimatedTotal() {
+  const estimateEl = document.getElementById('bomEstimatedTotal');
+  if (!estimateEl || !appState.bom || appState.bom.length === 0) return;
+
+  // Sum up all totals
+  const total = appState.bom.reduce((sum, item) => {
+    return sum + (item.qty * (item.unitPrice || 0));
+  }, 0);
+
+  // Round to nearest $100 for estimate
+  const roundedEstimate = Math.ceil(total / 100) * 100;
+  estimateEl.textContent = `~$${roundedEstimate.toLocaleString()}`;
+}
+
+// Switch between My Projects and Store Projects tabs
+window.switchProjectsTab = function(tab) {
+  currentProjectsTab = tab;
+
+  // Update tab UI
+  document.querySelectorAll('.projects-tab').forEach(btn => {
+    btn.classList.toggle('active', btn.dataset.tab === tab);
+  });
+
+  // Update filters visibility (only show on Store Projects tab)
+  updateProjectsFiltersVisibility();
+
+  // Render the projects list for the selected tab
+  renderProjectsList();
+};
+
+// Load cloud projects (with caching)
+async function loadCloudProjects(forceRefresh = false) {
+  if (!window.firebaseService?.isSignedIn()) {
+    return { my: [], store: [] };
+  }
+
+  // Return cached if available and not forcing refresh
+  if (!forceRefresh && (cachedCloudProjects.my.length > 0 || cachedCloudProjects.store.length > 0)) {
+    return cachedCloudProjects;
+  }
+
+  isLoadingCloudProjects = true;
+
+  try {
+    // Load both in parallel
+    const [myResult, storeResult] = await Promise.all([
+      window.firebaseService.loadMyProjects(),
+      window.firebaseService.loadStoreProjects()
+    ]);
+
+    cachedCloudProjects.my = myResult.success ? myResult.projects : [];
+
+    // Filter store projects to exclude user's own projects
+    const userEmail = window.firebaseService.getCurrentUser()?.email?.toLowerCase();
+    if (storeResult.success) {
+      cachedCloudProjects.store = storeResult.projects.filter(p =>
+        p.createdByEmail?.toLowerCase() !== userEmail
+      );
+    } else {
+      cachedCloudProjects.store = [];
+    }
+
+    // Update tab counts
+    updateProjectTabCounts();
+
+    console.log('[Projects] Loaded cloud projects:', cachedCloudProjects.my.length, 'my,', cachedCloudProjects.store.length, 'store');
+
+  } catch (error) {
+    console.error('[Projects] Error loading cloud projects:', error);
+  }
+
+  isLoadingCloudProjects = false;
+  return cachedCloudProjects;
+}
+
+// Update project tab counts
+function updateProjectTabCounts() {
+  const myCount = document.getElementById('myProjectsCount');
+  const storeCount = document.getElementById('storeProjectsCount');
+
+  if (myCount) {
+    myCount.textContent = cachedCloudProjects.my.length > 0 ? cachedCloudProjects.my.length : '';
+  }
+  if (storeCount) {
+    storeCount.textContent = cachedCloudProjects.store.length > 0 ? cachedCloudProjects.store.length : '';
+  }
+}
+
+// Open auth modal
+window.openAuthModal = function() {
+  const modal = document.getElementById('authModal');
+  if (modal) {
+    modal.classList.remove('hidden');
+    resetAuthForm();
+    setAuthMode('signin');
+    // Focus email input
+    setTimeout(() => {
+      document.getElementById('authEmail')?.focus();
+    }, 100);
+  }
+};
+
+// Close auth modal
+window.closeAuthModal = function() {
+  const modal = document.getElementById('authModal');
+  if (modal) {
+    modal.classList.add('hidden');
+    resetAuthForm();
+  }
+};
+
+// Reset auth form
+function resetAuthForm() {
+  const form = document.getElementById('signInForm');
+  if (form) form.reset();
+
+  const errorDiv = document.getElementById('authError');
+  if (errorDiv) errorDiv.classList.add('hidden');
+}
+
+// Set auth mode (signin or signup)
+function setAuthMode(mode) {
+  authMode = mode;
+
+  const title = document.getElementById('authModalTitle');
+  const submitBtn = document.getElementById('authSubmitBtn');
+  const toggleText = document.getElementById('authToggleText');
+  const toggleBtn = document.getElementById('authToggleBtn');
+  const nameRow = document.getElementById('signUpNameRow');
+  const phoneRow = document.getElementById('signUpPhoneRow');
+  const forgotLink = document.getElementById('forgotPasswordLink');
+
+  if (mode === 'signup') {
+    if (title) title.textContent = 'Create Account';
+    if (submitBtn) submitBtn.textContent = 'Create Account';
+    if (toggleText) toggleText.textContent = 'Already have an account?';
+    if (toggleBtn) toggleBtn.textContent = 'Sign In';
+    if (nameRow) nameRow.classList.remove('hidden');
+    if (phoneRow) phoneRow.classList.remove('hidden');
+    if (forgotLink) forgotLink.classList.add('hidden');
+  } else {
+    if (title) title.textContent = 'Sign In';
+    if (submitBtn) submitBtn.textContent = 'Sign In';
+    if (toggleText) toggleText.textContent = "Don't have an account?";
+    if (toggleBtn) toggleBtn.textContent = 'Sign Up';
+    if (nameRow) nameRow.classList.add('hidden');
+    if (phoneRow) phoneRow.classList.add('hidden');
+    if (forgotLink) forgotLink.classList.remove('hidden');
+  }
+}
+
+// Toggle between signin and signup
+window.toggleAuthMode = function() {
+  setAuthMode(authMode === 'signin' ? 'signup' : 'signin');
+  resetAuthForm();
+};
+
+// Show auth error
+function showAuthError(message) {
+  const errorDiv = document.getElementById('authError');
+  const errorText = document.getElementById('authErrorText');
+
+  if (errorDiv && errorText) {
+    errorText.textContent = message;
+    errorDiv.classList.remove('hidden');
+  }
+}
+
+// Handle email sign in/up
+window.handleEmailSignIn = async function(event) {
+  event.preventDefault();
+
+  const email = document.getElementById('authEmail')?.value?.trim();
+  const password = document.getElementById('authPassword')?.value;
+  const displayName = document.getElementById('authDisplayName')?.value?.trim();
+  const phone = document.getElementById('authPhone')?.value?.trim();
+
+  if (!email || !password) {
+    showAuthError('Please enter email and password.');
+    return;
+  }
+
+  // Validate phone for signup
+  if (authMode === 'signup' && (!phone || phone.length < 10)) {
+    showAuthError('Please enter a valid phone number.');
+    return;
+  }
+
+  const submitBtn = document.getElementById('authSubmitBtn');
+  if (submitBtn) {
+    submitBtn.disabled = true;
+    submitBtn.textContent = authMode === 'signup' ? 'Creating Account...' : 'Signing In...';
+  }
+
+  let result;
+  if (authMode === 'signup') {
+    result = await window.firebaseService.signUpWithEmail(email, password, displayName);
+
+    // If signup successful, save phone number
+    if (result.success && phone) {
+      await window.firebaseService.updateUserPhone(phone);
+    }
+  } else {
+    result = await window.firebaseService.signInWithEmail(email, password);
+  }
+
+  if (submitBtn) {
+    submitBtn.disabled = false;
+    submitBtn.textContent = authMode === 'signup' ? 'Create Account' : 'Sign In';
+  }
+
+  if (result.success) {
+    closeAuthModal();
+
+    // Check if phone needed (for existing users without phone)
+    setTimeout(() => checkPhoneRequired(), 500);
+  } else {
+    showAuthError(result.error);
+  }
+};
+
+// Handle Google sign in
+window.handleGoogleSignIn = async function() {
+  const result = await window.firebaseService.signInWithGoogle();
+
+  if (result.success) {
+    closeAuthModal();
+
+    // Check if phone needed after Google auth (Google doesn't provide phone)
+    setTimeout(() => checkPhoneRequired(), 500);
+  } else {
+    showAuthError(result.error);
+  }
+};
+
+// Check if phone number collection is required
+function checkPhoneRequired() {
+  if (window.firebaseService.needsPhoneNumber()) {
+    openPhoneModal();
+    return true;
+  }
+  return false;
+}
+
+// Open phone collection modal
+window.openPhoneModal = function() {
+  const modal = document.getElementById('phoneModal');
+  if (modal) {
+    modal.classList.remove('hidden');
+    setTimeout(() => {
+      document.getElementById('modalPhone')?.focus();
+    }, 100);
+  }
+};
+
+// Close phone modal
+window.closePhoneModal = function() {
+  const modal = document.getElementById('phoneModal');
+  if (modal) {
+    modal.classList.add('hidden');
+  }
+};
+
+// Show phone error
+function showPhoneError(message) {
+  const errorDiv = document.getElementById('phoneError');
+  const errorText = document.getElementById('phoneErrorText');
+  if (errorDiv && errorText) {
+    errorText.textContent = message;
+    errorDiv.classList.remove('hidden');
+  }
+}
+
+// Handle phone form submission
+window.handlePhoneSubmit = async function(event) {
+  event.preventDefault();
+
+  const phone = document.getElementById('modalPhone')?.value?.trim();
+
+  if (!phone || phone.length < 10) {
+    showPhoneError('Please enter a valid phone number (at least 10 digits).');
+    return;
+  }
+
+  const submitBtn = document.getElementById('phoneSubmitBtn');
+  if (submitBtn) {
+    submitBtn.disabled = true;
+    submitBtn.textContent = 'Saving...';
+  }
+
+  const result = await window.firebaseService.updateUserPhone(phone);
+
+  if (submitBtn) {
+    submitBtn.disabled = false;
+    submitBtn.textContent = 'Save Phone Number';
+  }
+
+  if (result.success) {
+    closePhoneModal();
+  } else {
+    showPhoneError(result.error || 'Failed to save phone number.');
+  }
+};
+
+// Handle forgot password
+window.handleForgotPassword = async function() {
+  const email = document.getElementById('authEmail')?.value?.trim();
+
+  if (!email) {
+    showAuthError('Please enter your email address first.');
+    return;
+  }
+
+  const result = await window.firebaseService.sendPasswordReset(email);
+
+  if (result.success) {
+    alert('Password reset email sent! Check your inbox.');
+  } else {
+    showAuthError(result.error);
+  }
+};
+
+// Handle sign out
+window.handleSignOut = async function() {
+  const result = await window.firebaseService.signOut();
+
+  if (!result.success) {
+    alert('Error signing out: ' + result.error);
+  }
+
+  // Close dropdown
+  const dropdown = document.getElementById('userDropdown');
+  const menu = document.getElementById('userMenuBtn');
+  if (dropdown) dropdown.classList.add('hidden');
+  if (menu) menu.classList.remove('open');
+};
+
+// Toggle user dropdown menu
+window.toggleUserMenu = function() {
+  const dropdown = document.getElementById('userDropdown');
+  const menu = document.getElementById('userMenuBtn');
+
+  if (dropdown && menu) {
+    const isHidden = dropdown.classList.contains('hidden');
+
+    // Move dropdown to body on first use (escapes all stacking contexts)
+    if (dropdown.parentElement !== document.body) {
+      document.body.appendChild(dropdown);
+    }
+
+    if (isHidden) {
+      // Position the dropdown below the menu button
+      const rect = menu.getBoundingClientRect();
+      dropdown.style.top = (rect.bottom + 8) + 'px';
+      dropdown.style.right = (window.innerWidth - rect.right) + 'px';
+      dropdown.classList.remove('hidden');
+      menu.classList.add('open');
+    } else {
+      dropdown.classList.add('hidden');
+      menu.classList.remove('open');
+    }
+  }
+};
+
+// Close dropdown when clicking outside
+document.addEventListener('click', (e) => {
+  const userMenu = document.getElementById('userMenuBtn');
+  const dropdown = document.getElementById('userDropdown');
+
+  if (userMenu && dropdown && !userMenu.contains(e.target)) {
+    dropdown.classList.add('hidden');
+    userMenu.classList.remove('open');
+  }
+});
 
 

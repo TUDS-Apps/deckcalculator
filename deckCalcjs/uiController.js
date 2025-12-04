@@ -19,6 +19,7 @@ const stairsInputSection = document.getElementById("stairsInputSection");
 const stairWidthSelect = document.getElementById("stairWidth");
 const stringerTypeSelect = document.getElementById("stringerType");
 const landingTypeSelect = document.getElementById("landingType");
+const stairTargetSelect = document.getElementById("stairTarget");
 
 const bomSection = document.getElementById("bomSection");
 const bomTableBody = document.getElementById("bomTableBody");
@@ -188,14 +189,52 @@ export function getFormInputs() {
     inputs["stairWidth"] = parseInt(stairWidthSelect.value, 10);
     inputs["stringerType"] = stringerTypeSelect.value;
     inputs["landingType"] = landingTypeSelect.value;
+    inputs["stairTarget"] = stairTargetSelect ? stairTargetSelect.value : "ground";
   } else {
     // Provide defaults, also useful if form inputs are read before stair section is active
     inputs["stairWidth"] = parseInt(stairWidthSelect.options[0].value, 10);
     inputs["stringerType"] = stringerTypeSelect.options[0].value;
     inputs["landingType"] = landingTypeSelect.options[0].value;
+    inputs["stairTarget"] = "ground";
   }
   return inputs;
 }
+
+// Define category display order
+const BOM_CATEGORY_ORDER = [
+  "FRAMING",
+  "BEAMS & POSTS",
+  "STAIRS",
+  "DECKING",
+  "RAILING",
+  "HARDWARE"
+];
+
+// Track collapsed state for categories (persists during session)
+const collapsedCategories = {};
+
+// Toggle category collapse state
+function toggleBOMCategory(categoryId) {
+  collapsedCategories[categoryId] = !collapsedCategories[categoryId];
+  const rows = document.querySelectorAll(`[data-category="${categoryId}"]`);
+  const headerRow = document.querySelector(`[data-category-header="${categoryId}"]`);
+  const icon = headerRow?.querySelector('.category-toggle-icon');
+
+  rows.forEach(row => {
+    if (collapsedCategories[categoryId]) {
+      row.classList.add('collapsed');
+    } else {
+      row.classList.remove('collapsed');
+    }
+  });
+
+  if (icon) {
+    icon.classList.toggle('rotated', !collapsedCategories[categoryId]);
+  }
+}
+
+// Expose to window for onclick handlers
+window.toggleBOMCategory = toggleBOMCategory;
 
 export function populateBOMTable(bomData, errorMessage = null) {
   // Preserve scroll position before DOM modifications
@@ -206,7 +245,7 @@ export function populateBOMTable(bomData, errorMessage = null) {
   let totalCost = 0;
 
   if (errorMessage) {
-    bomTableBody.innerHTML = `<tr><td colspan="5" class="text-center text-gray-500 py-4">${errorMessage}</td></tr>`;
+    bomTableBody.innerHTML = `<tr><td colspan="6" class="text-center text-gray-500 py-4">${errorMessage}</td></tr>`;
     bomSection.classList.remove("hidden");
     // Restore scroll position after DOM update
     window.scrollTo(scrollX, scrollY);
@@ -215,7 +254,7 @@ export function populateBOMTable(bomData, errorMessage = null) {
 
   if (!bomData || bomData.length === 0) {
     const msg = "No materials calculated. Generate a plan or add components.";
-    bomTableBody.innerHTML = `<tr><td colspan="5" class="text-center text-gray-500 py-4">${msg}</td></tr>`;
+    bomTableBody.innerHTML = `<tr><td colspan="6" class="text-center text-gray-500 py-4">${msg}</td></tr>`;
     currentBOMData = null;
     // Restore scroll position after DOM update
     window.scrollTo(scrollX, scrollY);
@@ -224,16 +263,78 @@ export function populateBOMTable(bomData, errorMessage = null) {
 
   // Store current BOM data for editing
   currentBOMData = bomData.map(item => ({...item})); // Deep copy
-  
+
   // Add global indices to all items for tracking
   currentBOMData.forEach((item, globalIndex) => {
     item.globalIndex = globalIndex;
     item.originalGlobalIndex = globalIndex;
   });
 
-  // Display all items without categorization
+  // Group items by category
+  const categorizedItems = {};
   currentBOMData.forEach((item) => {
+    const category = item.category || "FRAMING";
+    if (!categorizedItems[category]) {
+      categorizedItems[category] = [];
+    }
+    categorizedItems[category].push(item);
+  });
+
+  // Render items by category in defined order
+  BOM_CATEGORY_ORDER.forEach(category => {
+    const items = categorizedItems[category];
+    if (!items || items.length === 0) return;
+
+    // Calculate category subtotal
+    let categoryTotal = 0;
+    items.forEach(item => {
+      const unitPrice = item.shopifyPrice || item.unitPrice || 0;
+      categoryTotal += (item.qty || 0) * unitPrice;
+    });
+    totalCost += categoryTotal;
+
+    // Create category header row
+    const categoryId = category.replace(/\s+/g, '-').toLowerCase();
+    const isCollapsed = collapsedCategories[categoryId] || false;
+    const headerRow = bomTableBody.insertRow();
+    headerRow.classList.add('bom-category-header');
+    headerRow.setAttribute('data-category-header', categoryId);
+    headerRow.onclick = () => toggleBOMCategory(categoryId);
+
+    const headerCell = headerRow.insertCell();
+    headerCell.colSpan = 6;
+    headerCell.innerHTML = `
+      <div class="category-header-content">
+        <span class="category-toggle-icon ${isCollapsed ? '' : 'rotated'}">
+          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="9 18 15 12 9 6"></polyline>
+          </svg>
+        </span>
+        <span class="category-name">${category}</span>
+        <span class="category-count">(${items.length} item${items.length !== 1 ? 's' : ''})</span>
+        <span class="category-subtotal">${categoryTotal.toLocaleString("en-CA", { style: "currency", currency: "CAD" })}</span>
+      </div>
+    `;
+
+    // Render items in this category
+    items.forEach((item) => {
       const row = bomTableBody.insertRow();
+      row.setAttribute('data-category', categoryId);
+      row.setAttribute('data-global-index', item.globalIndex);
+      if (isCollapsed) {
+        row.classList.add('collapsed');
+      }
+
+      // Checkbox cell (hidden by default, shown in selection mode)
+      const cellCheckbox = row.insertCell();
+      cellCheckbox.classList.add('checkbox-col', 'hidden');
+      const isAvailable = item.shopifyVariantId && item.shopifyStatus === 'available';
+      cellCheckbox.innerHTML = `<input type="checkbox"
+        data-index="${item.globalIndex}"
+        onchange="handleBomItemSelect(${item.globalIndex}, this.checked)"
+        ${!isAvailable ? 'disabled title="Not available in Shopify"' : ''}
+      >`;
+
       const cellQty = row.insertCell();
       const cellItem = row.insertCell();
       const cellDesc = row.insertCell();
@@ -248,7 +349,6 @@ export function populateBOMTable(bomData, errorMessage = null) {
       // Use Shopify price if available, fallback to local unitPrice
       const unitPrice = item.shopifyPrice || item.unitPrice || 0;
       const lineTotal = (item.qty || 0) * unitPrice;
-      totalCost += lineTotal;
 
       // Create interactive quantity controls using global index
       const quantityHTML = createQuantityControls(item, item.globalIndex);
@@ -261,7 +361,7 @@ export function populateBOMTable(bomData, errorMessage = null) {
       // Add copy icon and item text
       const itemText = item.item || "N/A";
       cellItem.innerHTML = `
-        <span class="copy-icon" onclick="copyItemName('${itemText.replace(/'/g, "\\'")}', this)" title="Copy item name">
+        <span class="copy-icon" onclick="event.stopPropagation(); copyItemName('${itemText.replace(/'/g, "\\'")}', this)" title="Copy item name">
           <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
             <rect x="9" y="9" width="13" height="13" rx="2" ry="2"/>
             <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>
@@ -282,13 +382,14 @@ export function populateBOMTable(bomData, errorMessage = null) {
         currency: "CAD",
       });
       cellTotalPrice.classList.add("price-col", "text-right");
+    });
   });
 
   // Add total row at the bottom
   const totalRow = bomTableBody.insertRow();
   totalRow.classList.add("font-semibold", "bg-gray-100", "bom-total-row");
   const labelCell = totalRow.insertCell();
-  labelCell.colSpan = 4;
+  labelCell.colSpan = 5;
   labelCell.textContent = "Estimated Material Total:";
   labelCell.classList.add("text-right", "pr-4");
   const totalValCell = totalRow.insertCell();

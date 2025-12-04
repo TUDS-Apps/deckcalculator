@@ -1,7 +1,7 @@
 # TUDS Pro Deck Estimator - Feature Roadmap
 
 **Created:** November 27, 2025
-**Last Updated:** December 1, 2025
+**Last Updated:** December 4, 2025
 
 ---
 
@@ -27,7 +27,7 @@
 | **Photo Overlay Mode** | Upload backyard photo, trace deck outline over it | High | Medium | Planned |
 | **3D Viewer (Read-Only)** | View completed design in 3D (not full editor) | High | High | Planned |
 | **Component Library** | Add pergolas, benches, privacy screens, planters | Medium | Medium | Planned |
-| **Multi-Level Decks** | Support for split-level and bi-level deck designs | Medium | High | Planned |
+| **Multi-Level Decks** | Support for split-level and bi-level deck designs | Medium | High | ✅ Complete |
 
 ### Tier 3: Professional Tools (Contractor Focus)
 *Features for professional contractors and complex projects.*
@@ -45,8 +45,8 @@
 
 | Feature | Description | Impact | Effort | Status |
 |---------|-------------|--------|--------|--------|
-| **Mobile/Tablet Optimization** | Responsive design for iPad on-site sales | High | Medium | Planned |
-| **User Accounts** | Login, save multiple projects, order history | Medium | High | Planned |
+| **Mobile/Tablet Optimization** | Responsive design for iPad on-site sales | High | Medium | ✅ Complete |
+| **User Accounts** | Login, save multiple projects, order history | Medium | High | ✅ Complete |
 | **Collaborative Sharing** | Multiple stakeholders view/comment on design | Medium | High | Planned |
 | **Offline Mode** | Work without internet, sync when connected | Low | High | Planned |
 
@@ -101,6 +101,8 @@
 | Customer Info Capture | November 2025 |
 | Measurement Tool | December 2025 |
 | Shopify Integration | December 2025 |
+| Multi-Level Decks (Phase 1) | December 2025 |
+| User Accounts | December 2025 |
 
 ---
 

@@ -47,7 +47,7 @@ export const MAX_BLOCKING_SPACING_FEET = 8;
 export const PICTURE_FRAME_SINGLE_INSET_INCHES = 5;
 export const PICTURE_FRAME_DOUBLE_INSET_INCHES = 10;
 export const MIN_HEIGHT_FOR_NO_2X6_INCHES = 24; // 2 feet
-export const DROP_BEAM_CENTERLINE_SETBACK_FEET = 1.0;
+// Note: Beam setback now uses CANTILEVER_BY_JOIST_SIZE based on joist size
 
 export const JOIST_SIZE_ORDER = ["2x6", "2x8", "2x10", "2x12"];
 

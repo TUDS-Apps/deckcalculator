@@ -25,6 +25,7 @@ const PRODUCTS_QUERY = `
           title
           handle
           availableForSale
+          tags
           variants(first: 100) {
             edges {
               node {
@@ -130,6 +131,20 @@ async function fetchAllProducts() {
 }
 
 /**
+ * Determine shipping type from product tags
+ * @param {Array} tags - Array of product tag strings
+ * @returns {string} 'standard', 'oversized', 'ltl', or 'unknown'
+ */
+function getShippingType(tags) {
+  if (!tags || tags.length === 0) return 'unknown';
+  const lowerTags = tags.map(t => t.toLowerCase());
+  if (lowerTags.includes('standard')) return 'standard';
+  if (lowerTags.includes('oversized')) return 'oversized';
+  if (lowerTags.includes('ltl')) return 'ltl';
+  return 'unknown';
+}
+
+/**
  * Build lookup maps from products array
  */
 function buildProductMaps(products) {
@@ -138,6 +153,8 @@ function buildProductMaps(products) {
 
   for (const product of products) {
     productMapByHandle.set(product.handle, product);
+    const tags = product.tags || [];
+    const shippingType = getShippingType(tags);
 
     for (const variantEdge of product.variants.edges) {
       const variant = variantEdge.node;
@@ -148,7 +165,9 @@ function buildProductMaps(products) {
           price: parseFloat(variant.price.amount),
           compareAtPrice: variant.compareAtPrice ? parseFloat(variant.compareAtPrice.amount) : null,
           available: variant.availableForSale,
-          quantityAvailable: variant.quantityAvailable
+          quantityAvailable: variant.quantityAvailable,
+          tags,
+          shippingType
         });
       }
     }
@@ -334,6 +353,8 @@ export function enrichBomWithShopifyData(bomItems) {
       shopifyVariantId: shopifyData.variant.id,
       shopifyProductTitle: shopifyData.product.title,
       shopifyStatus: shopifyData.available ? 'available' : 'out_of_stock',
+      shopifyTags: shopifyData.tags || [],
+      shippingType: shopifyData.shippingType || 'unknown',
       // Optionally override the local price with Shopify price
       unitPrice: shopifyData.price,
       totalPrice: item.qty * shopifyData.price

@@ -304,9 +304,9 @@ export function calculateMultiSectionStructure(rectangularSections, inputs, sele
     }
     
     console.log(`Successfully calculated ${sectionResults.length} sections`);
-    
-    // Merge results from all sections
-    const mergedStructure = mergeSectionResults(sectionResults);
+
+    // Merge results from all sections, passing originalPoints for boundary clipping
+    const mergedStructure = mergeSectionResults(sectionResults, originalPoints);
 
     // ============================================================================
     // DIAGONAL EDGE HANDLING
@@ -362,9 +362,10 @@ export function calculateMultiSectionStructure(rectangularSections, inputs, sele
           for (const diagEdge of nonLedgerDiagonalEdges) {
             console.log(`[MULTI-SECTION DIAGONAL] Creating beam for diagonal edge from (${diagEdge.p1.x.toFixed(1)}, ${diagEdge.p1.y.toFixed(1)}) to (${diagEdge.p2.x.toFixed(1)}, ${diagEdge.p2.y.toFixed(1)})`);
 
-            // Calculate setback based on beam type
-            const DROP_BEAM_SETBACK = 1.0; // feet
-            const setbackFeet = inputs.beamType === 'drop' ? DROP_BEAM_SETBACK : 0;
+            // Calculate setback based on beam type and joist size cantilever
+            const joistSize = inputs.joistSize || '2x8';
+            const cantileverFeet = deckCalculations.getCantileverForJoistSize(joistSize);
+            const setbackFeet = inputs.beamType === 'drop' ? cantileverFeet : 0;
 
             // Determine direction to offset beam (into the deck)
             const edgeMidX = (diagEdge.p1.x + diagEdge.p2.x) / 2;
@@ -569,13 +570,14 @@ export function calculateSectionDimensions(rectangle) {
 /**
  * Merges structural calculation results from multiple sections
  * @param {Array<Object>} sectionResults - Array of section calculation results
+ * @param {Array<{x: number, y: number}>} originalPoints - Original deck outline points for boundary clipping
  * @returns {Object} Combined structural components object
  */
-export function mergeSectionResults(sectionResults) {
+export function mergeSectionResults(sectionResults, originalPoints = null) {
   if (!sectionResults || sectionResults.length === 0) {
     return { error: "No section results to merge" };
   }
-  
+
   // If only one section, return its structure directly
   if (sectionResults.length === 1) {
     return sectionResults[0].structure;
@@ -648,8 +650,8 @@ export function mergeSectionResults(sectionResults) {
     }
   });
   
-  // Merge overlapping and collinear components
-  const mergedBeams = handleBeamMerging(combinedBeams);
+  // Merge overlapping and collinear components, passing originalPoints for boundary clipping
+  const mergedBeams = handleBeamMerging(combinedBeams, originalPoints);
   
   // Recalculate posts and footings for merged beams
   // We need to get the deck height and post size from the first section's inputs
@@ -668,8 +670,8 @@ export function mergeSectionResults(sectionResults) {
   
   const mergedPosts = recalculatedPostsAndFootings.posts;
   const mergedFootings = recalculatedPostsAndFootings.footings;
-  const mergedJoists = mergeCollinearJoists(combinedJoists);
-  const mergedRimJoists = mergeCollinearRimJoists(combinedRimJoists);
+  const mergedJoists = mergeCollinearJoists(combinedJoists, originalPoints);
+  const mergedRimJoists = mergeCollinearRimJoists(combinedRimJoists, originalPoints);
   
   console.log(`Merged components: ${mergedBeams.length} beams, ${mergedPosts.length} posts, ${mergedFootings.length} footings`);
 
@@ -689,9 +691,10 @@ export function mergeSectionResults(sectionResults) {
 /**
  * Merges collinear beams and handles beam intersections
  * @param {Array<Object>} allBeams - Array of all beam objects from sections
+ * @param {Array<{x: number, y: number}>} originalPoints - Original deck outline points for boundary clipping
  * @returns {Array<Object>} Merged beam array
  */
-export function handleBeamMerging(allBeams) {
+export function handleBeamMerging(allBeams, originalPoints = null) {
   if (!allBeams || allBeams.length === 0) return [];
   
   console.log(`\n=== Starting beam merging process with ${allBeams.length} beams ===`);
@@ -743,17 +746,17 @@ export function handleBeamMerging(allBeams) {
       }
     }
     
-    // Merge the group of beams
+    // Merge the group of beams, passing originalPoints for boundary clipping
     if (mergeGroup.length > 1) {
-      const mergedBeam = mergeBeamGroup(mergeGroup);
+      const mergedBeam = mergeBeamGroup(mergeGroup, originalPoints);
       mergedBeams.push(mergedBeam);
     } else {
       mergedBeams.push(beam1);
     }
   }
-  
+
   console.log(`\n=== Beam merging complete: ${allBeams.length} beams → ${mergedBeams.length} beams ===\n`);
-  
+
   return mergedBeams;
 }
 
@@ -882,16 +885,17 @@ function areBeamsCollinear(beam1, beam2) {
 /**
  * Merges a group of collinear beams into a single beam
  * @param {Array<Object>} beamGroup - Array of beams to merge
+ * @param {Array<{x: number, y: number}>} originalPoints - Original deck outline points for boundary clipping
  * @returns {Object} Merged beam object
  */
-function mergeBeamGroup(beamGroup) {
+function mergeBeamGroup(beamGroup, originalPoints = null) {
   if (beamGroup.length === 1) return beamGroup[0];
-  
+
   console.log(`Merging ${beamGroup.length} collinear beams`);
-  
+
   // Find the extent of all beams
   let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
-  
+
   beamGroup.forEach(beam => {
     minX = Math.min(minX, beam.p1.x, beam.p2.x);
     maxX = Math.max(maxX, beam.p1.x, beam.p2.x);
@@ -899,20 +903,20 @@ function mergeBeamGroup(beamGroup) {
     maxY = Math.max(maxY, beam.p1.y, beam.p2.y);
     console.log(`  Beam from section ${beam.sectionId}: ${beam.lengthFt}' (${beam.usage})`);
   });
-  
+
   // Use the first beam as template for properties
   const templateBeam = beamGroup[0];
-  
+
   // Determine if beam is primarily horizontal or vertical
   const isHorizontal = (maxX - minX) > (maxY - minY);
-  
+
   let mergedBeam;
   if (isHorizontal) {
     // For horizontal beams, use the average Y coordinate from all beam endpoints
     const avgY = beamGroup.reduce((sum, beam) => {
       return sum + (beam.p1.y + beam.p2.y) / 2;
     }, 0) / beamGroup.length;
-    
+
     mergedBeam = {
       ...templateBeam,
       p1: { x: minX, y: avgY },
@@ -926,7 +930,7 @@ function mergeBeamGroup(beamGroup) {
     const avgX = beamGroup.reduce((sum, beam) => {
       return sum + (beam.p1.x + beam.p2.x) / 2;
     }, 0) / beamGroup.length;
-    
+
     mergedBeam = {
       ...templateBeam,
       p1: { x: avgX, y: minY },
@@ -936,29 +940,163 @@ function mergeBeamGroup(beamGroup) {
       lengthFt: (maxY - minY) / 24 // Convert pixels to feet
     };
   }
-  
+
+  // Clip merged beam to deck boundary if originalPoints provided
+  if (originalPoints && originalPoints.length >= 3) {
+    const clippedBeam = clipBeamToDeckBoundary(mergedBeam, originalPoints, isHorizontal);
+    if (clippedBeam) {
+      mergedBeam.p1 = clippedBeam.p1;
+      mergedBeam.p2 = clippedBeam.p2;
+      mergedBeam.centerlineP1 = clippedBeam.p1;
+      mergedBeam.centerlineP2 = clippedBeam.p2;
+      mergedBeam.lengthFt = clippedBeam.lengthFt;
+      console.log(`[BEAM_CLIP] Beam clipped to deck boundary`);
+    }
+  }
+
   // Mark as merged for enhanced rendering
   mergedBeam.isMerged = true;
   mergedBeam.mergedFromCount = beamGroup.length;
   mergedBeam.originalSections = beamGroup.map(b => b.sectionId);
-  
+
   // Calculate the actual combined length in feet and inches
   const totalInches = Math.round(mergedBeam.lengthFt * 12);
   const feet = Math.floor(totalInches / 12);
   const inches = totalInches % 12;
   mergedBeam.lengthDisplay = inches > 0 ? `${feet}'${inches}"` : `${feet}'`;
-  
+
   console.log(`✓ Merged beam total length: ${mergedBeam.lengthDisplay} (${mergedBeam.lengthFt.toFixed(2)} feet)`);
   console.log(`  Merged beam endpoints: (${mergedBeam.p1.x.toFixed(0)}, ${mergedBeam.p1.y.toFixed(0)}) to (${mergedBeam.p2.x.toFixed(0)}, ${mergedBeam.p2.y.toFixed(0)})`);
   console.log(`  Centerline: (${mergedBeam.centerlineP1.x.toFixed(0)}, ${mergedBeam.centerlineP1.y.toFixed(0)}) to (${mergedBeam.centerlineP2.x.toFixed(0)}, ${mergedBeam.centerlineP2.y.toFixed(0)})`);
-  
+
   // IMPORTANT NOTE: When beams are merged, the posts and footings need to be recalculated
   // based on the new merged beam length. The merged beam should have posts at:
   // 1. Both ends of the beam (1' inset)
   // 2. At regular intervals based on the beam span requirements (typically 6-8 feet)
   // This recalculation should happen in the post-processing phase after all beams are merged.
-  
+
   return mergedBeam;
+}
+
+/**
+ * Clips a beam to stay within the deck boundary polygon
+ * @param {Object} beam - Beam with p1, p2 endpoints
+ * @param {Array<{x: number, y: number}>} shapePoints - Deck polygon points
+ * @param {boolean} isHorizontal - Whether the beam is horizontal
+ * @returns {Object|null} Clipped beam with p1, p2, lengthFt or null if no clipping needed
+ */
+function clipBeamToDeckBoundary(beam, shapePoints, isHorizontal) {
+  if (!shapePoints || shapePoints.length < 3) return null;
+
+  const TOLERANCE = 2; // pixels
+  const numEdges = shapePoints.length;
+
+  // Check if each endpoint is inside the polygon
+  const p1Inside = isPointInsidePolygon(beam.p1, shapePoints);
+  const p2Inside = isPointInsidePolygon(beam.p2, shapePoints);
+
+  // If both endpoints are inside, no clipping needed
+  if (p1Inside && p2Inside) {
+    console.log(`[BEAM_CLIP] Both endpoints inside polygon - no clipping needed`);
+    return null;
+  }
+
+  console.log(`[BEAM_CLIP] Endpoints inside: p1=${p1Inside}, p2=${p2Inside}`);
+  console.log(`[BEAM_CLIP] Beam: (${beam.p1.x.toFixed(1)}, ${beam.p1.y.toFixed(1)}) to (${beam.p2.x.toFixed(1)}, ${beam.p2.y.toFixed(1)})`);
+
+  // Find intersections of beam line with polygon edges
+  const intersections = [];
+
+  for (let i = 0; i < numEdges; i++) {
+    const edgeP1 = shapePoints[i];
+    const edgeP2 = shapePoints[(i + 1) % numEdges];
+
+    const intersection = lineIntersection(beam.p1, beam.p2, edgeP1, edgeP2);
+    if (intersection) {
+      // Check if intersection is on the polygon edge segment
+      if (isPointOnSegment(intersection, edgeP1, edgeP2, TOLERANCE)) {
+        // Check if intersection is between beam endpoints (or close to them)
+        if (isPointOnSegment(intersection, beam.p1, beam.p2, TOLERANCE * 5)) {
+          intersections.push(intersection);
+          console.log(`[BEAM_CLIP] Found intersection with edge ${i} at (${intersection.x.toFixed(1)}, ${intersection.y.toFixed(1)})`);
+        }
+      }
+    }
+  }
+
+  if (intersections.length === 0) {
+    console.log(`[BEAM_CLIP] No intersections found`);
+    return null;
+  }
+
+  // Determine new endpoints
+  let newP1 = beam.p1;
+  let newP2 = beam.p2;
+
+  if (!p1Inside && intersections.length > 0) {
+    // Find closest intersection to p1
+    let closestDist = Infinity;
+    for (const inter of intersections) {
+      const dist = Math.sqrt((inter.x - beam.p1.x) ** 2 + (inter.y - beam.p1.y) ** 2);
+      if (dist < closestDist) {
+        closestDist = dist;
+        newP1 = inter;
+      }
+    }
+    console.log(`[BEAM_CLIP] Clipped p1 to (${newP1.x.toFixed(1)}, ${newP1.y.toFixed(1)})`);
+  }
+
+  if (!p2Inside && intersections.length > 0) {
+    // Find closest intersection to p2
+    let closestDist = Infinity;
+    for (const inter of intersections) {
+      const dist = Math.sqrt((inter.x - beam.p2.x) ** 2 + (inter.y - beam.p2.y) ** 2);
+      if (dist < closestDist) {
+        closestDist = dist;
+        newP2 = inter;
+      }
+    }
+    console.log(`[BEAM_CLIP] Clipped p2 to (${newP2.x.toFixed(1)}, ${newP2.y.toFixed(1)})`);
+  }
+
+  // Calculate new length
+  const newLength = Math.sqrt((newP2.x - newP1.x) ** 2 + (newP2.y - newP1.y) ** 2) / PIXELS_PER_FOOT;
+
+  return {
+    p1: { x: newP1.x, y: newP1.y },
+    p2: { x: newP2.x, y: newP2.y },
+    lengthFt: newLength
+  };
+}
+
+/**
+ * Checks if a point is inside a polygon using ray casting algorithm
+ * @param {Object} point - Point {x, y}
+ * @param {Array<{x: number, y: number}>} polygon - Array of polygon vertices
+ * @returns {boolean} True if point is inside polygon
+ */
+function isPointInsidePolygon(point, polygon) {
+  if (!polygon || polygon.length < 3) return false;
+
+  let inside = false;
+  const n = polygon.length;
+
+  for (let i = 0, j = n - 1; i < n; j = i++) {
+    const xi = polygon[i].x, yi = polygon[i].y;
+    const xj = polygon[j].x, yj = polygon[j].y;
+
+    // Check if point is on the edge (with small tolerance)
+    const onEdge = isPointOnSegment(point, polygon[i], polygon[j], 2);
+    if (onEdge) return true;
+
+    // Ray casting
+    if (((yi > point.y) !== (yj > point.y)) &&
+        (point.x < (xj - xi) * (point.y - yi) / (yj - yi) + xi)) {
+      inside = !inside;
+    }
+  }
+
+  return inside;
 }
 
 /**
@@ -1124,25 +1262,327 @@ function removeDuplicateFootings(footings) {
 }
 
 /**
- * Merges collinear joists
+ * Merges collinear joists and clips to deck boundary
  * @param {Array<Object>} joists - Array of joist objects
+ * @param {Array<{x: number, y: number}>} originalPoints - Deck polygon for boundary clipping
  * @returns {Array<Object>} Merged joists array
  */
-function mergeCollinearJoists(joists) {
-  // For now, return joists as-is since merging joists is complex
-  // and they typically don't need merging across sections
-  return joists || [];
+function mergeCollinearJoists(joists, originalPoints = null) {
+  if (!joists || joists.length === 0) return [];
+
+  // Clip joists to deck boundary if originalPoints provided
+  if (originalPoints && originalPoints.length >= 3) {
+    const clippedJoists = [];
+    for (const joist of joists) {
+      if (!joist.p1 || !joist.p2) {
+        clippedJoists.push(joist);
+        continue;
+      }
+
+      const clipped = clipJoistToBoundary(joist, originalPoints);
+      if (clipped && clipped.lengthFeet > 0.1) { // Only keep joists > 0.1 feet
+        clippedJoists.push(clipped);
+      }
+    }
+    console.log(`[JOIST_CLIP] Clipped ${joists.length} joists to ${clippedJoists.length} joists`);
+    return clippedJoists;
+  }
+
+  return joists;
 }
 
 /**
- * Merges collinear rim joists
+ * Clips a joist to stay within the deck boundary
+ */
+function clipJoistToBoundary(joist, shapePoints) {
+  if (!joist.p1 || !joist.p2 || !shapePoints || shapePoints.length < 3) return joist;
+
+  const TOLERANCE = 2;
+
+  // Check if endpoints are inside polygon
+  const p1Inside = isPointInsidePolygon(joist.p1, shapePoints);
+  const p2Inside = isPointInsidePolygon(joist.p2, shapePoints);
+
+  // If both inside, no clipping needed
+  if (p1Inside && p2Inside) return joist;
+
+  // Find intersections with polygon edges
+  const intersections = [];
+  const numEdges = shapePoints.length;
+
+  for (let i = 0; i < numEdges; i++) {
+    const edgeP1 = shapePoints[i];
+    const edgeP2 = shapePoints[(i + 1) % numEdges];
+
+    const inter = lineIntersection(joist.p1, joist.p2, edgeP1, edgeP2);
+    if (inter && isPointOnSegment(inter, edgeP1, edgeP2, TOLERANCE)) {
+      intersections.push(inter);
+    }
+  }
+
+  if (intersections.length === 0) return joist;
+
+  let newP1 = joist.p1;
+  let newP2 = joist.p2;
+
+  if (!p1Inside) {
+    let closestDist = Infinity;
+    for (const inter of intersections) {
+      const dist = Math.sqrt((inter.x - joist.p1.x) ** 2 + (inter.y - joist.p1.y) ** 2);
+      if (dist < closestDist) {
+        closestDist = dist;
+        newP1 = inter;
+      }
+    }
+  }
+
+  if (!p2Inside) {
+    let closestDist = Infinity;
+    for (const inter of intersections) {
+      const dist = Math.sqrt((inter.x - joist.p2.x) ** 2 + (inter.y - joist.p2.y) ** 2);
+      if (dist < closestDist) {
+        closestDist = dist;
+        newP2 = inter;
+      }
+    }
+  }
+
+  const newLength = Math.sqrt((newP2.x - newP1.x) ** 2 + (newP2.y - newP1.y) ** 2) / PIXELS_PER_FOOT;
+
+  return {
+    ...joist,
+    p1: { x: newP1.x, y: newP1.y },
+    p2: { x: newP2.x, y: newP2.y },
+    lengthFeet: newLength
+  };
+}
+
+/**
+ * Merges collinear rim joists and clips to deck boundary
  * @param {Array<Object>} rimJoists - Array of rim joist objects
+ * @param {Array<{x: number, y: number}>} originalPoints - Deck polygon for boundary clipping
  * @returns {Array<Object>} Merged rim joists array
  */
-function mergeCollinearRimJoists(rimJoists) {
-  // For now, return rim joists as-is
-  // In practice, rim joists from different sections usually don't overlap
-  return rimJoists || [];
+function mergeCollinearRimJoists(rimJoists, originalPoints = null) {
+  if (!rimJoists || rimJoists.length === 0) return [];
+
+  console.log(`[RIM_MERGE] Processing ${rimJoists.length} rim joists`);
+
+  // Group rim joists by their approximate line (collinear rim joists)
+  const processed = new Set();
+  const mergedRimJoists = [];
+
+  for (let i = 0; i < rimJoists.length; i++) {
+    if (processed.has(i)) continue;
+
+    const rim1 = rimJoists[i];
+    if (!rim1.p1 || !rim1.p2) {
+      mergedRimJoists.push(rim1);
+      processed.add(i);
+      continue;
+    }
+
+    const mergeGroup = [rim1];
+    processed.add(i);
+
+    // Find all rim joists that are collinear with this one
+    for (let j = i + 1; j < rimJoists.length; j++) {
+      if (processed.has(j)) continue;
+
+      const rim2 = rimJoists[j];
+      if (!rim2.p1 || !rim2.p2) continue;
+
+      if (areRimJoistsCollinear(rim1, rim2) && areRimJoistsAdjacent(rim1, rim2)) {
+        mergeGroup.push(rim2);
+        processed.add(j);
+      }
+    }
+
+    // Merge the group
+    if (mergeGroup.length > 1) {
+      const merged = mergeRimJoistGroup(mergeGroup);
+      mergedRimJoists.push(merged);
+      console.log(`[RIM_MERGE] Merged ${mergeGroup.length} rim joists into one`);
+    } else {
+      mergedRimJoists.push(rim1);
+    }
+  }
+
+  // Clip rim joists to deck boundary if originalPoints provided
+  if (originalPoints && originalPoints.length >= 3) {
+    const clippedRimJoists = [];
+    for (const rim of mergedRimJoists) {
+      const clipped = clipRimJoistToBoundary(rim, originalPoints);
+      if (clipped && clipped.lengthFeet > 0.1) { // Only keep rim joists > 0.1 feet
+        clippedRimJoists.push(clipped);
+      }
+    }
+    console.log(`[RIM_MERGE] After clipping: ${clippedRimJoists.length} rim joists`);
+    return clippedRimJoists;
+  }
+
+  return mergedRimJoists;
+}
+
+/**
+ * Checks if two rim joists are collinear
+ */
+function areRimJoistsCollinear(rim1, rim2) {
+  const TOLERANCE = PIXELS_PER_FOOT * 0.5; // 0.5 foot tolerance
+
+  // Determine orientation of rim1
+  const rim1IsHorizontal = Math.abs(rim1.p2.y - rim1.p1.y) < TOLERANCE;
+  const rim1IsVertical = Math.abs(rim1.p2.x - rim1.p1.x) < TOLERANCE;
+
+  // Determine orientation of rim2
+  const rim2IsHorizontal = Math.abs(rim2.p2.y - rim2.p1.y) < TOLERANCE;
+  const rim2IsVertical = Math.abs(rim2.p2.x - rim2.p1.x) < TOLERANCE;
+
+  // Must have same orientation
+  if (rim1IsHorizontal !== rim2IsHorizontal) return false;
+  if (rim1IsVertical !== rim2IsVertical) return false;
+
+  // Check if on same line
+  if (rim1IsHorizontal) {
+    const avgY1 = (rim1.p1.y + rim1.p2.y) / 2;
+    const avgY2 = (rim2.p1.y + rim2.p2.y) / 2;
+    return Math.abs(avgY1 - avgY2) < TOLERANCE;
+  }
+
+  if (rim1IsVertical) {
+    const avgX1 = (rim1.p1.x + rim1.p2.x) / 2;
+    const avgX2 = (rim2.p1.x + rim2.p2.x) / 2;
+    return Math.abs(avgX1 - avgX2) < TOLERANCE;
+  }
+
+  return false;
+}
+
+/**
+ * Checks if two rim joists are adjacent (touching or overlapping)
+ */
+function areRimJoistsAdjacent(rim1, rim2) {
+  const TOLERANCE = PIXELS_PER_FOOT * 2; // 2 feet tolerance
+
+  // Check if any endpoints are close
+  const distances = [
+    Math.sqrt((rim1.p1.x - rim2.p1.x) ** 2 + (rim1.p1.y - rim2.p1.y) ** 2),
+    Math.sqrt((rim1.p1.x - rim2.p2.x) ** 2 + (rim1.p1.y - rim2.p2.y) ** 2),
+    Math.sqrt((rim1.p2.x - rim2.p1.x) ** 2 + (rim1.p2.y - rim2.p1.y) ** 2),
+    Math.sqrt((rim1.p2.x - rim2.p2.x) ** 2 + (rim1.p2.y - rim2.p2.y) ** 2)
+  ];
+
+  return Math.min(...distances) < TOLERANCE;
+}
+
+/**
+ * Merges a group of collinear rim joists
+ */
+function mergeRimJoistGroup(rimGroup) {
+  if (rimGroup.length === 1) return rimGroup[0];
+
+  // Find extent of all rim joists
+  let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
+
+  rimGroup.forEach(rim => {
+    minX = Math.min(minX, rim.p1.x, rim.p2.x);
+    maxX = Math.max(maxX, rim.p1.x, rim.p2.x);
+    minY = Math.min(minY, rim.p1.y, rim.p2.y);
+    maxY = Math.max(maxY, rim.p1.y, rim.p2.y);
+  });
+
+  const template = rimGroup[0];
+  const isHorizontal = (maxX - minX) > (maxY - minY);
+
+  let merged;
+  if (isHorizontal) {
+    const avgY = rimGroup.reduce((sum, rim) => sum + (rim.p1.y + rim.p2.y) / 2, 0) / rimGroup.length;
+    merged = {
+      ...template,
+      p1: { x: minX, y: avgY },
+      p2: { x: maxX, y: avgY },
+      lengthFeet: (maxX - minX) / PIXELS_PER_FOOT
+    };
+  } else {
+    const avgX = rimGroup.reduce((sum, rim) => sum + (rim.p1.x + rim.p2.x) / 2, 0) / rimGroup.length;
+    merged = {
+      ...template,
+      p1: { x: avgX, y: minY },
+      p2: { x: avgX, y: maxY },
+      lengthFeet: (maxY - minY) / PIXELS_PER_FOOT
+    };
+  }
+
+  merged.isMerged = true;
+  merged.mergedFromCount = rimGroup.length;
+
+  return merged;
+}
+
+/**
+ * Clips a rim joist to stay within the deck boundary
+ */
+function clipRimJoistToBoundary(rim, shapePoints) {
+  if (!rim.p1 || !rim.p2 || !shapePoints || shapePoints.length < 3) return rim;
+
+  const TOLERANCE = 2;
+
+  // Check if endpoints are inside polygon
+  const p1Inside = isPointInsidePolygon(rim.p1, shapePoints);
+  const p2Inside = isPointInsidePolygon(rim.p2, shapePoints);
+
+  // If both inside, no clipping needed
+  if (p1Inside && p2Inside) return rim;
+
+  // Find intersections with polygon edges
+  const intersections = [];
+  const numEdges = shapePoints.length;
+
+  for (let i = 0; i < numEdges; i++) {
+    const edgeP1 = shapePoints[i];
+    const edgeP2 = shapePoints[(i + 1) % numEdges];
+
+    const inter = lineIntersection(rim.p1, rim.p2, edgeP1, edgeP2);
+    if (inter && isPointOnSegment(inter, edgeP1, edgeP2, TOLERANCE)) {
+      intersections.push(inter);
+    }
+  }
+
+  if (intersections.length === 0) return rim;
+
+  let newP1 = rim.p1;
+  let newP2 = rim.p2;
+
+  if (!p1Inside) {
+    let closestDist = Infinity;
+    for (const inter of intersections) {
+      const dist = Math.sqrt((inter.x - rim.p1.x) ** 2 + (inter.y - rim.p1.y) ** 2);
+      if (dist < closestDist) {
+        closestDist = dist;
+        newP1 = inter;
+      }
+    }
+  }
+
+  if (!p2Inside) {
+    let closestDist = Infinity;
+    for (const inter of intersections) {
+      const dist = Math.sqrt((inter.x - rim.p2.x) ** 2 + (inter.y - rim.p2.y) ** 2);
+      if (dist < closestDist) {
+        closestDist = dist;
+        newP2 = inter;
+      }
+    }
+  }
+
+  const newLength = Math.sqrt((newP2.x - newP1.x) ** 2 + (newP2.y - newP1.y) ** 2) / PIXELS_PER_FOOT;
+
+  return {
+    ...rim,
+    p1: { x: newP1.x, y: newP1.y },
+    p2: { x: newP2.x, y: newP2.y },
+    lengthFeet: newLength
+  };
 }
 
 /**

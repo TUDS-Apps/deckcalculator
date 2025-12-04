@@ -79,7 +79,7 @@ function applyLongLengthFallback(
 
 // --- Helper function to map usage strings to BOM categories ---
 function getCategoryForUsage(usage) {
-  if (!usage) return null;
+  if (!usage) return "FRAMING";
   const usageStr = String(usage).toLowerCase();
 
   // Check for stairs first
@@ -88,14 +88,34 @@ function getCategoryForUsage(usage) {
     return "STAIRS";
   }
 
+  // Check for decking materials
+  if (usageStr.includes("decking") || usageStr.includes("deck board") || usageStr.includes("fascia") ||
+      usageStr.includes("picture frame")) {
+    return "DECKING";
+  }
+
+  // Check for railing materials
+  if (usageStr.includes("railing") || usageStr.includes("baluster") || usageStr.includes("handrail") ||
+      usageStr.includes("spindle") || usageStr.includes("newel")) {
+    return "RAILING";
+  }
+
+  // Check for hardware (screws, nails, fasteners, brackets, hangers)
+  if (usageStr.includes("screw") || usageStr.includes("nail") || usageStr.includes("fastener") ||
+      usageStr.includes("bracket") || usageStr.includes("hanger") || usageStr.includes("bolt") ||
+      usageStr.includes("anchor") || usageStr.includes("tico") || usageStr.includes("simpson") ||
+      usageStr.includes("lus") || usageStr.includes("lsc")) {
+    return "HARDWARE";
+  }
+
   // Check for beams, posts, footings
   if (usageStr.includes("beam") || usageStr.includes("post") || usageStr.includes("footing") ||
       usageStr.includes("ledger fastener") || usageStr.includes("wall rim fastener")) {
-    return "BEAMS, POSTS & FOOTINGS";
+    return "BEAMS & POSTS";
   }
 
-  // Everything else goes to joists group (including hardware)
-  return "JOISTS, LEDGER, RIMS & BLOCKING";
+  // Default to framing (joists, ledger, rims, blocking)
+  return "FRAMING";
 }
 
 // Simplify usage descriptions to just show component type (no cut dimensions)
@@ -163,6 +183,9 @@ function addItemToBOMAggregated(bomItems, stockItem, usage, qty = 1, category = 
   const simplifiedUsage = getSimplifiedUsage(safeUsage);
 
   const unitPrice = stockItem.retail_price || 0;
+  // Determine the category from usage if not provided
+  const itemCategory = category || getCategoryForUsage(safeUsage);
+
   if (!bomItems[id]) {
     bomItems[id] = {
       qty: 0,
@@ -171,6 +194,7 @@ function addItemToBOMAggregated(bomItems, stockItem, usage, qty = 1, category = 
       description: simplifiedUsage,
       unitPrice: unitPrice,
       totalPrice: 0,
+      category: itemCategory, // Store category for grouped display
       _usages: new Set([simplifiedUsage]),
     };
   }
@@ -1264,7 +1288,166 @@ function processStairs(
   };
 }
 
-export function calculateBOM(structure, inputs, stairs, deckDimensions) {
+/**
+ * Process decking materials for BOM
+ * @param {Object} deckingState - Decking configuration from appState.decking
+ * @param {Object} deckDimensions - Deck dimensions
+ * @param {Object} bomItems - BOM items object to add to
+ * @param {Array} parsedStockData - Stock data array
+ */
+function processDeckingMaterials(deckingState, deckDimensions, bomItems, parsedStockData) {
+  if (!deckingState || !deckDimensions) return;
+
+  const { material, cedarSize, boardDirection, pictureFrame, breakerBoards = [] } = deckingState;
+  const areaSqFt = deckDimensions.actualAreaSqFt || deckDimensions.area || 0;
+  const widthFeet = deckDimensions.widthFeet || deckDimensions.width || 0;
+  const depthFeet = deckDimensions.depthFeet || deckDimensions.depth || 0;
+
+  if (areaSqFt <= 0) return;
+
+  // Determine board size and coverage
+  // 5/4x6 board: 5.5" actual width, coverage ~0.458 sq ft per linear foot
+  // 5/4x5 board: 4.5" actual width, coverage ~0.375 sq ft per linear foot
+  const boardWidthInches = (material === 'cedar' && cedarSize === '5/4x5') ? 4.5 : 5.5;
+  const coveragePerLF = boardWidthInches / 12; // sq ft per linear foot
+
+  // Calculate linear feet needed
+  let linearFeetNeeded = areaSqFt / coveragePerLF;
+
+  // Add waste factor
+  let wasteFactor = 1.10; // 10% base waste
+  if (boardDirection === 'diagonal') {
+    wasteFactor = 1.15; // 15% for diagonal
+  }
+  linearFeetNeeded *= wasteFactor;
+
+  // Calculate perimeter for picture frame
+  let perimeterFeet = 0;
+  if (pictureFrame !== 'none') {
+    perimeterFeet = 2 * (widthFeet + depthFeet);
+    if (pictureFrame === 'double') {
+      perimeterFeet *= 2;
+    }
+    // Picture frame uses perpendicular boards - add to linear feet
+    linearFeetNeeded += perimeterFeet * 1.1; // 10% waste for picture frame
+  }
+
+  // Determine optimal board length to use
+  const availableLengths = [8, 10, 12, 14, 16];
+  let bestLength = 12; // Default to 12'
+
+  // Use longest practical board length based on deck dimensions
+  if (boardDirection === 'horizontal') {
+    // Boards run parallel to width
+    for (let i = availableLengths.length - 1; i >= 0; i--) {
+      if (availableLengths[i] >= widthFeet) {
+        bestLength = availableLengths[i];
+        break;
+      }
+    }
+  } else {
+    // Diagonal - use longer boards
+    bestLength = 16;
+  }
+
+  // Calculate number of boards needed
+  const boardsNeeded = Math.ceil(linearFeetNeeded / bestLength);
+
+  // Find the appropriate stock item
+  let boardSearchTerm = '';
+  if (material === 'pt') {
+    boardSearchTerm = `5/4x6 PT Brown Deck Board ${bestLength}'`;
+  } else if (material === 'cedar') {
+    const size = cedarSize === '5/4x5' ? '5/4x5' : '5/4x6';
+    boardSearchTerm = `${size} Cedar Deck Board ${bestLength}'`;
+  }
+
+  const boardItem = parsedStockData.find(i =>
+    i.item?.toLowerCase().includes(boardSearchTerm.toLowerCase())
+  );
+
+  if (boardItem) {
+    addItemToBOMAggregated(bomItems, boardItem, `Decking Boards (${bestLength}')`, boardsNeeded, "DECKING");
+  } else {
+    // Fallback - try to find any matching board
+    const fallbackTerm = material === 'pt' ? '5/4x6 PT' : '5/4x6 Cedar';
+    const fallbackItem = parsedStockData.find(i =>
+      i.item?.toLowerCase().includes(fallbackTerm.toLowerCase())
+    );
+    if (fallbackItem) {
+      addItemToBOMAggregated(bomItems, fallbackItem, 'Decking Boards', boardsNeeded, "DECKING");
+    }
+  }
+
+  // Calculate screws needed
+  // Approximately 2 screws per sq ft for face screwing, 1.5 for hidden
+  let screwsPerSqFt = material === 'cedar' ? 1.5 : 2; // Camo uses fewer screws
+  let totalScrews = Math.ceil(areaSqFt * screwsPerSqFt);
+
+  // Find best screw box combination
+  if (material === 'pt') {
+    // Use DSB 2-1/2" screws for 5/4 boards
+    const screwBoxes = parsedStockData.filter(i =>
+      i.item?.toLowerCase().includes('dsb deck screw 2-1/2')
+    ).sort((a, b) => {
+      // Extract count from item name
+      const aMatch = a.item.match(/(\d+)ct/);
+      const bMatch = b.item.match(/(\d+)ct/);
+      return (bMatch ? parseInt(bMatch[1]) : 0) - (aMatch ? parseInt(aMatch[1]) : 0);
+    });
+
+    if (screwBoxes.length > 0) {
+      // Find optimal box combination
+      let remaining = totalScrews;
+      for (const box of screwBoxes) {
+        const countMatch = box.item.match(/(\d+)ct/);
+        if (countMatch) {
+          const boxCount = parseInt(countMatch[1]);
+          const boxesNeeded = Math.floor(remaining / boxCount);
+          if (boxesNeeded > 0) {
+            addItemToBOMAggregated(bomItems, box, `Deck Screws 2-1/2"`, boxesNeeded, "DECKING");
+            remaining -= boxesNeeded * boxCount;
+          }
+        }
+      }
+      // Get smallest box for remainder
+      if (remaining > 0 && screwBoxes.length > 0) {
+        const smallestBox = screwBoxes[screwBoxes.length - 1];
+        addItemToBOMAggregated(bomItems, smallestBox, `Deck Screws 2-1/2"`, 1, "DECKING");
+      }
+    }
+  } else if (material === 'cedar') {
+    // Use Camo hidden screws
+    const camoBoxes = parsedStockData.filter(i =>
+      i.item?.toLowerCase().includes('camo hidden deck screw')
+    ).sort((a, b) => {
+      const aMatch = a.item.match(/(\d+)ct/);
+      const bMatch = b.item.match(/(\d+)ct/);
+      return (bMatch ? parseInt(bMatch[1]) : 0) - (aMatch ? parseInt(aMatch[1]) : 0);
+    });
+
+    if (camoBoxes.length > 0) {
+      let remaining = totalScrews;
+      for (const box of camoBoxes) {
+        const countMatch = box.item.match(/(\d+)ct/);
+        if (countMatch) {
+          const boxCount = parseInt(countMatch[1]);
+          const boxesNeeded = Math.floor(remaining / boxCount);
+          if (boxesNeeded > 0) {
+            addItemToBOMAggregated(bomItems, box, 'Camo Hidden Screws', boxesNeeded, "DECKING");
+            remaining -= boxesNeeded * boxCount;
+          }
+        }
+      }
+      if (remaining > 0 && camoBoxes.length > 0) {
+        const smallestBox = camoBoxes[camoBoxes.length - 1];
+        addItemToBOMAggregated(bomItems, smallestBox, 'Camo Hidden Screws', 1, "DECKING");
+      }
+    }
+  }
+}
+
+export function calculateBOM(structure, inputs, stairs, deckDimensions, deckingState = null) {
   const bomItems = {};
   const parsedStockData = getParsedStockData();
 
@@ -1303,6 +1486,11 @@ export function calculateBOM(structure, inputs, stairs, deckDimensions) {
       screwCounts.totalScrews1_5,
       screwCounts.totalScrews2_5
     );
+
+    // Process decking materials if decking state is provided
+    if (deckingState) {
+      processDeckingMaterials(deckingState, deckDimensions, bomItems, parsedStockData);
+    }
 
     const findBestScrewBoxes = (
       totalNeeded,
