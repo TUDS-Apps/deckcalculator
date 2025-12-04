@@ -503,7 +503,7 @@ const PROJECTS_STORAGE_KEY = 'tuds_deck_projects';
 const STORE_CONFIG_KEY = 'tuds_store_config';
 const USER_PREFS_KEY = 'tuds_user_prefs';
 
-// Default store configuration
+// Default store configuration (fallback for when not signed in)
 const DEFAULT_STORE_CONFIG = {
   stores: ['Regina', 'Saskatoon'],
   salespeople: {
@@ -512,14 +512,23 @@ const DEFAULT_STORE_CONFIG = {
   }
 };
 
-// Store badge colors
-const STORE_COLORS = {
+// Store badge colors (can be overridden by cloud config)
+let STORE_COLORS = {
   'Regina': { bg: '#3B82F6', text: '#ffffff' },      // Blue
   'Saskatoon': { bg: '#10B981', text: '#ffffff' }    // Green
 };
 
-// Get store configuration from localStorage
+// Cached cloud store config
+let cachedCloudStoreConfig = null;
+
+// Get store configuration - uses cloud when signed in, localStorage as fallback
 function getStoreConfig() {
+  // If we have cached cloud config, use it
+  if (cachedCloudStoreConfig && window.firebaseService?.isSignedIn()) {
+    return cachedCloudStoreConfig;
+  }
+
+  // Fall back to localStorage
   try {
     const data = localStorage.getItem(STORE_CONFIG_KEY);
     return data ? JSON.parse(data) : { ...DEFAULT_STORE_CONFIG };
@@ -529,15 +538,48 @@ function getStoreConfig() {
   }
 }
 
-// Save store configuration to localStorage
-function saveStoreConfig(config) {
-  try {
-    localStorage.setItem(STORE_CONFIG_KEY, JSON.stringify(config));
-    return true;
-  } catch (e) {
-    console.error('Error saving store config:', e);
+// Load store config from cloud (call this after sign-in)
+async function loadStoreConfigFromCloud() {
+  if (!window.firebaseService?.isSignedIn()) {
+    console.log('[Stores] Not signed in, using local config');
     return false;
   }
+
+  try {
+    const cloudConfig = await window.firebaseService.getStoreConfigFromCloud();
+    if (cloudConfig) {
+      cachedCloudStoreConfig = cloudConfig;
+      // Update colors from cloud config
+      if (cloudConfig.storeColors) {
+        STORE_COLORS = { ...STORE_COLORS, ...cloudConfig.storeColors };
+      }
+      console.log('[Stores] Loaded config from cloud:', cloudConfig.stores);
+      return true;
+    } else {
+      console.log('[Stores] No stores in cloud, using local config');
+      return false;
+    }
+  } catch (error) {
+    console.error('[Stores] Error loading cloud config:', error);
+    return false;
+  }
+}
+
+// Save store configuration - saves to cloud when signed in, localStorage as fallback
+function saveStoreConfig(config) {
+  // Always save to localStorage as backup
+  try {
+    localStorage.setItem(STORE_CONFIG_KEY, JSON.stringify(config));
+  } catch (e) {
+    console.error('Error saving store config to localStorage:', e);
+  }
+
+  // Update cache if signed in
+  if (window.firebaseService?.isSignedIn()) {
+    cachedCloudStoreConfig = config;
+  }
+
+  return true;
 }
 
 // Get user preferences from localStorage
@@ -1160,8 +1202,25 @@ async function handleSaveProject(e) {
     return;
   }
 
+  // If no deck shape drawn yet, just start the project (store name and close modal)
   if (!appState.points || appState.points.length < 3) {
-    alert('Please draw a deck shape first before saving.');
+    // Store the project name for later use when saving
+    appState.pendingProjectName = name;
+
+    // Collect customer info if provided
+    const includeCustomer = document.getElementById('includeCustomerInfo')?.checked;
+    if (includeCustomer) {
+      appState.pendingCustomerInfo = {
+        name: document.getElementById('customerName')?.value?.trim() || '',
+        phone: document.getElementById('customerPhone')?.value?.trim() || '',
+        email: document.getElementById('customerEmail')?.value?.trim() || '',
+        address: document.getElementById('customerAddress')?.value?.trim() || ''
+      };
+    }
+
+    // Close the modal and let them start designing
+    closeProjectsModal();
+    console.log('[Project] Started new project:', name);
     return;
   }
 
@@ -1248,25 +1307,152 @@ function setAdminPassword(newPassword) {
   localStorage.setItem(ADMIN_PASSWORD_KEY, newPassword);
 }
 
-// Open admin login prompt
+// Open admin login modal
 function openAdminLogin() {
-  const password = prompt('Enter Admin Password:');
-  if (password === null) return; // User cancelled
+  const modal = document.getElementById('adminPasswordModal');
+  const input = document.getElementById('adminPasswordInput');
+  const error = document.getElementById('adminPasswordError');
 
-  if (password === getAdminPassword()) {
-    openSettingsModal();
-  } else {
-    alert('Incorrect password. Access denied.');
+  if (modal) {
+    modal.classList.remove('hidden');
+    if (error) error.classList.add('hidden');
+    if (input) {
+      input.value = '';
+      setTimeout(() => input.focus(), 100);
+    }
   }
 }
+
+// Close admin password modal
+window.closeAdminPasswordModal = function() {
+  const modal = document.getElementById('adminPasswordModal');
+  if (modal) {
+    modal.classList.add('hidden');
+  }
+};
+
+// Handle admin password form submit
+window.handleAdminPasswordSubmit = function(event) {
+  event.preventDefault();
+
+  const input = document.getElementById('adminPasswordInput');
+  const error = document.getElementById('adminPasswordError');
+  const password = input?.value || '';
+
+  if (password === getAdminPassword()) {
+    closeAdminPasswordModal();
+    openSettingsModal();
+  } else {
+    if (error) error.classList.remove('hidden');
+    if (input) {
+      input.value = '';
+      input.focus();
+    }
+  }
+};
 
 // Open settings modal
 function openSettingsModal() {
   const modal = document.getElementById('settingsModal');
   if (modal) {
     modal.classList.remove('hidden');
-    renderStoresList();
+    renderCloudStoreLocations();
     populateMembershipStoreDropdown();
+  }
+}
+
+// Render cloud store locations list
+async function renderCloudStoreLocations() {
+  const container = document.getElementById('storeLocationsList');
+  if (!container) return;
+
+  // Check if user is signed in
+  if (!window.firebaseService?.isSignedIn()) {
+    container.innerHTML = '<p class="no-stores-message">Sign in to manage store locations.</p>';
+    return;
+  }
+
+  container.innerHTML = '<p class="loading-stores">Loading stores...</p>';
+
+  try {
+    const result = await window.firebaseService.loadStores();
+    if (result.success && result.stores.length > 0) {
+      container.innerHTML = result.stores.map(store => `
+        <div class="store-location-item" data-store-id="${escapeHtml(store.id)}">
+          <div class="store-location-info">
+            <span class="store-location-name">${escapeHtml(store.name)}</span>
+            <span class="store-location-members">${store.members?.length || 0} members</span>
+          </div>
+        </div>
+      `).join('');
+    } else {
+      container.innerHTML = '<p class="no-stores-message">No stores configured. Add your first store below.</p>';
+    }
+  } catch (error) {
+    console.error('[Settings] Error loading stores:', error);
+    container.innerHTML = '<p class="error-message">Error loading stores.</p>';
+  }
+}
+
+// Handle adding a new cloud store
+window.handleAddCloudStore = async function() {
+  const input = document.getElementById('newCloudStoreName');
+  const storeName = input?.value?.trim();
+
+  if (!storeName) {
+    alert('Please enter a store name.');
+    input?.focus();
+    return;
+  }
+
+  if (!window.firebaseService?.isSignedIn()) {
+    alert('You must be signed in to add stores.');
+    return;
+  }
+
+  // Generate store ID from name
+  const storeId = 'tuds-' + storeName.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '');
+
+  try {
+    const result = await window.firebaseService.saveStore({
+      id: storeId,
+      name: storeName,
+      members: [],
+      salespeople: [],
+      createdAt: new Date().toISOString()
+    });
+
+    if (result.success) {
+      input.value = '';
+      renderCloudStoreLocations();
+      populateMembershipStoreDropdown();
+      // Also update the auth store dropdown
+      updateAuthStoreDropdown();
+      console.log('[Settings] Created new store:', storeName);
+    } else {
+      alert('Error creating store: ' + result.error);
+    }
+  } catch (error) {
+    console.error('[Settings] Error creating store:', error);
+    alert('Error creating store. Please try again.');
+  }
+};
+
+// Update the auth modal store dropdown with current stores
+async function updateAuthStoreDropdown() {
+  const dropdown = document.getElementById('authStoreSelect');
+  if (!dropdown) return;
+
+  try {
+    const result = await window.firebaseService.loadStores();
+    if (result.success && result.stores.length > 0) {
+      dropdown.innerHTML = '<option value="">Select your store...</option>' +
+        result.stores.map(store =>
+          `<option value="${escapeHtml(store.id)}">${escapeHtml(store.name)}</option>`
+        ).join('');
+    }
+  } catch (error) {
+    console.error('[Auth] Error updating store dropdown:', error);
   }
 }
 
@@ -9266,15 +9452,33 @@ let isLoadingCloudProjects = false;
 
 // Initialize Firebase when the page loads
 document.addEventListener('DOMContentLoaded', () => {
+  // Add email input listener to show/hide store selection for TUDS employees
+  const authEmailInput = document.getElementById('authEmail');
+  if (authEmailInput) {
+    authEmailInput.addEventListener('input', updateStoreRowVisibility);
+    authEmailInput.addEventListener('change', updateStoreRowVisibility);
+  }
+
   // Initialize Firebase after a short delay to ensure SDK is loaded
   setTimeout(() => {
     if (typeof window.firebaseService !== 'undefined') {
       window.firebaseService.initializeFirebase();
 
       // Listen for auth state changes
-      window.firebaseService.onAuthStateChanged((user) => {
+      window.firebaseService.onAuthStateChanged(async (user) => {
         updateAuthUI(user);
         updateProjectsUIForAuth(user);
+
+        // Load store config from cloud when signed in
+        if (user) {
+          await loadStoreConfigFromCloud();
+          // Refresh dropdowns with cloud data
+          populateSaveStoreDropdown();
+          populateFilterDropdowns();
+        } else {
+          // Clear cached cloud config when signed out
+          cachedCloudStoreConfig = null;
+        }
       });
     } else {
       console.warn('[Auth] Firebase service not loaded');
@@ -9553,6 +9757,7 @@ function setAuthMode(mode) {
   const toggleBtn = document.getElementById('authToggleBtn');
   const nameRow = document.getElementById('signUpNameRow');
   const phoneRow = document.getElementById('signUpPhoneRow');
+  const storeRow = document.getElementById('signUpStoreRow');
   const forgotLink = document.getElementById('forgotPasswordLink');
 
   if (mode === 'signup') {
@@ -9563,6 +9768,8 @@ function setAuthMode(mode) {
     if (nameRow) nameRow.classList.remove('hidden');
     if (phoneRow) phoneRow.classList.remove('hidden');
     if (forgotLink) forgotLink.classList.add('hidden');
+    // Check if email is tuds.ca and show store selection
+    updateStoreRowVisibility();
   } else {
     if (title) title.textContent = 'Sign In';
     if (submitBtn) submitBtn.textContent = 'Sign In';
@@ -9570,7 +9777,20 @@ function setAuthMode(mode) {
     if (toggleBtn) toggleBtn.textContent = 'Sign Up';
     if (nameRow) nameRow.classList.add('hidden');
     if (phoneRow) phoneRow.classList.add('hidden');
+    if (storeRow) storeRow.classList.add('hidden');
     if (forgotLink) forgotLink.classList.remove('hidden');
+  }
+}
+
+// Check if email is a TUDS internal email and show/hide store selection
+function updateStoreRowVisibility() {
+  const email = document.getElementById('authEmail')?.value?.trim()?.toLowerCase() || '';
+  const storeRow = document.getElementById('signUpStoreRow');
+
+  if (authMode === 'signup' && email.endsWith('@tuds.ca')) {
+    if (storeRow) storeRow.classList.remove('hidden');
+  } else {
+    if (storeRow) storeRow.classList.add('hidden');
   }
 }
 
@@ -9599,6 +9819,8 @@ window.handleEmailSignIn = async function(event) {
   const password = document.getElementById('authPassword')?.value;
   const displayName = document.getElementById('authDisplayName')?.value?.trim();
   const phone = document.getElementById('authPhone')?.value?.trim();
+  const selectedStore = document.getElementById('authStoreSelect')?.value;
+  const isTudsEmail = email?.toLowerCase().endsWith('@tuds.ca');
 
   if (!email || !password) {
     showAuthError('Please enter email and password.');
@@ -9608,6 +9830,12 @@ window.handleEmailSignIn = async function(event) {
   // Validate phone for signup
   if (authMode === 'signup' && (!phone || phone.length < 10)) {
     showAuthError('Please enter a valid phone number.');
+    return;
+  }
+
+  // Validate store selection for TUDS employees signing up
+  if (authMode === 'signup' && isTudsEmail && !selectedStore) {
+    showAuthError('Please select your store location.');
     return;
   }
 
@@ -9624,6 +9852,12 @@ window.handleEmailSignIn = async function(event) {
     // If signup successful, save phone number
     if (result.success && phone) {
       await window.firebaseService.updateUserPhone(phone);
+    }
+
+    // If TUDS employee, assign to selected store
+    if (result.success && isTudsEmail && selectedStore) {
+      await window.firebaseService.addUserToStore(email, selectedStore);
+      console.log('[Auth] Assigned', email, 'to store', selectedStore);
     }
   } else {
     result = await window.firebaseService.signInWithEmail(email, password);

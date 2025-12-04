@@ -4081,7 +4081,12 @@ canvas.mode-transition {
 
 .specs-modal {
   position: fixed;
-  inset: 0;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  width: 100vw;
+  height: 100vh;
   z-index: var(--z-modal);
   display: flex;
   align-items: center;
@@ -4091,6 +4096,8 @@ canvas.mode-transition {
   padding: var(--space-4);
   opacity: 1;
   transition: opacity var(--transition-normal);
+  overflow-y: auto;
+  box-sizing: border-box;
 }
 
 .specs-modal.hidden {
@@ -4338,7 +4345,12 @@ canvas.mode-transition {
 
 .cut-list-modal {
   position: fixed;
-  inset: 0;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  width: 100vw;
+  height: 100vh;
   z-index: 9999;
   display: flex;
   align-items: center;
@@ -4348,6 +4360,8 @@ canvas.mode-transition {
   padding: 1rem;
   opacity: 1;
   transition: opacity 0.2s ease;
+  overflow-y: auto;
+  box-sizing: border-box;
 }
 
 .cut-list-modal.hidden {
@@ -5379,7 +5393,12 @@ canvas.mode-transition {
    ============================================ */
 .projects-modal {
   position: fixed;
-  inset: 0;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  width: 100vw;
+  height: 100vh;
   background: rgba(0, 0, 0, 0.6);
   backdrop-filter: blur(4px);
   display: flex;
@@ -5387,6 +5406,8 @@ canvas.mode-transition {
   justify-content: center;
   z-index: 1000;
   padding: 1rem;
+  overflow-y: auto;
+  box-sizing: border-box;
 }
 
 .projects-modal.hidden {
@@ -5734,27 +5755,32 @@ canvas.mode-transition {
 }
 
 .no-projects {
-  text-align: center;
-  padding: 2rem 1rem;
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.75rem 1rem;
   color: var(--gray-500, #6b7280);
+  background: var(--gray-50, #f9fafb);
+  border-radius: var(--radius-md, 0.5rem);
+  border: 1px dashed var(--gray-300, #d1d5db);
 }
 
 .no-projects svg {
-  width: 3rem;
-  height: 3rem;
-  color: var(--gray-300, #d1d5db);
-  margin-bottom: 0.75rem;
+  width: 1.5rem;
+  height: 1.5rem;
+  color: var(--gray-400, #9ca3af);
+  flex-shrink: 0;
 }
 
 .no-projects p {
-  font-size: 0.9375rem;
+  font-size: 0.8125rem;
   font-weight: 500;
-  margin: 0 0 0.25rem 0;
+  margin: 0;
   color: var(--gray-600, #4b5563);
 }
 
 .no-projects span {
-  font-size: 0.8125rem;
+  display: none;
 }
 
 /* Project Card */
@@ -6113,7 +6139,12 @@ canvas.mode-transition {
    ============================================ */
 .auth-modal {
   position: fixed;
-  inset: 0;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  width: 100vw;
+  height: 100vh;
   background: rgba(0, 0, 0, 0.6);
   backdrop-filter: blur(4px);
   display: flex;
@@ -6121,6 +6152,8 @@ canvas.mode-transition {
   justify-content: center;
   z-index: 10000;
   padding: 1rem;
+  overflow-y: auto;
+  box-sizing: border-box;
 }
 
 .auth-modal-content {
@@ -6893,6 +6926,53 @@ canvas.mode-transition {
   outline: none;
   border-color: var(--tuds-navy, #133a52);
   box-shadow: 0 0 0 3px rgba(19, 58, 82, 0.1);
+}
+
+/* Store Locations List */
+.store-locations-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  margin-bottom: 0.5rem;
+}
+
+.store-location-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.75rem 1rem;
+  background: var(--gray-50, #f9fafb);
+  border: 1px solid var(--gray-200, #e5e7eb);
+  border-radius: var(--radius-md, 0.5rem);
+}
+
+.store-location-info {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.store-location-name {
+  font-weight: 600;
+  color: var(--tuds-navy, #133a52);
+}
+
+.store-location-members {
+  font-size: 0.8125rem;
+  color: var(--gray-500, #6b7280);
+}
+
+.no-stores-message,
+.loading-stores,
+.error-message {
+  padding: 1rem;
+  text-align: center;
+  color: var(--gray-500, #6b7280);
+  font-size: 0.875rem;
+}
+
+.error-message {
+  color: var(--red-600, #dc2626);
 }
 
 /* Small delete buttons */

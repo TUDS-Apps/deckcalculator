@@ -2193,9 +2193,9 @@
         <div class="projects-modal-header">
           <div class="projects-modal-title">
             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-6 h-6">
-              <path d="M2 4.75C2 3.784 2.784 3 3.75 3h4.836c.464 0 .909.184 1.237.513l1.414 1.414a.25.25 0 00.177.073h4.836c.966 0 1.75.784 1.75 1.75v8.5A1.75 1.75 0 0116.25 17H3.75A1.75 1.75 0 012 15.25V4.75z" />
+              <path fill-rule="evenodd" d="M4.25 2A2.25 2.25 0 002 4.25v11.5A2.25 2.25 0 004.25 18h11.5A2.25 2.25 0 0018 15.75V4.25A2.25 2.25 0 0015.75 2H4.25zm4.03 6.28a.75.75 0 00-1.06-1.06L4.97 9.47a.75.75 0 000 1.06l2.25 2.25a.75.75 0 001.06-1.06L6.56 10l1.72-1.72zm4.5-1.06a.75.75 0 10-1.06 1.06L13.44 10l-1.72 1.72a.75.75 0 101.06 1.06l2.25-2.25a.75.75 0 000-1.06l-2.25-2.25z" clip-rule="evenodd" />
             </svg>
-            <h2>My Projects</h2>
+            <h2>TUDS Pro Deck Estimator</h2>
           </div>
           <button type="button" class="projects-modal-close" onclick="closeProjectsModal()" title="Close">
             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-5 h-5">
@@ -2418,6 +2418,15 @@
               <input type="tel" id="authPhone" placeholder="(555) 123-4567" />
               <span class="form-hint">Required for order updates and support</span>
             </div>
+            <div id="signUpStoreRow" class="form-row hidden">
+              <label for="authStoreSelect">Your Store Location <span class="required-indicator">*</span></label>
+              <select id="authStoreSelect">
+                <option value="">Select your store...</option>
+                <option value="tuds-regina">Regina</option>
+                <option value="tuds-saskatoon">Saskatoon</option>
+              </select>
+              <span class="form-hint">Select the store you work at</span>
+            </div>
             <button type="submit" class="btn btn-primary btn-full-width" id="authSubmitBtn">
               Sign In
             </button>
@@ -2538,6 +2547,45 @@
       </div>
     </div>
 
+    <!-- Admin Password Modal -->
+    <div id="adminPasswordModal" class="auth-modal hidden" onclick="if(event.target === this) closeAdminPasswordModal()">
+      <div class="auth-modal-content" style="max-width: 320px;">
+        <div class="auth-modal-header">
+          <div class="auth-modal-title">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-6 h-6">
+              <path fill-rule="evenodd" d="M10 1a4.5 4.5 0 00-4.5 4.5V9H5a2 2 0 00-2 2v6a2 2 0 002 2h10a2 2 0 002-2v-6a2 2 0 00-2-2h-.5V5.5A4.5 4.5 0 0010 1zm3 8V5.5a3 3 0 10-6 0V9h6z" clip-rule="evenodd" />
+            </svg>
+            <h2>Admin Access</h2>
+          </div>
+          <button type="button" class="auth-modal-close" onclick="closeAdminPasswordModal()" title="Close">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-5 h-5">
+              <path d="M6.28 5.22a.75.75 0 00-1.06 1.06L8.94 10l-3.72 3.72a.75.75 0 101.06 1.06L10 11.06l3.72 3.72a.75.75 0 101.06-1.06L11.06 10l3.72-3.72a.75.75 0 00-1.06-1.06L10 8.94 6.28 5.22z" />
+            </svg>
+          </button>
+        </div>
+        <div class="auth-modal-body">
+          <div id="adminPasswordError" class="auth-error hidden">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-5 h-5">
+              <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-8-5a.75.75 0 01.75.75v4.5a.75.75 0 01-1.5 0v-4.5A.75.75 0 0110 5zm0 10a1 1 0 100-2 1 1 0 000 2z" clip-rule="evenodd" />
+            </svg>
+            <span>Incorrect password</span>
+          </div>
+          <form onsubmit="handleAdminPasswordSubmit(event)">
+            <div class="form-row">
+              <label for="adminPasswordInput">Password</label>
+              <input type="password" id="adminPasswordInput" placeholder="Enter admin password" required autocomplete="current-password" />
+            </div>
+            <button type="submit" class="btn btn-primary btn-full-width">
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-4 h-4">
+                <path fill-rule="evenodd" d="M10 1a4.5 4.5 0 00-4.5 4.5V9H5a2 2 0 00-2 2v6a2 2 0 002 2h10a2 2 0 002-2v-6a2 2 0 00-2-2h-.5V5.5A4.5 4.5 0 0010 1zm3 8V5.5a3 3 0 10-6 0V9h6z" clip-rule="evenodd" />
+              </svg>
+              Unlock Settings
+            </button>
+          </form>
+        </div>
+      </div>
+    </div>
+
     <!-- Settings Modal -->
     <div id="settingsModal" class="settings-modal hidden" onclick="if(event.target === this) closeSettingsModal()">
       <div class="settings-modal-content">
@@ -2556,19 +2604,23 @@
         </div>
 
         <div class="settings-modal-body">
+          <!-- Store Locations Section -->
           <div class="settings-section">
             <h3 class="settings-section-title">
               <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-5 h-5">
-                <path d="M10 8a3 3 0 100-6 3 3 0 000 6zM3.465 14.493a1.23 1.23 0 00.41 1.412A9.957 9.957 0 0010 18c2.31 0 4.438-.784 6.131-2.1.43-.333.604-.903.408-1.41a7.002 7.002 0 00-13.074.003z" />
+                <path fill-rule="evenodd" d="M4 16.5v-13h-.25a.75.75 0 010-1.5h12.5a.75.75 0 010 1.5H16v13h.25a.75.75 0 010 1.5h-3.5a.75.75 0 01-.75-.75v-2.5a.75.75 0 00-.75-.75h-2.5a.75.75 0 00-.75.75v2.5a.75.75 0 01-.75.75h-3.5a.75.75 0 010-1.5H4zm3-11a.5.5 0 01.5-.5h1a.5.5 0 01.5.5v1a.5.5 0 01-.5.5h-1a.5.5 0 01-.5-.5v-1zM7.5 9a.5.5 0 00-.5.5v1a.5.5 0 00.5.5h1a.5.5 0 00.5-.5v-1a.5.5 0 00-.5-.5h-1zM11 5.5a.5.5 0 01.5-.5h1a.5.5 0 01.5.5v1a.5.5 0 01-.5.5h-1a.5.5 0 01-.5-.5v-1zm.5 3.5a.5.5 0 00-.5.5v1a.5.5 0 00.5.5h1a.5.5 0 00.5-.5v-1a.5.5 0 00-.5-.5h-1z" clip-rule="evenodd" />
               </svg>
-              Stores & Salespeople
+              Store Locations
             </h3>
-            <div id="storesList" class="stores-list">
-              <!-- Dynamically populated -->
+            <p class="settings-section-description">
+              Manage store locations. Each store can have its own staff members and projects.
+            </p>
+            <div id="storeLocationsList" class="store-locations-list">
+              <!-- Populated dynamically -->
             </div>
             <div class="add-store-section">
-              <input type="text" id="newStoreName" placeholder="New store name..." maxlength="50" aria-label="New store name" />
-              <button type="button" class="btn btn-secondary btn-sm" onclick="handleAddStore()">
+              <input type="text" id="newCloudStoreName" placeholder="New store name (e.g., Calgary)" maxlength="50" aria-label="New store name" />
+              <button type="button" class="btn btn-secondary btn-sm" onclick="handleAddCloudStore()">
                 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-4 h-4">
                   <path d="M10.75 4.75a.75.75 0 00-1.5 0v4.5h-4.5a.75.75 0 000 1.5h4.5v4.5a.75.75 0 001.5 0v-4.5h4.5a.75.75 0 000-1.5h-4.5v-4.5z" />
                 </svg>
@@ -2577,23 +2629,16 @@
             </div>
           </div>
 
-          <div class="settings-notice">
-            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-4 h-4">
-              <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a.75.75 0 000 1.5h.253a.25.25 0 01.244.304l-.459 2.066A1.75 1.75 0 0010.747 15H11a.75.75 0 000-1.5h-.253a.25.25 0 01-.244-.304l.459-2.066A1.75 1.75 0 009.253 9H9z" clip-rule="evenodd" />
-            </svg>
-            <span>Deleting a salesperson won't delete their projects. Projects will show as "Unknown" until reassigned.</span>
-          </div>
-
-          <!-- Store Memberships Section (Cloud) -->
+          <!-- Store Members Section -->
           <div class="settings-section settings-section-memberships">
             <h3 class="settings-section-title">
               <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-5 h-5">
                 <path d="M10 9a3 3 0 100-6 3 3 0 000 6zM6 8a2 2 0 11-4 0 2 2 0 014 0zM1.49 15.326a.78.78 0 01-.358-.442 3 3 0 014.308-3.516 6.484 6.484 0 00-1.905 3.959c-.023.222-.014.442.025.654a4.97 4.97 0 01-2.07-.655zM16.44 15.98a4.97 4.97 0 002.07-.654.78.78 0 00.357-.442 3 3 0 00-4.308-3.517 6.484 6.484 0 011.907 3.96 2.32 2.32 0 01-.026.654zM18 8a2 2 0 11-4 0 2 2 0 014 0zM5.304 16.19a.844.844 0 01-.277-.71 5 5 0 019.947 0 .843.843 0 01-.277.71A6.975 6.975 0 0110 18a6.974 6.974 0 01-4.696-1.81z" />
               </svg>
-              Store Memberships (Cloud)
+              Store Members
             </h3>
             <p class="settings-section-description">
-              Add users by email to give them internal staff access. Users with @tuds.ca emails are auto-added.
+              Manage staff members for each store. Members can view and edit projects for their assigned store.
             </p>
             <div class="membership-store-select">
               <label for="membershipStoreSelect">Select Store:</label>

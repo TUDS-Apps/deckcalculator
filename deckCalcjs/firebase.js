@@ -654,6 +654,113 @@ async function saveStore(storeData) {
 }
 
 /**
+ * Initialize default TUDS stores (Regina and Saskatoon)
+ * Call this once to seed the stores in Firebase
+ */
+async function initializeDefaultStores() {
+  if (!currentUser) {
+    console.error('[Firebase] Must be signed in to initialize stores');
+    return { success: false, error: 'You must be signed in.' };
+  }
+
+  const defaultStores = [
+    {
+      id: 'tuds-regina',
+      name: 'Regina',
+      city: 'Regina',
+      province: 'SK',
+      salespeople: ['Dale', 'Justin', 'Ricky Lee'],
+      color: '#3B82F6'
+    },
+    {
+      id: 'tuds-saskatoon',
+      name: 'Saskatoon',
+      city: 'Saskatoon',
+      province: 'SK',
+      salespeople: ['Roberta', 'Megan'],
+      color: '#10B981'
+    }
+  ];
+
+  const results = [];
+  for (const store of defaultStores) {
+    const result = await saveStore({
+      ...store,
+      members: [],
+      createdAt: firebase.firestore.FieldValue.serverTimestamp()
+    });
+    results.push({ store: store.name, ...result });
+    console.log('[Firebase] Initialized store:', store.name, result.success ? 'SUCCESS' : 'FAILED');
+  }
+
+  return { success: true, results };
+}
+
+/**
+ * Get store configuration in the format expected by the app
+ * Returns { stores: [...], salespeople: {...} }
+ */
+async function getStoreConfigFromCloud() {
+  try {
+    const result = await loadStores();
+    if (!result.success || !result.stores.length) {
+      return null;
+    }
+
+    const config = {
+      stores: [],
+      salespeople: {},
+      storeColors: {}
+    };
+
+    for (const store of result.stores) {
+      config.stores.push(store.name);
+      config.salespeople[store.name] = store.salespeople || [];
+      if (store.color) {
+        config.storeColors[store.name] = { bg: store.color, text: '#ffffff' };
+      }
+    }
+
+    console.log('[Firebase] Loaded store config from cloud:', config);
+    return config;
+  } catch (error) {
+    console.error('[Firebase] Error getting store config from cloud:', error);
+    return null;
+  }
+}
+
+/**
+ * Update a store's salespeople list
+ */
+async function updateStoreSalespeople(storeName, salespeople) {
+  if (!currentUser) {
+    return { success: false, error: 'You must be signed in.' };
+  }
+
+  try {
+    // Find the store by name
+    const result = await loadStores();
+    const store = result.stores?.find(s => s.name === storeName);
+
+    if (!store) {
+      return { success: false, error: 'Store not found.' };
+    }
+
+    // Update the store with new salespeople
+    await saveStore({
+      ...store,
+      salespeople: salespeople
+    });
+
+    console.log('[Firebase] Updated salespeople for', storeName);
+    return { success: true };
+  } catch (error) {
+    console.error('[Firebase] Error updating salespeople:', error);
+    return { success: false, error: error.message };
+  }
+}
+
+/**
  * Add a user to a store
  */
 async function addUserToStore(userEmail, storeId) {
@@ -794,6 +901,9 @@ window.firebaseService = {
   addUserToStore,
   removeUserFromStore,
   getStoreMembers,
+  initializeDefaultStores,
+  getStoreConfigFromCloud,
+  updateStoreSalespeople,
 
   // Legacy aliases
   saveStoreConfig,
