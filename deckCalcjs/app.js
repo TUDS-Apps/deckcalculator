@@ -1972,6 +1972,13 @@ window.handleSaveProject = handleSaveProject;
 window.toggleCustomerInfoFields = toggleCustomerInfoFields;
 window.exportToPDF = exportToPDF;
 
+// Cart options modal functions
+window.openCartOptionsModal = openCartOptionsModal;
+window.closeCartOptionsModal = closeCartOptionsModal;
+window.handleAddFullOrder = handleAddFullOrder;
+window.handleAddShippableOnly = handleAddShippableOnly;
+window.handleChooseItems = handleChooseItems;
+
 // Store/Salesperson dropdown functions
 window.updateSalespersonDropdown = updateSalespersonDropdown;
 window.renderProjectsList = renderProjectsList;
@@ -5901,9 +5908,9 @@ document.addEventListener("DOMContentLoaded", () => {
     clearCanvasBtn.addEventListener("click", handleClearCanvas);
   if (printBomBtn) printBomBtn.addEventListener("click", handlePrintPage);
 
-  // Add to Cart button (Shopify integration)
+  // Add to Cart button (Shopify integration) - opens modal with options
   const addToCartBtn = document.getElementById("addToCartBtn");
-  if (addToCartBtn) addToCartBtn.addEventListener("click", handleAddToCart);
+  if (addToCartBtn) addToCartBtn.addEventListener("click", openCartOptionsModal);
 
   if (zoomInBtn) zoomInBtn.addEventListener("click", () => handleZoom(true));
   if (zoomOutBtn) zoomOutBtn.addEventListener("click", () => handleZoom(false));
