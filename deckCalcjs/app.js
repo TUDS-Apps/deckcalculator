@@ -10238,7 +10238,9 @@ function captureTechnicalData() {
       // Shape data
       pointsCount: appState.points?.length || 0,
       points: appState.points?.map(p => ({ x: Math.round(p.x), y: Math.round(p.y) })) || [],
-      isClosed: appState.isClosed || false,
+      isShapeClosed: appState.isShapeClosed || false,
+      selectedWallIndices: appState.selectedWallIndices || [],
+      rectangularSectionsCount: appState.rectangularSections?.length || 0,
 
       // Multi-tier info
       hasUpperTier: !!appState.upperTier,

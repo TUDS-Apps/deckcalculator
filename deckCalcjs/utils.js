@@ -229,15 +229,26 @@ export function simplifyPoints(pointArray) {
     }
   }
 
-  // Final check: if the last point added is now identical to the first point, remove the last one.
-  if (simplified.length > 1) {
-    const firstP = simplified[0];
-    const lastP = simplified[simplified.length - 1];
-    if (
-      Math.abs(lastP.x - firstP.x) < tolerance &&
-      Math.abs(lastP.y - firstP.y) < tolerance
-    ) {
-      simplified.pop();
+  // IMPORTANT: Preserve the closing point if the original shape was closed
+  // Many downstream functions (decomposition, validation) expect closed shapes
+  // to have a duplicate first/last point
+  if (simplified.length > 1 && pointArray.length > 1) {
+    const origFirst = pointArray[0];
+    const origLast = pointArray[pointArray.length - 1];
+    const wasClosedShape = Math.abs(origLast.x - origFirst.x) < tolerance &&
+                           Math.abs(origLast.y - origFirst.y) < tolerance;
+
+    if (wasClosedShape) {
+      // Ensure simplified shape ends with a copy of the first point
+      const simpFirst = simplified[0];
+      const simpLast = simplified[simplified.length - 1];
+      const isAlreadyClosed = Math.abs(simpLast.x - simpFirst.x) < tolerance &&
+                              Math.abs(simpLast.y - simpFirst.y) < tolerance;
+
+      if (!isAlreadyClosed) {
+        // Add closing point
+        simplified.push({ ...simplified[0] });
+      }
     }
   }
 

@@ -11,9 +11,24 @@ import { distance } from "./utils.js";
  * @returns {Array<Object>} Array of rectangle objects
  */
 export function decomposeShape(points, ledgerWallIndex) {
-  // Remove closing point for processing
-  const shapePoints = points.slice(0, -1);
-  
+  // Check if the shape has a closing point (first and last points are the same)
+  let shapePoints;
+  if (points.length > 1) {
+    const first = points[0];
+    const last = points[points.length - 1];
+    const hasClosingPoint = Math.abs(first.x - last.x) < 0.1 && Math.abs(first.y - last.y) < 0.1;
+
+    if (hasClosingPoint) {
+      // Remove closing point for processing
+      shapePoints = points.slice(0, -1);
+    } else {
+      // No closing point - use all points as-is
+      shapePoints = [...points];
+    }
+  } else {
+    shapePoints = [...points];
+  }
+
   if (shapePoints.length < 4) {
     throw new Error("Shape must have at least 4 points for decomposition");
   }
