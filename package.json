@@ -1,0 +1,21 @@
+{
+  "name": "deck-calculator",
+  "version": "1.0.0",
+  "description": "Deck framing calculator with visual layout",
+  "type": "module",
+  "scripts": {
+    "test": "node --experimental-vm-modules node_modules/jest/bin/jest.js",
+    "test:watch": "node --experimental-vm-modules node_modules/jest/bin/jest.js --watch",
+    "test:coverage": "node --experimental-vm-modules node_modules/jest/bin/jest.js --coverage"
+  },
+  "devDependencies": {
+    "jest": "^29.7.0"
+  },
+  "jest": {
+    "testEnvironment": "node",
+    "transform": {},
+    "moduleFileExtensions": ["js", "mjs"],
+    "testMatch": ["**/__tests__/**/*.test.js"],
+    "verbose": true
+  }
+}
