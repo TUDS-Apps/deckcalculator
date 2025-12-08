@@ -10425,15 +10425,6 @@ function renderFeedbackItem(item) {
 }
 
 /**
- * Escape HTML for safe rendering
- */
-function escapeHtml(text) {
-  const div = document.createElement('div');
-  div.textContent = text;
-  return div.innerHTML;
-}
-
-/**
  * View feedback detail
  */
 window.viewFeedbackDetail = function(feedbackId) {
