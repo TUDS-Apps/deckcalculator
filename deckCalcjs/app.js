@@ -9998,12 +9998,12 @@ window.openFeedbackModal = function() {
   // Clear previous data
   feedbackData = { screenshot: null, technicalData: null };
 
-  // Pre-capture screenshot for preview
-  captureCanvasScreenshot();
-
-  // Show modal
+  // Show modal first (so user sees it's opening)
   modal.classList.remove('hidden');
   modal.style.display = 'flex';
+
+  // Pre-capture canvas screenshot for preview (async, will update when ready)
+  captureCanvasOnly(); // Start with canvas-only for speed
 };
 
 /**
@@ -10019,9 +10019,30 @@ window.closeFeedbackModal = function() {
 };
 
 /**
+ * Gets the selected screenshot type
+ */
+function getScreenshotType() {
+  const selected = document.querySelector('input[name="screenshotType"]:checked');
+  return selected?.value || 'canvas';
+}
+
+/**
  * Captures the canvas as a screenshot
  */
 function captureCanvasScreenshot() {
+  const screenshotType = getScreenshotType();
+
+  if (screenshotType === 'fullpage') {
+    return captureFullPageScreenshot();
+  }
+
+  return captureCanvasOnly();
+}
+
+/**
+ * Captures just the deck canvas
+ */
+function captureCanvasOnly() {
   try {
     const canvas = document.getElementById('deckCanvas');
     if (!canvas) {
@@ -10044,13 +10065,60 @@ function captureCanvasScreenshot() {
 
     // Convert to base64
     feedbackData.screenshot = tempCanvas.toDataURL('image/png');
-    console.log('[FEEDBACK] Screenshot captured');
+    console.log('[FEEDBACK] Canvas screenshot captured');
 
     return feedbackData.screenshot;
   } catch (error) {
-    console.error('[FEEDBACK] Error capturing screenshot:', error);
+    console.error('[FEEDBACK] Error capturing canvas screenshot:', error);
     return null;
   }
+}
+
+/**
+ * Captures the full page screenshot using html2canvas
+ */
+async function captureFullPageScreenshot() {
+  try {
+    // Dynamically load html2canvas if not already loaded
+    if (!window.html2canvas) {
+      console.log('[FEEDBACK] Loading html2canvas...');
+      await loadScript('https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js');
+    }
+
+    // Capture the main content area
+    const mainContainer = document.getElementById('main-layout-container') || document.body;
+
+    const canvas = await window.html2canvas(mainContainer, {
+      backgroundColor: '#ffffff',
+      scale: 1, // Use 1x scale to keep file size reasonable
+      logging: false,
+      useCORS: true,
+      allowTaint: true
+    });
+
+    feedbackData.screenshot = canvas.toDataURL('image/png');
+    console.log('[FEEDBACK] Full page screenshot captured');
+
+    return feedbackData.screenshot;
+  } catch (error) {
+    console.error('[FEEDBACK] Error capturing full page screenshot:', error);
+    // Fall back to canvas-only
+    console.log('[FEEDBACK] Falling back to canvas-only screenshot');
+    return captureCanvasOnly();
+  }
+}
+
+/**
+ * Dynamically loads a script
+ */
+function loadScript(src) {
+  return new Promise((resolve, reject) => {
+    const script = document.createElement('script');
+    script.src = src;
+    script.onload = resolve;
+    script.onerror = reject;
+    document.head.appendChild(script);
+  });
 }
 
 /**
@@ -10154,7 +10222,7 @@ function captureTechnicalData() {
 /**
  * Updates the preview section based on checkbox states
  */
-window.updateFeedbackPreview = function() {
+window.updateFeedbackPreview = async function() {
   const includeScreenshot = document.getElementById('feedbackIncludeScreenshot')?.checked;
   const includeTechData = document.getElementById('feedbackIncludeTechData')?.checked;
   const previewSection = document.getElementById('feedbackPreviewSection');
@@ -10168,9 +10236,22 @@ window.updateFeedbackPreview = function() {
 
   // Update screenshot preview
   if (previewImg) {
-    if (includeScreenshot && feedbackData.screenshot) {
-      previewImg.src = feedbackData.screenshot;
+    if (includeScreenshot) {
       previewImg.style.display = 'block';
+      previewImg.alt = 'Capturing screenshot...';
+
+      // Capture new screenshot based on selected type
+      const screenshotType = getScreenshotType();
+      if (screenshotType === 'fullpage') {
+        previewImg.alt = 'Capturing full page (please wait)...';
+        await captureFullPageScreenshot();
+      } else {
+        captureCanvasOnly();
+      }
+
+      if (feedbackData.screenshot) {
+        previewImg.src = feedbackData.screenshot;
+      }
     } else {
       previewImg.style.display = 'none';
     }
@@ -10191,14 +10272,21 @@ window.updateFeedbackPreview = function() {
 /**
  * Generates a feedback report for download
  */
-window.downloadFeedbackReport = function() {
+window.downloadFeedbackReport = async function() {
   const issueType = document.getElementById('feedbackIssueType')?.value || 'general';
   const description = document.getElementById('feedbackDescription')?.value || '';
   const includeScreenshot = document.getElementById('feedbackIncludeScreenshot')?.checked;
   const includeTechData = document.getElementById('feedbackIncludeTechData')?.checked;
 
   // Capture fresh data
-  if (includeScreenshot) captureCanvasScreenshot();
+  if (includeScreenshot) {
+    const screenshotType = getScreenshotType();
+    if (screenshotType === 'fullpage') {
+      await captureFullPageScreenshot();
+    } else {
+      captureCanvasOnly();
+    }
+  }
   if (includeTechData) captureTechnicalData();
 
   // Build report
@@ -10255,7 +10343,14 @@ window.handleFeedbackSubmit = async function(event) {
   }
 
   // Capture fresh data
-  if (includeScreenshot) captureCanvasScreenshot();
+  if (includeScreenshot) {
+    const screenshotType = getScreenshotType();
+    if (screenshotType === 'fullpage') {
+      await captureFullPageScreenshot();
+    } else {
+      captureCanvasOnly();
+    }
+  }
   if (includeTechData) captureTechnicalData();
 
   // Build feedback payload

@@ -2772,9 +2772,20 @@
             <div class="form-row">
               <label class="flex items-center gap-2 cursor-pointer">
                 <input type="checkbox" id="feedbackIncludeScreenshot" checked class="w-4 h-4" onchange="updateFeedbackPreview()" />
-                <span>Include canvas screenshot</span>
+                <span>Include screenshot</span>
               </label>
-              <p class="text-xs text-gray-500 mt-1">Captures the current deck drawing to help diagnose the issue.</p>
+              <div id="screenshotTypeOptions" class="ml-6 mt-2 space-y-1">
+                <label class="flex items-center gap-2 cursor-pointer text-sm">
+                  <input type="radio" name="screenshotType" value="canvas" checked class="w-4 h-4" onchange="updateFeedbackPreview()" />
+                  <span>Canvas only</span>
+                  <span class="text-xs text-gray-400">(deck drawing)</span>
+                </label>
+                <label class="flex items-center gap-2 cursor-pointer text-sm">
+                  <input type="radio" name="screenshotType" value="fullpage" class="w-4 h-4" onchange="updateFeedbackPreview()" />
+                  <span>Full page</span>
+                  <span class="text-xs text-gray-400">(includes BOM & toolbar)</span>
+                </label>
+              </div>
             </div>
             <div class="form-row">
               <label class="flex items-center gap-2 cursor-pointer">
