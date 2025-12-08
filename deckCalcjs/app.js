@@ -13,222 +13,51 @@ import * as shapeValidator from "./shapeValidator.js?v=8";
 import * as shapeDecomposer from "./shapeDecomposer.js?v=8";
 import * as shopifyService from "./shopifyService.js?v=8";
 import { DeckViewer3D } from "./deckViewer3D.js";
-
 import * as multiSectionCalculations from "./multiSectionCalculations.js?v=8";
 
-// ================================================
-// WIZARD STEP CONFIGURATION
-// ================================================
-const WIZARD_STEPS = [
-  { id: 'draw', name: 'Draw Shape', shortName: 'Draw', icon: 'pencil' },
-  { id: 'structure', name: 'Structure', shortName: 'Structure', icon: 'grid' },
-  { id: 'stairs', name: 'Stairs', shortName: 'Stairs', icon: 'stairs' },
-  { id: 'decking', name: 'Decking', shortName: 'Decking', icon: 'boards' },
-  { id: 'railing', name: 'Railing', shortName: 'Railing', icon: 'fence', comingSoon: true },
-  { id: 'review', name: 'Review & Save', shortName: 'Review', icon: 'clipboard' }
-];
+// --- State Management (extracted to stateManager.js) ---
+import {
+  appState,
+  WIZARD_STEPS,
+  syncActiveTierToLegacy,
+  syncLegacyToActiveTier,
+  getActiveTier,
+  clearEditModes,
+  unlockStructureLayers,
+  unlockStairsLayer,
+  unlockDeckingLayer
+} from "./stateManager.js?v=8";
 
-// --- Application State ---
-const appState = {
-  points: [],
-  isDrawing: false,
-  isShapeClosed: false,
-  currentMousePos: null,
-  currentModelMousePos: null,
-  wallSelectionMode: false,
-  selectedWallIndices: [], // Array of selected wall indices for ledger attachment
-  stairPlacementMode: false,
-  selectedStairIndex: -1,
-  isDraggingStairs: false,
-  draggedStairIndex: -1,
-  hoveredStairIndex: -1,
-  dragStartX: 0, // For stair dragging (view space)
-  dragStartY: 0, // For stair dragging (view space)
-  dragInitialStairX: 0, // model space
-  dragInitialStairY: 0, // model space
+// --- DOM Helpers (cached element access) ---
+import {
+  getElement,
+  getValue,
+  setValue,
+  showElement,
+  hideElement,
+  toggleElement,
+  setHTML,
+  setText,
+  addClass,
+  removeClass,
+  toggleClass,
+  getMainCanvas,
+  openModal,
+  closeModal,
+  preCacheElements
+} from "./domHelpers.js?v=8";
 
-  // Shape dragging state (for repositioning entire shapes)
-  isDraggingShape: false,
-  shapeDragStartMouse: null, // Model coordinates where drag started
-  shapeDragInitialPoints: [], // Copy of points when drag started
+// --- Structural Validation (debug rendering issues) ---
+import {
+  validateStructuralComponents,
+  logValidationReport,
+  drawValidationDebugOverlay,
+  autoCorrectComponents,
+  logAutoCorrections
+} from "./structuralValidator.js?v=9";
 
-  deckDimensions: null,
-  structuralComponents: null,
-  stairs: [],
-  bom: [],
-  isPrinting: false,
-
-  // Complex shape decomposition
-  rectangularSections: [], // Will store the decomposed rectangles
-  showDecompositionShading: false, // For testing visualization (initially off)
-
-  // Viewport State
-  viewportScale: 1.0,
-  viewportOffsetX: 0,
-  viewportOffsetY: 0,
-
-  // Panning state
-  isPanning: false,
-  panStartViewX: 0, // Mouse position in VIEW SPACE where panning started
-  panStartViewY: 0,
-  panInitialViewportOffsetX: 0, // Viewport offset when panning started
-  panInitialViewportOffsetY: 0,
-  
-  // Manual dimension input state
-  isDimensionInputActive: false,
-  pendingDimensionStartPoint: null,
-  
-  // Blueprint mode state
-  isBlueprintMode: false, // Toggle between simple lines and to-scale components
-
-  // 3D Viewer state
-  viewMode: '2d', // '2d' or '3d'
-  viewer3D: null, // DeckViewer3D instance
-
-  // Measurement tool state
-  isMeasureMode: false, // Whether measurement mode is active
-  measurePoint1: null, // First measurement point {x, y}
-  measurePoint2: null, // Second measurement point {x, y}
-
-  // Layer visibility state (user preferences - can toggle on/off)
-  layerVisibility: {
-    outline: true,
-    ledger: true,
-    joists: true,
-    beams: true,
-    posts: true,
-    blocking: true,
-    dimensions: true,
-    stairs: true,
-    decking: true
-  },
-
-  // Layer unlock state (progressive - unlocked by completing steps)
-  unlockedLayers: {
-    outline: true,      // Always visible
-    dimensions: true,   // Always visible
-    ledger: false,      // Unlocked by completing Structure step
-    joists: false,      // Unlocked by completing Structure step
-    beams: false,       // Unlocked by completing Structure step
-    posts: false,       // Unlocked by completing Structure step
-    blocking: false,    // Unlocked by completing Structure step
-    stairs: false,      // Unlocked when first stair is placed
-    decking: false      // Unlocked when entering Decking step
-  },
-
-  // Contextual panel state (legacy - being replaced by wizard)
-  currentPanelMode: 'drawing', // 'drawing', 'wall-selection', 'specification', 'plan-generated', 'stair-config'
-
-  // Wizard state
-  wizardStep: 'draw', // Current wizard step ID
-  completedSteps: [], // Array of completed step IDs
-
-  // Undo/Redo History
-  history: [],
-  historyIndex: -1,
-  maxHistorySize: 50,
-  isUndoRedoAction: false, // Flag to prevent saving during undo/redo
-
-  // ================================================
-  // DECKING STATE
-  // ================================================
-  decking: {
-    material: 'pt',           // 'pt' | 'cedar' | 'composite'
-    cedarSize: '5/4x6',       // '5/4x6' | '5/4x5' (only for cedar)
-    boardDirection: 'horizontal', // 'horizontal' | 'diagonal'
-    pictureFrame: 'none',     // 'none' | 'single' | 'double'
-    breakerBoards: [],        // Array of {position: number (feet from ledger), id: string}
-    breakerPlacementMode: false, // Whether user is placing a breaker board
-    showBoardLines: true      // Show individual board lines on canvas
-  },
-
-  // ================================================
-  // MULTI-TIER DECK STATE
-  // ================================================
-  tiersEnabled: true,            // Multi-tier mode always enabled
-  activeTierId: 'upper',          // Currently active tier for editing
-  tiers: {
-    upper: {
-      id: 'upper',
-      name: 'Upper Tier',
-      heightFeet: 4,
-      heightInches: 0,
-      points: [],
-      selectedWallIndices: [],
-      structuralComponents: null,
-      rectangularSections: [],
-      deckDimensions: null,
-      isShapeClosed: false,      // Whether the tier's shape is complete
-      isDrawing: false,           // Whether currently drawing this tier
-      color: '#4A90E2',          // Blue for upper tier
-      zOrder: 1                   // Rendered on top
-    },
-    lower: {
-      id: 'lower',
-      name: 'Lower Tier',
-      heightFeet: 1,
-      heightInches: 6,
-      points: [],
-      selectedWallIndices: [],
-      structuralComponents: null,
-      rectangularSections: [],
-      deckDimensions: null,
-      isShapeClosed: false,      // Whether the tier's shape is complete
-      isDrawing: false,           // Whether currently drawing this tier
-      color: '#10B981',          // Green for lower tier
-      zOrder: 0                   // Rendered below
-    }
-  }
-};
-
-// Make appState available globally for section tab debugging
-window.appState = appState;
-
-// ================================================
-// MULTI-TIER SYNC FUNCTIONS
-// ================================================
-
-/**
- * Syncs the active tier's data to legacy appState fields.
- * This allows existing calculation code to work unchanged.
- */
-function syncActiveTierToLegacy() {
-  const tier = appState.tiers[appState.activeTierId];
-  if (!tier) return;
-
-  appState.points = tier.points || [];
-  appState.selectedWallIndices = tier.selectedWallIndices || [];
-  appState.structuralComponents = tier.structuralComponents;
-  appState.rectangularSections = tier.rectangularSections || [];
-  appState.deckDimensions = tier.deckDimensions;
-
-  // Sync drawing state
-  appState.isShapeClosed = tier.isShapeClosed || false;
-  appState.isDrawing = tier.isDrawing || false;
-
-  console.log(`[TIER SYNC] Synced tier '${tier.name}' to legacy state (closed: ${appState.isShapeClosed}, points: ${appState.points.length})`);
-}
-
-/**
- * Syncs legacy appState fields back to the active tier.
- * Called after calculations or edits modify the legacy fields.
- */
-function syncLegacyToActiveTier() {
-  const tier = appState.tiers[appState.activeTierId];
-  if (!tier) return;
-
-  tier.points = appState.points;
-  tier.selectedWallIndices = appState.selectedWallIndices;
-  tier.structuralComponents = appState.structuralComponents;
-  tier.rectangularSections = appState.rectangularSections;
-  tier.deckDimensions = appState.deckDimensions;
-
-  // Sync drawing state
-  tier.isShapeClosed = appState.isShapeClosed;
-  tier.isDrawing = appState.isDrawing;
-
-  console.log(`[TIER SYNC] Synced legacy state back to tier '${tier.name}' (closed: ${tier.isShapeClosed}, points: ${tier.points.length})`);
-}
+// NOTE: Application state (appState) is now imported from stateManager.js
+// The sync functions (syncActiveTierToLegacy, syncLegacyToActiveTier) are also imported
 
 /**
  * Switches the active tier and syncs data.
@@ -250,11 +79,7 @@ function switchActiveTier(tierId) {
   syncActiveTierToLegacy();
 
   // Reset edit modes when switching tiers
-  appState.shapeEditMode = false;
-  appState.wallSelectionMode = false;
-  appState.stairPlacementMode = false;
-  appState.hoveredVertexIndex = -1;
-  appState.hoveredEdgeIndex = -1;
+  clearEditModes();
 
   // Update canvas status and cursor based on tier state
   const tier = appState.tiers[tierId];
@@ -3674,6 +3499,36 @@ function handleGeneratePlan() {
     // Log calculation results for debugging
     console.log("Structural calculation result:", appState.structuralComponents);
 
+    // Validate structural components against deck boundary (helps debug rendering issues)
+    if (appState.structuralComponents && !appState.structuralComponents.error && appState.points.length >= 3) {
+      const validationReport = validateStructuralComponents(appState.structuralComponents, appState.points);
+      appState.structuralComponents._validationReport = validationReport;
+      logValidationReport(validationReport);
+
+      // Auto-correct any components that escaped the boundary (safety net for rendering reliability)
+      if (!validationReport.valid) {
+        console.log('[VALIDATOR] Applying auto-corrections to fix boundary issues...');
+        const correctionResult = autoCorrectComponents(appState.structuralComponents, appState.points);
+        if (correctionResult.success && correctionResult.hadCorrections) {
+          // Apply the corrected components
+          appState.structuralComponents.joists = correctionResult.components.joists;
+          appState.structuralComponents.beams = correctionResult.components.beams;
+          appState.structuralComponents.rimJoists = correctionResult.components.rimJoists;
+          appState.structuralComponents.posts = correctionResult.components.posts;
+          appState.structuralComponents._autoCorrections = correctionResult.corrections;
+          logAutoCorrections(correctionResult);
+
+          // Re-validate after corrections to confirm fix
+          const revalidation = validateStructuralComponents(appState.structuralComponents, appState.points);
+          if (revalidation.valid) {
+            console.log('%c✓ All boundary issues resolved by auto-correction', 'color: green; font-weight: bold');
+          } else {
+            console.warn('[VALIDATOR] Some issues remain after auto-correction:', revalidation.summary);
+          }
+        }
+      }
+    }
+
     // Sync structural components back to active tier
     syncLegacyToActiveTier();
 
@@ -5619,9 +5474,9 @@ async function handleAddSelectedToCart() {
     return;
   }
 
-  // Get selected items from BOM
-  const selectedItems = appState.bom.filter((item, index) =>
-    selectedBomIndices.has(index) &&
+  // Get selected items from BOM using globalIndex (not array index)
+  const selectedItems = appState.bom.filter((item) =>
+    selectedBomIndices.has(item.globalIndex) &&
     item.shopifyVariantId &&
     item.shopifyStatus === 'available' &&
     item.qty > 0
@@ -6046,6 +5901,9 @@ window.updateVisualSelector = function(selectorName, value) {
 document.addEventListener("DOMContentLoaded", () => {
   dataManager.loadAndParseData();
 
+  // Pre-cache frequently accessed DOM elements for better performance
+  preCacheElements();
+
   // Initialize Shopify integration (async, non-blocking)
   shopifyService.initializeShopify().then(result => {
     if (result.success) {
@@ -6138,6 +5996,9 @@ document.addEventListener("DOMContentLoaded", () => {
 
   if (heightFeetInput) heightFeetInput.addEventListener('change', handleHeightChange);
   if (heightInchesInput) heightInchesInput.addEventListener('change', handleHeightChange);
+
+  // Set up structural input change handlers
+  setupStructuralInputListeners();
 
   // Initialize wizard step navigation
   initializeWizard();
@@ -7025,10 +6886,34 @@ function recalculateShapeAfterEdit() {
 
   // Clear selected walls after editing since edges have changed
   // User needs to reselect ledger walls after shape modification
-  if (appState.selectedWallIndices.length > 0) {
+  const hadSelectedWalls = appState.selectedWallIndices.length > 0;
+  if (hadSelectedWalls) {
     appState.selectedWallIndices = [];
     appState.rectangularSections = [];
     uiController.updateCanvasStatus('Shape modified. Please reselect ledger walls.');
+  }
+
+  // SAFEGUARD: If structural components exist, invalidate them and re-apply auto-correction
+  // This ensures components stay within the new boundary after edits
+  if (appState.structuralComponents && !appState.structuralComponents.error) {
+    console.log('[EDIT SAFEGUARD] Shape was edited - applying auto-correction to existing structure');
+
+    // Mark structure as needing recalculation (user must re-run structure step for full recalc)
+    appState.structuralComponents._needsRecalculation = true;
+
+    // Apply auto-correction to clip any components that now escape the modified boundary
+    if (appState.points.length >= 3) {
+      const correctionResult = autoCorrectComponents(appState.structuralComponents, appState.points);
+      if (correctionResult.success && correctionResult.hadCorrections) {
+        appState.structuralComponents.joists = correctionResult.components.joists;
+        appState.structuralComponents.beams = correctionResult.components.beams;
+        appState.structuralComponents.rimJoists = correctionResult.components.rimJoists;
+        appState.structuralComponents.posts = correctionResult.components.posts;
+        appState.structuralComponents._autoCorrections = correctionResult.corrections;
+        logAutoCorrections(correctionResult);
+        console.log('[EDIT SAFEGUARD] Auto-correction applied to prevent boundary escape');
+      }
+    }
   }
 
   // Keep wall selection mode active if it was before
@@ -9063,6 +8948,51 @@ function setupDeckingMaterialListener() {
 }
 
 /**
+ * Set up listeners for structural input changes (joistSpacing, postSize, attachmentType, etc.)
+ * When these inputs change, we need to redraw the canvas and regenerate the plan if one exists
+ */
+function setupStructuralInputListeners() {
+  const structuralInputs = [
+    'joistSpacing',
+    'postSize',
+    'attachmentType',
+    'footingType',
+    'beamType',
+    'joistProtection',
+    'fasteners'
+  ];
+
+  structuralInputs.forEach(inputId => {
+    const select = document.getElementById(inputId);
+    if (select && !select.dataset.structuralListenerAdded) {
+      select.addEventListener('change', (e) => {
+        // Debounce guard to prevent rapid repeated changes
+        if (select.dataset.processing === 'true') return;
+        select.dataset.processing = 'true';
+
+        console.log(`[Structure] ${inputId} changed to: ${e.target.value}`);
+
+        // If a plan has been generated, regenerate it with the new settings
+        if (appState.structuralComponents && !appState.structuralComponents.error && appState.isShapeClosed) {
+          console.log('[Structure] Regenerating plan with updated settings...');
+          handleGeneratePlan();
+        } else {
+          // Just redraw the canvas to reflect any visual changes
+          redrawApp();
+        }
+
+        // Clear processing flag after a short delay
+        setTimeout(() => {
+          select.dataset.processing = 'false';
+        }, 100);
+      });
+      select.dataset.structuralListenerAdded = 'true';
+      console.log(`[Structure] Added change listener for ${inputId}`);
+    }
+  });
+}
+
+/**
  * Show/hide cedar size selector based on material selection
  */
 function updateCedarSizeVisibility() {
@@ -9513,6 +9443,13 @@ function updateAuthUI(user) {
         const initials = displayName.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2);
         userAvatar.innerHTML = initials;
       }
+    }
+
+    // Show feedback admin button for internal staff
+    const feedbackAdminBtn = document.getElementById('feedbackAdminBtn');
+    if (feedbackAdminBtn) {
+      const isInternal = window.firebaseService?.isInternalStaff?.() || false;
+      feedbackAdminBtn.style.display = isInternal ? 'flex' : 'none';
     }
 
     console.log('[Auth] User signed in:', user.email);
@@ -10032,4 +9969,655 @@ document.addEventListener('click', (e) => {
   }
 });
 
+
+// ================================================
+// FEEDBACK TOOL
+// ================================================
+
+// Store captured feedback data
+let feedbackData = {
+  screenshot: null,
+  technicalData: null
+};
+
+/**
+ * Opens the feedback modal and captures current state
+ */
+window.openFeedbackModal = function() {
+  const modal = document.getElementById('feedbackModal');
+  if (!modal) return;
+
+  // Reset form
+  const form = document.getElementById('feedbackForm');
+  if (form) form.reset();
+
+  // Reset preview
+  const previewSection = document.getElementById('feedbackPreviewSection');
+  if (previewSection) previewSection.style.display = 'none';
+
+  // Clear previous data
+  feedbackData = { screenshot: null, technicalData: null };
+
+  // Pre-capture screenshot for preview
+  captureCanvasScreenshot();
+
+  // Show modal
+  modal.classList.remove('hidden');
+  modal.style.display = 'flex';
+};
+
+/**
+ * Closes the feedback modal
+ */
+window.closeFeedbackModal = function() {
+  const modal = document.getElementById('feedbackModal');
+  if (modal) {
+    modal.classList.add('hidden');
+    modal.style.display = 'none';
+  }
+  feedbackData = { screenshot: null, technicalData: null };
+};
+
+/**
+ * Captures the canvas as a screenshot
+ */
+function captureCanvasScreenshot() {
+  try {
+    const canvas = document.getElementById('mainCanvas');
+    if (!canvas) {
+      console.warn('[FEEDBACK] Canvas not found');
+      return null;
+    }
+
+    // Create a temporary canvas to add white background
+    const tempCanvas = document.createElement('canvas');
+    tempCanvas.width = canvas.width;
+    tempCanvas.height = canvas.height;
+    const ctx = tempCanvas.getContext('2d');
+
+    // Fill with white background
+    ctx.fillStyle = '#FFFFFF';
+    ctx.fillRect(0, 0, tempCanvas.width, tempCanvas.height);
+
+    // Draw the original canvas on top
+    ctx.drawImage(canvas, 0, 0);
+
+    // Convert to base64
+    feedbackData.screenshot = tempCanvas.toDataURL('image/png');
+    console.log('[FEEDBACK] Screenshot captured');
+
+    return feedbackData.screenshot;
+  } catch (error) {
+    console.error('[FEEDBACK] Error capturing screenshot:', error);
+    return null;
+  }
+}
+
+/**
+ * Captures technical data for debugging
+ */
+function captureTechnicalData() {
+  try {
+    const data = {
+      timestamp: new Date().toISOString(),
+      version: 'Deck Calculator v2.0',
+      userAgent: navigator.userAgent,
+      screenSize: `${window.innerWidth}x${window.innerHeight}`,
+
+      // Current state
+      currentTier: appState.currentTier,
+      currentWizardStep: appState.currentWizardStep,
+      drawMode: appState.drawMode,
+
+      // Shape data
+      pointsCount: appState.points?.length || 0,
+      points: appState.points?.map(p => ({ x: Math.round(p.x), y: Math.round(p.y) })) || [],
+      isClosed: appState.isClosed,
+
+      // Multi-tier info
+      hasUpperTier: !!appState.upperTier,
+      hasLowerTier: !!appState.lowerTier,
+      upperTierPoints: appState.upperTier?.points?.length || 0,
+      lowerTierPoints: appState.lowerTier?.points?.length || 0,
+
+      // Structure settings
+      structureSettings: appState.structureSettings ? {
+        heightFeet: appState.structureSettings.heightFeet,
+        heightInches: appState.structureSettings.heightInches,
+        footingType: appState.structureSettings.footingType,
+        postSize: appState.structureSettings.postSize,
+        joistSpacing: appState.structureSettings.joistSpacing,
+        attachmentType: appState.structureSettings.attachmentType,
+        beamType: appState.structureSettings.beamType
+      } : null,
+
+      // Structural components summary
+      structuralComponents: appState.structuralComponents ? {
+        error: appState.structuralComponents.error || null,
+        joistCount: appState.structuralComponents.joists?.length || 0,
+        beamCount: appState.structuralComponents.beams?.length || 0,
+        postCount: appState.structuralComponents.posts?.length || 0,
+        rimJoistCount: appState.structuralComponents.rimJoists?.length || 0
+      } : null,
+
+      // Stair info
+      stairCount: appState.stairs?.length || 0,
+      stairs: appState.stairs?.map(s => ({
+        id: s.id,
+        width: s.width,
+        targetEdge: s.targetEdge
+      })) || [],
+
+      // Decking settings
+      deckingSettings: appState.deckingSettings ? {
+        material: appState.deckingSettings.material,
+        direction: appState.deckingSettings.direction,
+        pictureFrame: appState.deckingSettings.pictureFrame
+      } : null,
+
+      // User info (if logged in)
+      userEmail: window.firebaseService?.getCurrentUser()?.email || 'not logged in',
+
+      // Calculated areas
+      calculatedArea: appState.calculatedArea || null
+    };
+
+    feedbackData.technicalData = data;
+    console.log('[FEEDBACK] Technical data captured');
+
+    return data;
+  } catch (error) {
+    console.error('[FEEDBACK] Error capturing technical data:', error);
+    return { error: error.message };
+  }
+}
+
+/**
+ * Updates the preview section based on checkbox states
+ */
+window.updateFeedbackPreview = function() {
+  const includeScreenshot = document.getElementById('feedbackIncludeScreenshot')?.checked;
+  const includeTechData = document.getElementById('feedbackIncludeTechData')?.checked;
+  const previewSection = document.getElementById('feedbackPreviewSection');
+  const previewImg = document.getElementById('feedbackPreviewImg');
+  const techDataPre = document.getElementById('feedbackTechDataPre');
+
+  if (!previewSection) return;
+
+  // Show preview section if any option is checked
+  previewSection.style.display = (includeScreenshot || includeTechData) ? 'block' : 'none';
+
+  // Update screenshot preview
+  if (previewImg) {
+    if (includeScreenshot && feedbackData.screenshot) {
+      previewImg.src = feedbackData.screenshot;
+      previewImg.style.display = 'block';
+    } else {
+      previewImg.style.display = 'none';
+    }
+  }
+
+  // Update technical data preview
+  if (techDataPre) {
+    if (includeTechData) {
+      captureTechnicalData();
+      techDataPre.textContent = JSON.stringify(feedbackData.technicalData, null, 2);
+      techDataPre.style.display = 'block';
+    } else {
+      techDataPre.style.display = 'none';
+    }
+  }
+};
+
+/**
+ * Generates a feedback report for download
+ */
+window.downloadFeedbackReport = function() {
+  const issueType = document.getElementById('feedbackIssueType')?.value || 'general';
+  const description = document.getElementById('feedbackDescription')?.value || '';
+  const includeScreenshot = document.getElementById('feedbackIncludeScreenshot')?.checked;
+  const includeTechData = document.getElementById('feedbackIncludeTechData')?.checked;
+
+  // Capture fresh data
+  if (includeScreenshot) captureCanvasScreenshot();
+  if (includeTechData) captureTechnicalData();
+
+  // Build report
+  const report = {
+    reportType: 'Deck Calculator Feedback Report',
+    generatedAt: new Date().toISOString(),
+    issueType: issueType,
+    description: description,
+    screenshot: includeScreenshot ? feedbackData.screenshot : null,
+    technicalData: includeTechData ? feedbackData.technicalData : null
+  };
+
+  // Generate timestamp for filename
+  const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
+  const filename = `deck-feedback-${issueType}-${timestamp}.json`;
+
+  // Download as JSON
+  const blob = new Blob([JSON.stringify(report, null, 2)], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+
+  console.log('[FEEDBACK] Report downloaded:', filename);
+  alert('Feedback report downloaded! Please send the file to development.');
+};
+
+/**
+ * Handles feedback form submission
+ */
+window.handleFeedbackSubmit = async function(event) {
+  event.preventDefault();
+
+  const issueType = document.getElementById('feedbackIssueType')?.value || 'general';
+  const description = document.getElementById('feedbackDescription')?.value || '';
+  const includeScreenshot = document.getElementById('feedbackIncludeScreenshot')?.checked;
+  const includeTechData = document.getElementById('feedbackIncludeTechData')?.checked;
+
+  if (!description.trim()) {
+    alert('Please enter a description of the issue.');
+    return;
+  }
+
+  // Show submitting state
+  const submitBtn = document.querySelector('#feedbackForm button[type="submit"]');
+  const originalBtnText = submitBtn?.innerHTML;
+  if (submitBtn) {
+    submitBtn.disabled = true;
+    submitBtn.innerHTML = '<span class="animate-spin">⏳</span> Submitting...';
+  }
+
+  // Capture fresh data
+  if (includeScreenshot) captureCanvasScreenshot();
+  if (includeTechData) captureTechnicalData();
+
+  // Build feedback payload
+  const feedback = {
+    type: issueType,
+    description: description,
+    screenshot: includeScreenshot ? feedbackData.screenshot : null,
+    technicalData: includeTechData ? feedbackData.technicalData : null,
+    url: window.location.href,
+    userAgent: navigator.userAgent
+  };
+
+  // Try to save to Firebase first
+  let savedToCloud = false;
+  if (window.firebaseService) {
+    try {
+      const result = await window.firebaseService.saveFeedback(feedback);
+      if (result.success) {
+        savedToCloud = true;
+        console.log('[FEEDBACK] Saved to Firebase:', result.id);
+      } else {
+        console.warn('[FEEDBACK] Firebase save failed:', result.error);
+      }
+    } catch (e) {
+      console.warn('[FEEDBACK] Firebase error:', e);
+    }
+  }
+
+  // Also save to localStorage as backup (without screenshot)
+  try {
+    const feedbackHistory = JSON.parse(localStorage.getItem('deckCalcFeedback') || '[]');
+    feedbackHistory.push({
+      ...feedback,
+      id: Date.now(),
+      screenshot: null, // Don't store screenshots in localStorage (too large)
+      savedToCloud: savedToCloud
+    });
+    if (feedbackHistory.length > 50) {
+      feedbackHistory.splice(0, feedbackHistory.length - 50);
+    }
+    localStorage.setItem('deckCalcFeedback', JSON.stringify(feedbackHistory));
+  } catch (e) {
+    console.warn('[FEEDBACK] Could not save to localStorage:', e);
+  }
+
+  // Restore button
+  if (submitBtn) {
+    submitBtn.disabled = false;
+    submitBtn.innerHTML = originalBtnText;
+  }
+
+  // Close modal
+  window.closeFeedbackModal();
+
+  // Show success message
+  if (savedToCloud) {
+    alert('Thank you! Your feedback has been submitted and will be reviewed.');
+  } else {
+    // Fallback: download the report if cloud save failed
+    window.downloadFeedbackReport();
+    alert('Feedback saved locally. The report has been downloaded - please share it with the development team.');
+  }
+};
+
+// ================================================
+// FEEDBACK ADMIN PANEL
+// ================================================
+
+// Store loaded feedback for reference
+let loadedFeedback = [];
+
+/**
+ * Opens the feedback admin panel
+ */
+window.openFeedbackAdmin = function() {
+  const modal = document.getElementById('feedbackAdminModal');
+  if (!modal) return;
+
+  modal.classList.remove('hidden');
+  modal.style.display = 'flex';
+
+  // Load feedback data
+  loadFeedbackAdmin();
+};
+
+/**
+ * Closes the feedback admin panel
+ */
+window.closeFeedbackAdmin = function() {
+  const modal = document.getElementById('feedbackAdminModal');
+  if (modal) {
+    modal.classList.add('hidden');
+    modal.style.display = 'none';
+  }
+};
+
+/**
+ * Loads feedback from Firebase and displays in admin panel
+ */
+window.loadFeedbackAdmin = async function() {
+  const listContainer = document.getElementById('feedbackAdminList');
+  if (!listContainer) return;
+
+  listContainer.innerHTML = '<p class="text-gray-500 text-center py-8">Loading feedback...</p>';
+
+  if (!window.firebaseService) {
+    listContainer.innerHTML = '<p class="text-red-500 text-center py-8">Firebase not available.</p>';
+    return;
+  }
+
+  try {
+    // Load counts
+    const countsResult = await window.firebaseService.getFeedbackCounts();
+    if (countsResult.success && countsResult.counts) {
+      document.getElementById('feedbackCountTotal').textContent = countsResult.counts.total;
+      document.getElementById('feedbackCountPending').textContent = countsResult.counts.pending;
+      document.getElementById('feedbackCountProgress').textContent = countsResult.counts.in_progress;
+      document.getElementById('feedbackCountResolved').textContent = countsResult.counts.resolved;
+    }
+
+    // Load feedback with optional filter
+    const statusFilter = document.getElementById('feedbackFilterStatus')?.value || null;
+    const result = await window.firebaseService.loadAllFeedback(statusFilter);
+
+    if (!result.success) {
+      listContainer.innerHTML = `<p class="text-red-500 text-center py-8">Error: ${result.error}</p>`;
+      return;
+    }
+
+    loadedFeedback = result.feedback;
+
+    if (loadedFeedback.length === 0) {
+      listContainer.innerHTML = '<p class="text-gray-500 text-center py-8">No feedback found.</p>';
+      return;
+    }
+
+    // Render feedback list
+    listContainer.innerHTML = loadedFeedback.map(item => renderFeedbackItem(item)).join('');
+
+  } catch (error) {
+    console.error('[FEEDBACK ADMIN] Error:', error);
+    listContainer.innerHTML = `<p class="text-red-500 text-center py-8">Error loading feedback: ${error.message}</p>`;
+  }
+};
+
+/**
+ * Renders a single feedback item
+ */
+function renderFeedbackItem(item) {
+  const date = item.createdAt ? new Date(item.createdAt).toLocaleString() : 'Unknown date';
+  const statusColors = {
+    pending: 'bg-yellow-100 text-yellow-800',
+    in_progress: 'bg-blue-100 text-blue-800',
+    resolved: 'bg-green-100 text-green-800',
+    wont_fix: 'bg-gray-100 text-gray-800'
+  };
+  const statusColor = statusColors[item.status] || statusColors.pending;
+  const typeLabels = {
+    rendering: 'Drawing/Rendering',
+    calculation: 'Calculation',
+    ui: 'UI/UX',
+    crash: 'Crash/Freeze',
+    feature: 'Feature Request',
+    other: 'Other'
+  };
+
+  return `
+    <div class="feedback-item border rounded-lg p-4 mb-3 hover:bg-gray-50 cursor-pointer" onclick="viewFeedbackDetail('${item.id}')">
+      <div class="flex justify-between items-start mb-2">
+        <div>
+          <span class="px-2 py-1 rounded text-xs font-medium ${statusColor}">${item.status || 'pending'}</span>
+          <span class="ml-2 text-sm text-gray-600">${typeLabels[item.type] || item.type}</span>
+        </div>
+        <span class="text-xs text-gray-500">${date}</span>
+      </div>
+      <p class="text-sm mb-2 line-clamp-2">${escapeHtml(item.description || 'No description')}</p>
+      <div class="flex justify-between items-center text-xs text-gray-500">
+        <span>By: ${item.submittedByName || item.submittedBy || 'Anonymous'}</span>
+        <div class="flex gap-2">
+          ${item.screenshot ? '<span title="Has screenshot">📷</span>' : ''}
+          ${item.technicalData ? '<span title="Has tech data">📊</span>' : ''}
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+/**
+ * Escape HTML for safe rendering
+ */
+function escapeHtml(text) {
+  const div = document.createElement('div');
+  div.textContent = text;
+  return div.innerHTML;
+}
+
+/**
+ * View feedback detail
+ */
+window.viewFeedbackDetail = function(feedbackId) {
+  const item = loadedFeedback.find(f => f.id === feedbackId);
+  if (!item) return;
+
+  const detailModal = document.getElementById('feedbackDetailModal');
+  const detailContent = document.getElementById('feedbackDetailContent');
+  if (!detailModal || !detailContent) return;
+
+  const date = item.createdAt ? new Date(item.createdAt).toLocaleString() : 'Unknown';
+  const typeLabels = {
+    rendering: 'Drawing/Rendering Issue',
+    calculation: 'Calculation Error',
+    ui: 'UI/UX Problem',
+    crash: 'App Crash/Freeze',
+    feature: 'Feature Request',
+    other: 'Other'
+  };
+
+  detailContent.innerHTML = `
+    <div class="space-y-4">
+      <div class="flex justify-between items-start">
+        <div>
+          <span class="text-lg font-medium">${typeLabels[item.type] || item.type}</span>
+          <p class="text-sm text-gray-500">Submitted: ${date}</p>
+          <p class="text-sm text-gray-500">By: ${item.submittedByName || item.submittedBy || 'Anonymous'}</p>
+        </div>
+        <select id="feedbackStatusSelect" class="form-select text-sm" onchange="updateFeedbackItemStatus('${item.id}', this.value)">
+          <option value="pending" ${item.status === 'pending' ? 'selected' : ''}>Pending</option>
+          <option value="in_progress" ${item.status === 'in_progress' ? 'selected' : ''}>In Progress</option>
+          <option value="resolved" ${item.status === 'resolved' ? 'selected' : ''}>Resolved</option>
+          <option value="wont_fix" ${item.status === 'wont_fix' ? 'selected' : ''}>Won't Fix</option>
+        </select>
+      </div>
+
+      <div>
+        <h4 class="font-medium mb-2">Description</h4>
+        <p class="bg-gray-50 p-3 rounded">${escapeHtml(item.description || 'No description')}</p>
+      </div>
+
+      ${item.screenshot ? `
+        <div>
+          <h4 class="font-medium mb-2">Screenshot</h4>
+          <img src="${item.screenshot}" class="max-w-full border rounded" style="max-height: 300px;" />
+        </div>
+      ` : ''}
+
+      ${item.technicalData ? `
+        <div>
+          <h4 class="font-medium mb-2">Technical Data</h4>
+          <pre class="bg-gray-100 p-3 rounded text-xs overflow-auto" style="max-height: 200px;">${JSON.stringify(item.technicalData, null, 2)}</pre>
+        </div>
+      ` : ''}
+
+      <div class="flex gap-3 pt-4 border-t">
+        <button type="button" class="btn btn-secondary" onclick="exportSingleFeedback('${item.id}')">
+          Download Report
+        </button>
+        <button type="button" class="btn btn-danger" onclick="deleteFeedbackItem('${item.id}')">
+          Delete
+        </button>
+      </div>
+    </div>
+  `;
+
+  detailModal.classList.remove('hidden');
+  detailModal.style.display = 'flex';
+};
+
+/**
+ * Close feedback detail modal
+ */
+window.closeFeedbackDetail = function() {
+  const modal = document.getElementById('feedbackDetailModal');
+  if (modal) {
+    modal.classList.add('hidden');
+    modal.style.display = 'none';
+  }
+};
+
+/**
+ * Update feedback status
+ */
+window.updateFeedbackItemStatus = async function(feedbackId, status) {
+  if (!window.firebaseService) return;
+
+  const result = await window.firebaseService.updateFeedbackStatus(feedbackId, status);
+  if (result.success) {
+    // Update local cache
+    const item = loadedFeedback.find(f => f.id === feedbackId);
+    if (item) item.status = status;
+
+    // Refresh the list
+    loadFeedbackAdmin();
+  } else {
+    alert('Failed to update status: ' + result.error);
+  }
+};
+
+/**
+ * Delete feedback item
+ */
+window.deleteFeedbackItem = async function(feedbackId) {
+  if (!confirm('Are you sure you want to delete this feedback?')) return;
+
+  if (!window.firebaseService) return;
+
+  const result = await window.firebaseService.deleteFeedback(feedbackId);
+  if (result.success) {
+    closeFeedbackDetail();
+    loadFeedbackAdmin();
+  } else {
+    alert('Failed to delete: ' + result.error);
+  }
+};
+
+/**
+ * Export a single feedback item
+ */
+window.exportSingleFeedback = function(feedbackId) {
+  const item = loadedFeedback.find(f => f.id === feedbackId);
+  if (!item) return;
+
+  const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
+  const filename = `feedback-${item.type}-${timestamp}.json`;
+
+  const blob = new Blob([JSON.stringify(item, null, 2)], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+};
+
+/**
+ * Export all feedback to a local file
+ */
+window.exportAllFeedback = async function() {
+  if (!window.firebaseService) {
+    alert('Firebase not available.');
+    return;
+  }
+
+  try {
+    // Load all feedback (no filter)
+    const result = await window.firebaseService.loadAllFeedback();
+    if (!result.success) {
+      alert('Failed to load feedback: ' + result.error);
+      return;
+    }
+
+    if (result.feedback.length === 0) {
+      alert('No feedback to export.');
+      return;
+    }
+
+    const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
+    const filename = `all-feedback-export-${timestamp}.json`;
+
+    const exportData = {
+      exportedAt: new Date().toISOString(),
+      totalCount: result.feedback.length,
+      feedback: result.feedback
+    };
+
+    const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+
+    alert(`Exported ${result.feedback.length} feedback items to ${filename}`);
+
+  } catch (error) {
+    console.error('[EXPORT] Error:', error);
+    alert('Export failed: ' + error.message);
+  }
+};
 

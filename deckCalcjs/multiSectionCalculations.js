@@ -751,13 +751,30 @@ export function handleBeamMerging(allBeams, originalPoints = null) {
       const mergedBeam = mergeBeamGroup(mergeGroup, originalPoints);
       mergedBeams.push(mergedBeam);
     } else {
+      // Single beam - also clip to boundary
+      if (originalPoints && originalPoints.length >= 3) {
+        const isHorizontal = Math.abs(beam1.p2.y - beam1.p1.y) < Math.abs(beam1.p2.x - beam1.p1.x);
+        const clippedBeam = clipBeamToDeckBoundary(beam1, originalPoints, isHorizontal);
+        if (clippedBeam && !clippedBeam.removed) {
+          beam1.p1 = clippedBeam.p1;
+          beam1.p2 = clippedBeam.p2;
+          beam1.centerlineP1 = clippedBeam.p1;
+          beam1.centerlineP2 = clippedBeam.p2;
+          beam1.lengthFt = clippedBeam.lengthFt;
+        } else if (clippedBeam && clippedBeam.removed) {
+          beam1.removed = true;
+        }
+      }
       mergedBeams.push(beam1);
     }
   }
 
-  console.log(`\n=== Beam merging complete: ${allBeams.length} beams → ${mergedBeams.length} beams ===\n`);
+  // Filter out beams that were marked for removal (outside boundary)
+  const validBeams = mergedBeams.filter(beam => !beam.removed && beam.lengthFt > 0.1);
 
-  return mergedBeams;
+  console.log(`\n=== Beam merging complete: ${allBeams.length} beams → ${validBeams.length} valid beams (${mergedBeams.length - validBeams.length} removed) ===\n`);
+
+  return validBeams;
 }
 
 /**
@@ -945,6 +962,13 @@ function mergeBeamGroup(beamGroup, originalPoints = null) {
   if (originalPoints && originalPoints.length >= 3) {
     const clippedBeam = clipBeamToDeckBoundary(mergedBeam, originalPoints, isHorizontal);
     if (clippedBeam) {
+      // Check if beam was marked for removal (entirely outside polygon)
+      if (clippedBeam.removed) {
+        console.log(`[BEAM_CLIP] Beam marked for removal - entirely outside deck boundary`);
+        mergedBeam.removed = true;
+        mergedBeam.lengthFt = 0;
+        return mergedBeam;
+      }
       mergedBeam.p1 = clippedBeam.p1;
       mergedBeam.p2 = clippedBeam.p2;
       mergedBeam.centerlineP1 = clippedBeam.p1;
@@ -983,7 +1007,7 @@ function mergeBeamGroup(beamGroup, originalPoints = null) {
  * @param {Object} beam - Beam with p1, p2 endpoints
  * @param {Array<{x: number, y: number}>} shapePoints - Deck polygon points
  * @param {boolean} isHorizontal - Whether the beam is horizontal
- * @returns {Object|null} Clipped beam with p1, p2, lengthFt or null if no clipping needed
+ * @returns {Object|null} Clipped beam with p1, p2, lengthFt or null if no clipping needed/beam is outside
  */
 function clipBeamToDeckBoundary(beam, shapePoints, isHorizontal) {
   if (!shapePoints || shapePoints.length < 3) return null;
@@ -1004,7 +1028,7 @@ function clipBeamToDeckBoundary(beam, shapePoints, isHorizontal) {
   console.log(`[BEAM_CLIP] Endpoints inside: p1=${p1Inside}, p2=${p2Inside}`);
   console.log(`[BEAM_CLIP] Beam: (${beam.p1.x.toFixed(1)}, ${beam.p1.y.toFixed(1)}) to (${beam.p2.x.toFixed(1)}, ${beam.p2.y.toFixed(1)})`);
 
-  // Find intersections of beam line with polygon edges
+  // Find ALL intersections of beam line (extended infinitely) with polygon edges
   const intersections = [];
 
   for (let i = 0; i < numEdges; i++) {
@@ -1015,52 +1039,81 @@ function clipBeamToDeckBoundary(beam, shapePoints, isHorizontal) {
     if (intersection) {
       // Check if intersection is on the polygon edge segment
       if (isPointOnSegment(intersection, edgeP1, edgeP2, TOLERANCE)) {
-        // Check if intersection is between beam endpoints (or close to them)
-        if (isPointOnSegment(intersection, beam.p1, beam.p2, TOLERANCE * 5)) {
-          intersections.push(intersection);
-          console.log(`[BEAM_CLIP] Found intersection with edge ${i} at (${intersection.x.toFixed(1)}, ${intersection.y.toFixed(1)})`);
-        }
+        intersections.push({ ...intersection, edgeIndex: i });
+        console.log(`[BEAM_CLIP] Found intersection with edge ${i} at (${intersection.x.toFixed(1)}, ${intersection.y.toFixed(1)})`);
       }
     }
   }
 
   if (intersections.length === 0) {
-    console.log(`[BEAM_CLIP] No intersections found`);
+    console.log(`[BEAM_CLIP] No intersections found - beam may be entirely outside polygon`);
+    // If both endpoints are outside and no intersections, the beam is entirely outside
+    if (!p1Inside && !p2Inside) {
+      return { p1: beam.p1, p2: beam.p1, lengthFt: 0, removed: true }; // Return zero-length to indicate removal
+    }
     return null;
   }
 
-  // Determine new endpoints
+  // Sort intersections by distance from p1 along the beam direction
+  const beamDx = beam.p2.x - beam.p1.x;
+  const beamDy = beam.p2.y - beam.p1.y;
+  const beamLength = Math.sqrt(beamDx * beamDx + beamDy * beamDy);
+
+  if (beamLength < TOLERANCE) return null;
+
+  intersections.forEach(inter => {
+    // Calculate parametric position along beam line (t=0 at p1, t=1 at p2)
+    inter.t = ((inter.x - beam.p1.x) * beamDx + (inter.y - beam.p1.y) * beamDy) / (beamLength * beamLength);
+  });
+
+  intersections.sort((a, b) => a.t - b.t);
+
+  // Determine new endpoints based on which points are inside/outside
   let newP1 = beam.p1;
   let newP2 = beam.p2;
 
-  if (!p1Inside && intersections.length > 0) {
-    // Find closest intersection to p1
-    let closestDist = Infinity;
-    for (const inter of intersections) {
-      const dist = Math.sqrt((inter.x - beam.p1.x) ** 2 + (inter.y - beam.p1.y) ** 2);
-      if (dist < closestDist) {
-        closestDist = dist;
-        newP1 = inter;
-      }
+  if (!p1Inside && !p2Inside) {
+    // Both endpoints outside - find the segment of the beam that's inside the polygon
+    // We need at least 2 intersections to have a valid segment inside
+    if (intersections.length >= 2) {
+      // Find the two intersections that bound the inside segment
+      // The beam enters and exits the polygon
+      newP1 = { x: intersections[0].x, y: intersections[0].y };
+      newP2 = { x: intersections[intersections.length - 1].x, y: intersections[intersections.length - 1].y };
+      console.log(`[BEAM_CLIP] Both endpoints outside - using intersection segment`);
+    } else {
+      // Only one intersection - beam barely touches polygon, effectively outside
+      console.log(`[BEAM_CLIP] Both endpoints outside with <2 intersections - beam is outside`);
+      return { p1: beam.p1, p2: beam.p1, lengthFt: 0, removed: true };
     }
-    console.log(`[BEAM_CLIP] Clipped p1 to (${newP1.x.toFixed(1)}, ${newP1.y.toFixed(1)})`);
-  }
-
-  if (!p2Inside && intersections.length > 0) {
-    // Find closest intersection to p2
-    let closestDist = Infinity;
-    for (const inter of intersections) {
-      const dist = Math.sqrt((inter.x - beam.p2.x) ** 2 + (inter.y - beam.p2.y) ** 2);
-      if (dist < closestDist) {
-        closestDist = dist;
-        newP2 = inter;
-      }
+  } else if (!p1Inside) {
+    // p1 is outside, p2 is inside - clip p1 to the closest intersection
+    // Find intersection with t closest to 0 but <= t value of p2 (which is 1)
+    const validIntersections = intersections.filter(i => i.t <= 1 + TOLERANCE/beamLength);
+    if (validIntersections.length > 0) {
+      const closest = validIntersections[0]; // First one (closest to p1)
+      newP1 = { x: closest.x, y: closest.y };
+      console.log(`[BEAM_CLIP] Clipped p1 to (${newP1.x.toFixed(1)}, ${newP1.y.toFixed(1)})`);
     }
-    console.log(`[BEAM_CLIP] Clipped p2 to (${newP2.x.toFixed(1)}, ${newP2.y.toFixed(1)})`);
+  } else if (!p2Inside) {
+    // p2 is outside, p1 is inside - clip p2 to the closest intersection
+    // Find intersection with t closest to 1 but >= t value of p1 (which is 0)
+    const validIntersections = intersections.filter(i => i.t >= -TOLERANCE/beamLength);
+    if (validIntersections.length > 0) {
+      const closest = validIntersections[validIntersections.length - 1]; // Last one (closest to p2)
+      newP2 = { x: closest.x, y: closest.y };
+      console.log(`[BEAM_CLIP] Clipped p2 to (${newP2.x.toFixed(1)}, ${newP2.y.toFixed(1)})`);
+    }
   }
 
   // Calculate new length
   const newLength = Math.sqrt((newP2.x - newP1.x) ** 2 + (newP2.y - newP1.y) ** 2) / PIXELS_PER_FOOT;
+
+  // If the clipped beam is too short, mark for removal
+  if (newLength < 0.1) {
+    console.log(`[BEAM_CLIP] Clipped beam too short (${newLength.toFixed(2)} ft) - marking for removal`);
+    return { p1: newP1, p2: newP2, lengthFt: 0, removed: true };
+  }
 
   return {
     p1: { x: newP1.x, y: newP1.y },
@@ -1293,6 +1346,9 @@ function mergeCollinearJoists(joists, originalPoints = null) {
 
 /**
  * Clips a joist to stay within the deck boundary
+ * @param {Object} joist - Joist object with p1, p2 endpoints
+ * @param {Array<{x: number, y: number}>} shapePoints - Deck polygon points
+ * @returns {Object|null} Clipped joist or null if entirely outside
  */
 function clipJoistToBoundary(joist, shapePoints) {
   if (!joist.p1 || !joist.p2 || !shapePoints || shapePoints.length < 3) return joist;
@@ -1306,7 +1362,7 @@ function clipJoistToBoundary(joist, shapePoints) {
   // If both inside, no clipping needed
   if (p1Inside && p2Inside) return joist;
 
-  // Find intersections with polygon edges
+  // Find ALL intersections with polygon edges
   const intersections = [];
   const numEdges = shapePoints.length;
 
@@ -1316,38 +1372,63 @@ function clipJoistToBoundary(joist, shapePoints) {
 
     const inter = lineIntersection(joist.p1, joist.p2, edgeP1, edgeP2);
     if (inter && isPointOnSegment(inter, edgeP1, edgeP2, TOLERANCE)) {
-      intersections.push(inter);
+      intersections.push({ ...inter, edgeIndex: i });
     }
+  }
+
+  // If both endpoints outside and no intersections, joist is entirely outside
+  if (!p1Inside && !p2Inside && intersections.length === 0) {
+    return null; // Mark for removal
   }
 
   if (intersections.length === 0) return joist;
 
+  // Sort intersections by parametric position along the joist line
+  const joistDx = joist.p2.x - joist.p1.x;
+  const joistDy = joist.p2.y - joist.p1.y;
+  const joistLength = Math.sqrt(joistDx * joistDx + joistDy * joistDy);
+
+  if (joistLength < TOLERANCE) return null;
+
+  intersections.forEach(inter => {
+    inter.t = ((inter.x - joist.p1.x) * joistDx + (inter.y - joist.p1.y) * joistDy) / (joistLength * joistLength);
+  });
+
+  intersections.sort((a, b) => a.t - b.t);
+
   let newP1 = joist.p1;
   let newP2 = joist.p2;
 
-  if (!p1Inside) {
-    let closestDist = Infinity;
-    for (const inter of intersections) {
-      const dist = Math.sqrt((inter.x - joist.p1.x) ** 2 + (inter.y - joist.p1.y) ** 2);
-      if (dist < closestDist) {
-        closestDist = dist;
-        newP1 = inter;
-      }
+  if (!p1Inside && !p2Inside) {
+    // Both endpoints outside - find the segment of the joist that's inside the polygon
+    if (intersections.length >= 2) {
+      // Use the first and last intersections to define the inside segment
+      newP1 = { x: intersections[0].x, y: intersections[0].y };
+      newP2 = { x: intersections[intersections.length - 1].x, y: intersections[intersections.length - 1].y };
+    } else {
+      // Only one intersection - joist barely touches polygon, remove it
+      return null;
     }
-  }
-
-  if (!p2Inside) {
-    let closestDist = Infinity;
-    for (const inter of intersections) {
-      const dist = Math.sqrt((inter.x - joist.p2.x) ** 2 + (inter.y - joist.p2.y) ** 2);
-      if (dist < closestDist) {
-        closestDist = dist;
-        newP2 = inter;
-      }
+  } else if (!p1Inside) {
+    // p1 is outside, p2 is inside - clip p1 to the first valid intersection
+    const validIntersections = intersections.filter(i => i.t <= 1 + TOLERANCE/joistLength);
+    if (validIntersections.length > 0) {
+      newP1 = { x: validIntersections[0].x, y: validIntersections[0].y };
+    }
+  } else if (!p2Inside) {
+    // p2 is outside, p1 is inside - clip p2 to the last valid intersection
+    const validIntersections = intersections.filter(i => i.t >= -TOLERANCE/joistLength);
+    if (validIntersections.length > 0) {
+      newP2 = { x: validIntersections[validIntersections.length - 1].x, y: validIntersections[validIntersections.length - 1].y };
     }
   }
 
   const newLength = Math.sqrt((newP2.x - newP1.x) ** 2 + (newP2.y - newP1.y) ** 2) / PIXELS_PER_FOOT;
+
+  // If the clipped joist is too short, remove it
+  if (newLength < 0.1) {
+    return null;
+  }
 
   return {
     ...joist,
@@ -1520,12 +1601,86 @@ function mergeRimJoistGroup(rimGroup) {
 }
 
 /**
+ * Checks if a rim joist lies on an actual polygon perimeter edge
+ * This prevents rim joists from spanning across concave areas (like U-shapes)
+ * @param {Object} rim - Rim joist with p1, p2 points
+ * @param {Array} shapePoints - Polygon vertices
+ * @param {number} tolerance - Distance tolerance in pixels
+ * @returns {boolean} True if rim lies on a perimeter edge
+ */
+function isRimOnPerimeterEdge(rim, shapePoints, tolerance = PIXELS_PER_FOOT * 0.5) {
+  if (!rim.p1 || !rim.p2 || !shapePoints || shapePoints.length < 3) return false;
+
+  const rimMidX = (rim.p1.x + rim.p2.x) / 2;
+  const rimMidY = (rim.p1.y + rim.p2.y) / 2;
+  const rimMid = { x: rimMidX, y: rimMidY };
+
+  // Check if the rim's midpoint is near any perimeter edge
+  for (let i = 0; i < shapePoints.length; i++) {
+    const edgeP1 = shapePoints[i];
+    const edgeP2 = shapePoints[(i + 1) % shapePoints.length];
+
+    // Calculate distance from rim midpoint to this edge
+    const dist = pointToSegmentDistanceLocal(rimMid, edgeP1, edgeP2);
+    if (dist <= tolerance) {
+      // Also verify the rim direction is parallel to the edge direction
+      const rimDx = rim.p2.x - rim.p1.x;
+      const rimDy = rim.p2.y - rim.p1.y;
+      const edgeDx = edgeP2.x - edgeP1.x;
+      const edgeDy = edgeP2.y - edgeP1.y;
+
+      // Calculate cross product to check parallelism
+      const rimLen = Math.sqrt(rimDx * rimDx + rimDy * rimDy) || 1;
+      const edgeLen = Math.sqrt(edgeDx * edgeDx + edgeDy * edgeDy) || 1;
+      const cross = Math.abs((rimDx / rimLen) * (edgeDy / edgeLen) - (rimDy / rimLen) * (edgeDx / edgeLen));
+
+      // If nearly parallel (cross product near 0), this is a valid perimeter rim
+      if (cross < 0.2) {
+        return true;
+      }
+    }
+  }
+
+  return false;
+}
+
+/**
+ * Calculate distance from point to line segment (local helper)
+ */
+function pointToSegmentDistanceLocal(point, segP1, segP2) {
+  const dx = segP2.x - segP1.x;
+  const dy = segP2.y - segP1.y;
+  const lenSq = dx * dx + dy * dy;
+
+  if (lenSq === 0) {
+    return Math.sqrt((point.x - segP1.x) ** 2 + (point.y - segP1.y) ** 2);
+  }
+
+  let t = ((point.x - segP1.x) * dx + (point.y - segP1.y) * dy) / lenSq;
+  t = Math.max(0, Math.min(1, t));
+
+  const closestX = segP1.x + t * dx;
+  const closestY = segP1.y + t * dy;
+
+  return Math.sqrt((point.x - closestX) ** 2 + (point.y - closestY) ** 2);
+}
+
+/**
  * Clips a rim joist to stay within the deck boundary
+ * @returns {Object|null} Clipped rim joist or null if entirely outside
  */
 function clipRimJoistToBoundary(rim, shapePoints) {
   if (!rim.p1 || !rim.p2 || !shapePoints || shapePoints.length < 3) return rim;
 
   const TOLERANCE = 2;
+
+  // FIRST: Check if rim lies on an actual perimeter edge (critical for U-shapes)
+  // This prevents rim joists from spanning across concave areas
+  if (!isRimOnPerimeterEdge(rim, shapePoints)) {
+    console.log(`[RIM_CLIP] Rejecting rim joist not on perimeter edge: ` +
+      `(${rim.p1.x.toFixed(0)}, ${rim.p1.y.toFixed(0)}) to (${rim.p2.x.toFixed(0)}, ${rim.p2.y.toFixed(0)})`);
+    return null;
+  }
 
   // Check if endpoints are inside polygon
   const p1Inside = isPointInsidePolygon(rim.p1, shapePoints);
@@ -1534,7 +1689,7 @@ function clipRimJoistToBoundary(rim, shapePoints) {
   // If both inside, no clipping needed
   if (p1Inside && p2Inside) return rim;
 
-  // Find intersections with polygon edges
+  // Find ALL intersections with polygon edges
   const intersections = [];
   const numEdges = shapePoints.length;
 
@@ -1544,38 +1699,59 @@ function clipRimJoistToBoundary(rim, shapePoints) {
 
     const inter = lineIntersection(rim.p1, rim.p2, edgeP1, edgeP2);
     if (inter && isPointOnSegment(inter, edgeP1, edgeP2, TOLERANCE)) {
-      intersections.push(inter);
+      intersections.push({ ...inter, edgeIndex: i });
     }
+  }
+
+  // If both endpoints outside and no intersections, rim is entirely outside
+  if (!p1Inside && !p2Inside && intersections.length === 0) {
+    return null; // Mark for removal
   }
 
   if (intersections.length === 0) return rim;
 
+  // Sort intersections by parametric position along the rim line
+  const rimDx = rim.p2.x - rim.p1.x;
+  const rimDy = rim.p2.y - rim.p1.y;
+  const rimLength = Math.sqrt(rimDx * rimDx + rimDy * rimDy);
+
+  if (rimLength < TOLERANCE) return null;
+
+  intersections.forEach(inter => {
+    inter.t = ((inter.x - rim.p1.x) * rimDx + (inter.y - rim.p1.y) * rimDy) / (rimLength * rimLength);
+  });
+
+  intersections.sort((a, b) => a.t - b.t);
+
   let newP1 = rim.p1;
   let newP2 = rim.p2;
 
-  if (!p1Inside) {
-    let closestDist = Infinity;
-    for (const inter of intersections) {
-      const dist = Math.sqrt((inter.x - rim.p1.x) ** 2 + (inter.y - rim.p1.y) ** 2);
-      if (dist < closestDist) {
-        closestDist = dist;
-        newP1 = inter;
-      }
+  if (!p1Inside && !p2Inside) {
+    // Both endpoints outside - find the segment inside the polygon
+    if (intersections.length >= 2) {
+      newP1 = { x: intersections[0].x, y: intersections[0].y };
+      newP2 = { x: intersections[intersections.length - 1].x, y: intersections[intersections.length - 1].y };
+    } else {
+      return null;
     }
-  }
-
-  if (!p2Inside) {
-    let closestDist = Infinity;
-    for (const inter of intersections) {
-      const dist = Math.sqrt((inter.x - rim.p2.x) ** 2 + (inter.y - rim.p2.y) ** 2);
-      if (dist < closestDist) {
-        closestDist = dist;
-        newP2 = inter;
-      }
+  } else if (!p1Inside) {
+    const validIntersections = intersections.filter(i => i.t <= 1 + TOLERANCE/rimLength);
+    if (validIntersections.length > 0) {
+      newP1 = { x: validIntersections[0].x, y: validIntersections[0].y };
+    }
+  } else if (!p2Inside) {
+    const validIntersections = intersections.filter(i => i.t >= -TOLERANCE/rimLength);
+    if (validIntersections.length > 0) {
+      newP2 = { x: validIntersections[validIntersections.length - 1].x, y: validIntersections[validIntersections.length - 1].y };
     }
   }
 
   const newLength = Math.sqrt((newP2.x - newP1.x) ** 2 + (newP2.y - newP1.y) ** 2) / PIXELS_PER_FOOT;
+
+  // If the clipped rim joist is too short, remove it
+  if (newLength < 0.1) {
+    return null;
+  }
 
   return {
     ...rim,

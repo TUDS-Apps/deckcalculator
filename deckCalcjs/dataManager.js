@@ -150,12 +150,180 @@ const maxJoistSpansData = [
   { size: "2x6", spacing: 12, maxSpanFt: 9 + 10 / 12 }, // 9'10" = 9.833 ft
   { size: "2x6", spacing: 16, maxSpanFt: 9 + 1 / 12 }, // 9'1"  = 9.083 ft
   { size: "2x8", spacing: 12, maxSpanFt: 13 + 2 / 12 }, // 13'2" = 13.167 ft
-  { size: "2x8", spacing: 16, maxSpanFt: 12.0 }, // 12'0" = 12.0 ft
+  { size: "2x8", spacing: 16, maxSpanFt: 10 + 6 / 12 }, // 10'6" = 10.5 ft (IRC R507.5)
   { size: "2x10", spacing: 12, maxSpanFt: 16.0 }, // 16'0" = 16.0 ft
   { size: "2x10", spacing: 16, maxSpanFt: 15 + 2 / 12 }, // 15'2" = 15.167 ft
   { size: "2x12", spacing: 12, maxSpanFt: 16.0 }, // 16'0" = 16.0 ft (Assuming 16' based on prev data)
   { size: "2x12", spacing: 16, maxSpanFt: 16.0 }, // 16'0" = 16.0 ft (Assuming 16' based on prev data)
 ];
+
+// IRC Table R507.6 - Maximum Beam Spans (Southern Pine #2, 40 PSF live + 10 PSF dead)
+// Organized by beam ply count, beam size, and joist span (tributary width)
+// Values are in feet
+const maxBeamSpansData = {
+  // 2-ply beams (for 4x4 posts)
+  2: {
+    "2x6": [
+      { joistSpanFt: 6, maxBeamSpanFt: 6 + 2/12 },   // 6'2"
+      { joistSpanFt: 8, maxBeamSpanFt: 5 + 4/12 },   // 5'4"
+      { joistSpanFt: 10, maxBeamSpanFt: 4 + 9/12 },  // 4'9"
+      { joistSpanFt: 12, maxBeamSpanFt: 4 + 4/12 },  // 4'4"
+    ],
+    "2x8": [
+      { joistSpanFt: 6, maxBeamSpanFt: 8 + 2/12 },   // 8'2"
+      { joistSpanFt: 8, maxBeamSpanFt: 7 + 1/12 },   // 7'1"
+      { joistSpanFt: 10, maxBeamSpanFt: 6 + 4/12 },  // 6'4"
+      { joistSpanFt: 12, maxBeamSpanFt: 5 + 9/12 },  // 5'9"
+    ],
+    "2x10": [
+      { joistSpanFt: 6, maxBeamSpanFt: 10 + 5/12 },  // 10'5"
+      { joistSpanFt: 8, maxBeamSpanFt: 9 + 0/12 },   // 9'0"
+      { joistSpanFt: 10, maxBeamSpanFt: 8 + 1/12 },  // 8'1"
+      { joistSpanFt: 12, maxBeamSpanFt: 7 + 4/12 },  // 7'4"
+    ],
+    "2x12": [
+      { joistSpanFt: 6, maxBeamSpanFt: 12 + 8/12 },  // 12'8"
+      { joistSpanFt: 8, maxBeamSpanFt: 11 + 0/12 },  // 11'0"
+      { joistSpanFt: 10, maxBeamSpanFt: 9 + 10/12 }, // 9'10"
+      { joistSpanFt: 12, maxBeamSpanFt: 8 + 11/12 }, // 8'11"
+    ],
+  },
+  // 3-ply beams (for 6x6 posts)
+  3: {
+    "2x6": [
+      { joistSpanFt: 6, maxBeamSpanFt: 7 + 9/12 },   // 7'9"
+      { joistSpanFt: 8, maxBeamSpanFt: 6 + 9/12 },   // 6'9"
+      { joistSpanFt: 10, maxBeamSpanFt: 6 + 0/12 },  // 6'0"
+      { joistSpanFt: 12, maxBeamSpanFt: 5 + 6/12 },  // 5'6"
+    ],
+    "2x8": [
+      { joistSpanFt: 6, maxBeamSpanFt: 10 + 2/12 },  // 10'2"
+      { joistSpanFt: 8, maxBeamSpanFt: 8 + 10/12 },  // 8'10"
+      { joistSpanFt: 10, maxBeamSpanFt: 7 + 11/12 }, // 7'11"
+      { joistSpanFt: 12, maxBeamSpanFt: 7 + 3/12 },  // 7'3"
+    ],
+    "2x10": [
+      { joistSpanFt: 6, maxBeamSpanFt: 13 + 0/12 },  // 13'0"
+      { joistSpanFt: 8, maxBeamSpanFt: 11 + 3/12 },  // 11'3"
+      { joistSpanFt: 10, maxBeamSpanFt: 10 + 1/12 }, // 10'1"
+      { joistSpanFt: 12, maxBeamSpanFt: 9 + 2/12 },  // 9'2"
+    ],
+    "2x12": [
+      { joistSpanFt: 6, maxBeamSpanFt: 15 + 10/12 }, // 15'10"
+      { joistSpanFt: 8, maxBeamSpanFt: 13 + 8/12 },  // 13'8"
+      { joistSpanFt: 10, maxBeamSpanFt: 12 + 3/12 }, // 12'3"
+      { joistSpanFt: 12, maxBeamSpanFt: 11 + 2/12 }, // 11'2"
+    ],
+  }
+};
+
+/**
+ * Gets the maximum allowable beam span based on IRC Table R507.6
+ * @param {string} beamSize - Beam lumber size (e.g., "2x8", "2x10")
+ * @param {number} beamPly - Number of plies (2 or 3)
+ * @param {number} joistSpanFt - The joist span in feet (tributary width for the beam)
+ * @returns {number|null} Maximum beam span in feet, or null if not found
+ */
+function getMaxBeamSpan(beamSize, beamPly, joistSpanFt) {
+  const plyData = maxBeamSpansData[beamPly];
+  if (!plyData) {
+    console.warn(`[getMaxBeamSpan] Invalid beam ply count: ${beamPly}`);
+    return null;
+  }
+
+  const sizeData = plyData[beamSize];
+  if (!sizeData) {
+    console.warn(`[getMaxBeamSpan] Unknown beam size: ${beamSize} for ${beamPly}-ply`);
+    return null;
+  }
+
+  // Find the appropriate joist span entry (interpolate or use closest)
+  // Sort by joist span ascending
+  const sortedData = [...sizeData].sort((a, b) => a.joistSpanFt - b.joistSpanFt);
+
+  // If joist span is smaller than smallest table entry, use smallest entry (conservative)
+  if (joistSpanFt <= sortedData[0].joistSpanFt) {
+    return sortedData[0].maxBeamSpanFt;
+  }
+
+  // If joist span is larger than largest table entry, use largest entry (conservative)
+  if (joistSpanFt >= sortedData[sortedData.length - 1].joistSpanFt) {
+    return sortedData[sortedData.length - 1].maxBeamSpanFt;
+  }
+
+  // Linear interpolation between table values
+  for (let i = 0; i < sortedData.length - 1; i++) {
+    const lower = sortedData[i];
+    const upper = sortedData[i + 1];
+
+    if (joistSpanFt >= lower.joistSpanFt && joistSpanFt <= upper.joistSpanFt) {
+      // Interpolate
+      const ratio = (joistSpanFt - lower.joistSpanFt) / (upper.joistSpanFt - lower.joistSpanFt);
+      return lower.maxBeamSpanFt + ratio * (upper.maxBeamSpanFt - lower.maxBeamSpanFt);
+    }
+  }
+
+  return null;
+}
+
+/**
+ * Validates if a beam span is within IRC code limits
+ * @param {number} actualBeamSpanFt - The actual beam span between posts in feet
+ * @param {string} beamSize - Beam lumber size (e.g., "2x8")
+ * @param {number} beamPly - Number of plies (2 or 3)
+ * @param {number} joistSpanFt - The joist span in feet
+ * @returns {{valid: boolean, maxSpan: number, message: string}}
+ */
+function validateBeamSpan(actualBeamSpanFt, beamSize, beamPly, joistSpanFt) {
+  const maxSpan = getMaxBeamSpan(beamSize, beamPly, joistSpanFt);
+
+  if (maxSpan === null) {
+    return {
+      valid: false,
+      maxSpan: null,
+      message: `Cannot validate beam span: unknown configuration (${beamPly}-ply ${beamSize} with ${joistSpanFt}' joist span)`
+    };
+  }
+
+  const isValid = actualBeamSpanFt <= maxSpan + 0.1; // Small tolerance for rounding
+
+  return {
+    valid: isValid,
+    maxSpan: maxSpan,
+    message: isValid
+      ? `Beam span ${actualBeamSpanFt.toFixed(1)}' is within IRC limit of ${maxSpan.toFixed(1)}'`
+      : `WARNING: Beam span ${actualBeamSpanFt.toFixed(1)}' exceeds IRC limit of ${maxSpan.toFixed(1)}' for ${beamPly}-ply ${beamSize} with ${joistSpanFt.toFixed(1)}' joist span`
+  };
+}
+
+/**
+ * Recommends a beam size based on required span and joist span
+ * @param {number} requiredBeamSpanFt - Required beam span between posts
+ * @param {number} joistSpanFt - Joist span (tributary width)
+ * @param {number} beamPly - Number of plies (2 or 3)
+ * @returns {{size: string, maxSpan: number}|null} Recommended beam size or null if none adequate
+ */
+function recommendBeamSize(requiredBeamSpanFt, joistSpanFt, beamPly) {
+  const sizes = ["2x6", "2x8", "2x10", "2x12"];
+
+  for (const size of sizes) {
+    const maxSpan = getMaxBeamSpan(size, beamPly, joistSpanFt);
+    if (maxSpan && maxSpan >= requiredBeamSpanFt) {
+      return { size, maxSpan };
+    }
+  }
+
+  // If no single beam works, return the largest with a note
+  const largestSize = sizes[sizes.length - 1];
+  const largestMaxSpan = getMaxBeamSpan(largestSize, beamPly, joistSpanFt);
+
+  return {
+    size: largestSize,
+    maxSpan: largestMaxSpan,
+    needsMorePosts: true,
+    message: `Maximum ${beamPly}-ply ${largestSize} span is ${largestMaxSpan?.toFixed(1)}' - additional posts required`
+  };
+}
 
 // --- Parsed Data Storage (will be populated by loadAndParseData) ---
 let parsedStockDataInternal = [];
@@ -392,3 +560,93 @@ export function getManualSpanRules() {
 export function getMaxJoistSpans() {
   return maxJoistSpansData; // Export the constant array directly
 }
+
+// Export beam span functions (IRC Table R507.6)
+export { getMaxBeamSpan, validateBeamSpan, recommendBeamSize };
+
+// ============================================
+// FOOTING SIZE CALCULATIONS (IRC R403.1)
+// ============================================
+
+// Standard footing diameters available (inches)
+const STANDARD_FOOTING_DIAMETERS = [12, 16, 18, 20, 24];
+
+// Default soil bearing capacity (psf) - conservative value for unknown soil
+const DEFAULT_SOIL_BEARING_CAPACITY = 1500;
+
+// Design load for decks (psf): 40 live + 10 dead per IRC
+const DECK_DESIGN_LOAD_PSF = 50;
+
+/**
+ * Calculate required footing diameter based on tributary load area
+ * Per IRC R403.1, footing must be sized to support loads without exceeding soil bearing capacity
+ *
+ * @param {number} tributaryAreaSqFt - Tributary area supported by this footing (sq ft)
+ * @param {number} soilBearingCapacity - Soil bearing capacity in psf (default 1500)
+ * @returns {Object} { diameter: number, load: number, requiredArea: number, message: string }
+ */
+function calculateFootingDiameter(tributaryAreaSqFt, soilBearingCapacity = DEFAULT_SOIL_BEARING_CAPACITY) {
+  // Calculate total load on footing
+  const totalLoadLbs = tributaryAreaSqFt * DECK_DESIGN_LOAD_PSF;
+
+  // Calculate required footing area (sq ft)
+  const requiredAreaSqFt = totalLoadLbs / soilBearingCapacity;
+
+  // Convert to required diameter (inches)
+  // Area = π × r² = π × (d/2)² = π × d²/4
+  // So d = √(4 × Area / π)
+  // Area in sq ft needs to be converted to sq inches: multiply by 144
+  const requiredAreaSqIn = requiredAreaSqFt * 144;
+  const requiredDiameterIn = Math.sqrt(4 * requiredAreaSqIn / Math.PI);
+
+  // Round up to next standard size
+  let selectedDiameter = STANDARD_FOOTING_DIAMETERS[STANDARD_FOOTING_DIAMETERS.length - 1]; // Default to largest
+  for (const stdDia of STANDARD_FOOTING_DIAMETERS) {
+    if (stdDia >= requiredDiameterIn) {
+      selectedDiameter = stdDia;
+      break;
+    }
+  }
+
+  // Warning if exceeds max standard size
+  const warning = requiredDiameterIn > 24
+    ? `Load exceeds standard footing capacity. Required: ${requiredDiameterIn.toFixed(1)}". Using 24" but consult engineer.`
+    : null;
+
+  return {
+    diameter: selectedDiameter,
+    load: totalLoadLbs,
+    requiredArea: requiredAreaSqFt,
+    calculatedDiameter: requiredDiameterIn,
+    message: warning
+  };
+}
+
+/**
+ * Calculate tributary area for a post based on beam and joist spacing
+ * Simplified: uses post spacing (beam span) × joist span / 2 for edge posts
+ *
+ * @param {number} postSpacingFt - Spacing between posts along beam (typically 8' max)
+ * @param {number} joistSpanFt - Joist span (tributary width beam supports)
+ * @param {boolean} isCorner - If true, uses 1/4 tributary; if false, uses 1/2 for edge posts
+ * @returns {number} Tributary area in square feet
+ */
+function calculateTributaryArea(postSpacingFt, joistSpanFt, isCorner = false) {
+  // Corner posts: 1/4 of the span area (half in each direction)
+  // Edge posts: 1/2 of the span area on one side
+  // Interior posts: full tributary (half on each side)
+
+  const halfPostSpacing = postSpacingFt / 2;
+  const halfJoistSpan = joistSpanFt / 2;
+
+  if (isCorner) {
+    // Corner: tributary extends half the post spacing × half the joist span
+    return halfPostSpacing * halfJoistSpan;
+  } else {
+    // Edge/interior: tributary extends half the post spacing on each side × half joist span
+    return postSpacingFt * halfJoistSpan;
+  }
+}
+
+// Export footing functions
+export { calculateFootingDiameter, calculateTributaryArea, DECK_DESIGN_LOAD_PSF, DEFAULT_SOIL_BEARING_CAPACITY };

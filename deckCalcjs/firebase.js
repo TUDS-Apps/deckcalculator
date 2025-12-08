@@ -844,6 +844,160 @@ async function getStoreMembers(storeId) {
 }
 
 // ============================================
+// FIRESTORE - FEEDBACK FUNCTIONS
+// ============================================
+
+/**
+ * Save feedback to Firestore
+ * @param {Object} feedbackData - Feedback data including screenshot and tech data
+ */
+async function saveFeedback(feedbackData) {
+  try {
+    const feedbackRef = db.collection('feedback');
+
+    const dataToSave = {
+      ...feedbackData,
+      // User info
+      submittedBy: currentUser?.email?.toLowerCase() || 'anonymous',
+      submittedByName: currentUser?.displayName || currentUserProfile?.displayName || 'Anonymous',
+      // Status tracking
+      status: 'pending', // pending, in_progress, resolved, wont_fix
+      resolvedAt: null,
+      resolvedBy: null,
+      resolution: null,
+      // Timestamps
+      createdAt: firebase.firestore.FieldValue.serverTimestamp()
+    };
+
+    const docRef = await feedbackRef.add(dataToSave);
+
+    console.log('[Firebase] Feedback saved:', docRef.id);
+    return { success: true, id: docRef.id };
+  } catch (error) {
+    console.error('[Firebase] Save feedback error:', error);
+    return { success: false, error: error.message };
+  }
+}
+
+/**
+ * Load all feedback (admin function)
+ * @param {string} status - Optional filter by status (pending, resolved, etc.)
+ */
+async function loadAllFeedback(status = null) {
+  try {
+    const feedbackRef = db.collection('feedback');
+    let query = feedbackRef.orderBy('createdAt', 'desc');
+
+    if (status) {
+      query = feedbackRef.where('status', '==', status).orderBy('createdAt', 'desc');
+    }
+
+    const snapshot = await query.get();
+
+    const feedback = [];
+    snapshot.forEach(doc => {
+      const data = doc.data();
+      feedback.push({
+        id: doc.id,
+        ...data,
+        createdAt: data.createdAt?.toDate?.()?.toISOString() || data.createdAt,
+        resolvedAt: data.resolvedAt?.toDate?.()?.toISOString() || data.resolvedAt
+      });
+    });
+
+    console.log('[Firebase] Loaded', feedback.length, 'feedback items');
+    return { success: true, feedback };
+  } catch (error) {
+    console.error('[Firebase] Load feedback error:', error);
+    return { success: false, error: error.message, feedback: [] };
+  }
+}
+
+/**
+ * Update feedback status
+ * @param {string} feedbackId - Feedback document ID
+ * @param {string} status - New status
+ * @param {string} resolution - Optional resolution notes
+ */
+async function updateFeedbackStatus(feedbackId, status, resolution = null) {
+  if (!currentUser) {
+    return { success: false, error: 'You must be signed in.' };
+  }
+
+  try {
+    const feedbackRef = db.collection('feedback').doc(feedbackId);
+
+    const updateData = {
+      status: status,
+      resolvedBy: currentUser.email.toLowerCase(),
+      resolvedAt: firebase.firestore.FieldValue.serverTimestamp()
+    };
+
+    if (resolution) {
+      updateData.resolution = resolution;
+    }
+
+    await feedbackRef.update(updateData);
+
+    console.log('[Firebase] Feedback status updated:', feedbackId, status);
+    return { success: true };
+  } catch (error) {
+    console.error('[Firebase] Update feedback error:', error);
+    return { success: false, error: error.message };
+  }
+}
+
+/**
+ * Delete feedback
+ * @param {string} feedbackId - Feedback document ID
+ */
+async function deleteFeedback(feedbackId) {
+  if (!currentUser) {
+    return { success: false, error: 'You must be signed in.' };
+  }
+
+  try {
+    await db.collection('feedback').doc(feedbackId).delete();
+    console.log('[Firebase] Feedback deleted:', feedbackId);
+    return { success: true };
+  } catch (error) {
+    console.error('[Firebase] Delete feedback error:', error);
+    return { success: false, error: error.message };
+  }
+}
+
+/**
+ * Get feedback counts by status
+ */
+async function getFeedbackCounts() {
+  try {
+    const feedbackRef = db.collection('feedback');
+    const snapshot = await feedbackRef.get();
+
+    const counts = {
+      total: 0,
+      pending: 0,
+      in_progress: 0,
+      resolved: 0,
+      wont_fix: 0
+    };
+
+    snapshot.forEach(doc => {
+      const status = doc.data().status || 'pending';
+      counts.total++;
+      if (counts[status] !== undefined) {
+        counts[status]++;
+      }
+    });
+
+    return { success: true, counts };
+  } catch (error) {
+    console.error('[Firebase] Get feedback counts error:', error);
+    return { success: false, error: error.message, counts: null };
+  }
+}
+
+// ============================================
 // LEGACY COMPATIBILITY FUNCTIONS
 // ============================================
 
@@ -907,5 +1061,12 @@ window.firebaseService = {
 
   // Legacy aliases
   saveStoreConfig,
-  loadStoreConfigs
+  loadStoreConfigs,
+
+  // Firestore - Feedback
+  saveFeedback,
+  loadAllFeedback,
+  updateFeedbackStatus,
+  deleteFeedback,
+  getFeedbackCounts
 };

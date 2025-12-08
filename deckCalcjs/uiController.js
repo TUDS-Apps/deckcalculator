@@ -301,8 +301,9 @@ export function populateBOMTable(bomData, errorMessage = null) {
     headerRow.setAttribute('data-category-header', categoryId);
     headerRow.onclick = () => toggleBOMCategory(categoryId);
 
+    // Use separate cells so subtotal aligns with Total Price column
     const headerCell = headerRow.insertCell();
-    headerCell.colSpan = 6;
+    headerCell.colSpan = 5; // Spans checkbox (hidden), qty, item, description, unit price
     headerCell.innerHTML = `
       <div class="category-header-content">
         <span class="category-toggle-icon ${isCollapsed ? '' : 'rotated'}">
@@ -312,17 +313,32 @@ export function populateBOMTable(bomData, errorMessage = null) {
         </span>
         <span class="category-name">${category}</span>
         <span class="category-count">(${items.length} item${items.length !== 1 ? 's' : ''})</span>
-        <span class="category-subtotal">${categoryTotal.toLocaleString("en-CA", { style: "currency", currency: "CAD" })}</span>
       </div>
     `;
 
+    // Subtotal in separate cell aligned with Total Price column
+    const subtotalCell = headerRow.insertCell();
+    subtotalCell.classList.add('category-subtotal-cell');
+    subtotalCell.style.backgroundColor = '#1e3a5f';
+    subtotalCell.style.color = '#a7d3ff';
+    subtotalCell.textContent = categoryTotal.toLocaleString("en-CA", { style: "currency", currency: "CAD" });
+
     // Render items in this category
-    items.forEach((item) => {
+    items.forEach((item, itemIndex) => {
       const row = bomTableBody.insertRow();
       row.setAttribute('data-category', categoryId);
       row.setAttribute('data-global-index', item.globalIndex);
+      row.classList.add('bom-data-row');
       if (isCollapsed) {
         row.classList.add('collapsed');
+      }
+
+      // Add odd/even class for CSS-based alternating backgrounds
+      // itemIndex 0,2,4 = odd rows (white), itemIndex 1,3,5 = even rows (gray)
+      if (itemIndex % 2 === 1) {
+        row.classList.add('bom-row-even');
+      } else {
+        row.classList.add('bom-row-odd');
       }
 
       // Checkbox cell (hidden by default, shown in selection mode)
@@ -381,7 +397,10 @@ export function populateBOMTable(bomData, errorMessage = null) {
         style: "currency",
         currency: "CAD",
       });
-      cellTotalPrice.classList.add("price-col", "text-right");
+      cellTotalPrice.classList.add("price-col", "text-right", "total-price-cell");
+      // Set inline background color to match row alternating pattern
+      const bgColor = itemIndex % 2 === 1 ? '#f9fafb' : '#ffffff';
+      cellTotalPrice.style.backgroundColor = bgColor;
     });
   });
 
@@ -389,7 +408,7 @@ export function populateBOMTable(bomData, errorMessage = null) {
   const totalRow = bomTableBody.insertRow();
   totalRow.classList.add("font-semibold", "bg-gray-100", "bom-total-row");
   const labelCell = totalRow.insertCell();
-  labelCell.colSpan = 5;
+  labelCell.colSpan = 5; // Spans checkbox (hidden), qty, item, description, unit price
   labelCell.textContent = "Estimated Material Total:";
   labelCell.classList.add("text-right", "pr-4");
   const totalValCell = totalRow.insertCell();
@@ -398,6 +417,7 @@ export function populateBOMTable(bomData, errorMessage = null) {
     currency: "CAD",
   });
   totalValCell.classList.add("price-col", "text-right", "font-bold");
+  totalValCell.style.backgroundColor = '#f0f9ff';
   bomSection.classList.remove("hidden");
 
   // Restore scroll position after DOM update to prevent scroll snap

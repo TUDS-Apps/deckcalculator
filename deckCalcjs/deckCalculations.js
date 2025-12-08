@@ -13,7 +13,7 @@ import {
   JOIST_SIZE_ORDER,
 } from "./config.js?v=8";
 import { distance } from "./utils.js?v=8";
-import { getMaxJoistSpans } from "./dataManager.js?v=8";
+import { getMaxJoistSpans, recommendBeamSize, validateBeamSpan, calculateFootingDiameter, calculateTributaryArea } from "./dataManager.js?v=8";
 
 // --- Constants ---
 const ACTUAL_LUMBER_THICKNESS_INCHES = 1.5;
@@ -146,12 +146,14 @@ function calculateBeamAndPostsInternal(
       y: lastPost.y + unitVecY * cantileverPixels,
     };
   }
-  beamFootings = beamPosts.map((post) => ({
-    x: post.x,
-    y: post.y,
-    type: footingType,
-    usage: usageLabel,
-  }));
+  // Create footings with load-based diameter calculation
+  // Default tributary area of 32 sqft (8' post spacing × 8' joist span / 2) for edge posts
+  beamFootings = beamPosts.map((post, index) => {
+    const isCorner = (index === 0 || index === beamPosts.length - 1);
+    const footing = createFooting(post.x, post.y, footingType, 32, isCorner);
+    footing.usage = usageLabel;
+    return footing;
+  });
 
   return {
     beam: {
@@ -1040,9 +1042,7 @@ export function calculateStructure(
     forceSingleSpanJoistsAndRims = true;
   }
 
-  const beamSize = joistSize;
-  
-  // Check for user override first
+  // Determine post size and beam ply FIRST (needed for IRC beam sizing)
   let postSize, beamPly;
   if (inputs.postSize === "4x4") {
     postSize = "4x4";
@@ -1054,6 +1054,20 @@ export function calculateStructure(
     // Use automatic logic (existing behavior)
     postSize = deckHeightInches >= 60 ? "6x6" : "4x4";
     beamPly = postSize === "6x6" ? 3 : 2;
+  }
+
+  // IRC Table R507.6 beam sizing based on joist span and beam span
+  // spanBetweenBeams = joist span (tributary width beam supports)
+  // MAX_POST_SPACING_FEET = beam span between posts (8')
+  const beamSizeResult = recommendBeamSize(MAX_POST_SPACING_FEET, spanBetweenBeams, beamPly);
+  let beamSize;
+  if (beamSizeResult.size) {
+    beamSize = beamSizeResult.size;
+  } else {
+    // Fallback: if no IRC-compliant beam found, use largest available and warn
+    console.warn(`IRC R507.6 Warning: ${beamSizeResult.message || 'No compliant beam size found'}. Using 2x12 with recommendation to consult engineer.`);
+    beamSize = "2x12";
+    components.beamWarning = beamSizeResult.message || "Beam span may exceed IRC limits. Consult a structural engineer.";
   }
 
   const deckCenterX = (deckDimensions.minX + deckDimensions.maxX) / 2;
@@ -2404,6 +2418,7 @@ export function generateBeamOutlineFromPerimeter(shapePoints, ledgerIndices, joi
  * @param {number} deckHeightInches - Deck height
  * @param {string} footingType - Footing type
  * @param {string} beamType - 'flush' or 'drop'
+ * @param {number} joistSpanFt - Joist span in feet for footing load calculation (default 12)
  * @returns {Object} {beams: [], posts: [], footings: []}
  */
 export function createBeamComponentsFromOutline(
@@ -2413,7 +2428,8 @@ export function createBeamComponentsFromOutline(
   postSize,
   deckHeightInches,
   footingType,
-  beamType
+  beamType,
+  joistSpanFt = 12
 ) {
   const beams = [];
   const posts = [];
@@ -2465,9 +2481,14 @@ export function createBeamComponentsFromOutline(
 
     posts.push(...beamPosts);
 
-    // Create footings for each post
-    for (const post of beamPosts) {
-      const footing = createFooting(post.x, post.y, footingType);
+    // Create footings for each post with load-based sizing
+    // Tributary area depends on post position (corner vs edge vs interior)
+    const postSpacingFt = MAX_POST_SPACING_FEET; // 8' max between posts
+    for (let i = 0; i < beamPosts.length; i++) {
+      const post = beamPosts[i];
+      const isCorner = (i === 0 || i === beamPosts.length - 1);
+      const tributaryArea = calculateTributaryArea(postSpacingFt, joistSpanFt, isCorner);
+      const footing = createFooting(post.x, post.y, footingType, tributaryArea, isCorner);
       footings.push(footing);
     }
   }
@@ -2539,14 +2560,30 @@ function createPost(x, y, size, deckHeightInches, usage) {
 }
 
 /**
- * Creates a footing object
+ * Creates a footing object with load-based diameter calculation
+ * @param {number} x - X coordinate
+ * @param {number} y - Y coordinate
+ * @param {string} footingType - Type of footing (concrete, Helical, etc.)
+ * @param {number} tributaryAreaSqFt - Tributary area for load calculation (optional, defaults to typical 32 sqft)
+ * @param {boolean} isCorner - Whether this is a corner post (affects load calculation)
  */
-function createFooting(x, y, footingType) {
+function createFooting(x, y, footingType, tributaryAreaSqFt = 32, isCorner = false) {
+  // Helical piles don't need diameter calculation
+  if (footingType === "Helical" || footingType === "helical") {
+    return { x, y, type: footingType, diameter: 0 };
+  }
+
+  // Calculate load-based diameter using IRC R403.1
+  const footingCalc = calculateFootingDiameter(tributaryAreaSqFt);
+
   return {
     x,
     y,
     type: footingType,
-    diameter: footingType === "Helical" ? 0 : 16 // Standard footing diameter
+    diameter: footingCalc.diameter,
+    load: footingCalc.load,
+    tributaryArea: tributaryAreaSqFt,
+    warning: footingCalc.message
   };
 }
 
@@ -2693,12 +2730,17 @@ export function calculateAngledBeamAndPosts(
     };
   }
 
-  // Create footings
-  beamFootings.push(...beamPosts.map(post => ({
-    x: post.x,
-    y: post.y,
-    type: footingType
-  })));
+  // Create footings with load-based sizing
+  // Estimate tributary area based on beam length and typical joist span (8ft default)
+  const beamLengthFt = beamLengthPixels / PIXELS_PER_FOOT;
+  const postSpacingFt = beamPosts.length > 1 ? beamLengthFt / (beamPosts.length - 1) : beamLengthFt;
+  const estimatedJoistSpanFt = 8; // Conservative estimate for angled beams
+
+  beamFootings.push(...beamPosts.map((post, index) => {
+    const isCorner = (index === 0 || index === beamPosts.length - 1);
+    const tributaryArea = calculateTributaryArea(postSpacingFt, estimatedJoistSpanFt, isCorner);
+    return createFooting(post.x, post.y, footingType, tributaryArea, isCorner);
+  }));
 
   return {
     beam: {
@@ -3091,12 +3133,16 @@ export function trimBeamsAtIntersection(
     usage: "Intersection Post"
   };
 
-  // Create footing for intersection post
-  const intersectionFooting = {
-    x: intersection.x,
-    y: intersection.y,
-    type: footingType
-  };
+  // Create footing for intersection post with load-based sizing
+  // Intersection posts support load from both beams, estimate tributary area conservatively
+  const estimatedTributaryArea = 48; // Conservative estimate for intersection (8ft joist span × 6ft post spacing)
+  const intersectionFooting = createFooting(
+    intersection.x,
+    intersection.y,
+    footingType,
+    estimatedTributaryArea,
+    false // Not a corner post
+  );
 
   // Filter footings that are beyond the trim point
   const filteredOuterFootings = filterFootingsWithinBeam(outerFootings, trimmedOuterBeam);

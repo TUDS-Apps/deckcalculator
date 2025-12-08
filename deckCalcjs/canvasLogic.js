@@ -3031,7 +3031,8 @@ function drawDeckingBoards(currentCtx, points, deckDimensions, deckingState, sca
 
   currentCtx.save();
 
-  // Create clipping path from deck polygon
+  // Create clipping path from deck polygon - IMPORTANT: This ensures all decking
+  // stays within the actual deck boundary, even for L-shaped or complex polygons
   currentCtx.beginPath();
   currentCtx.moveTo(points[0].x, points[0].y);
   for (let i = 1; i < points.length; i++) {
@@ -3041,17 +3042,19 @@ function drawDeckingBoards(currentCtx, points, deckDimensions, deckingState, sca
   currentCtx.clip();
 
   // Draw main deck boards as filled rectangles FIRST
+  // Pass the polygon points for proper boundary-aware drawing
   if (boardDirection === 'horizontal') {
     drawHorizontalBoards(currentCtx, minX, maxX, minY, maxY, pictureFrameOffset,
                          boardWidthPx, gapPx, materialColors, scale);
   } else if (boardDirection === 'diagonal') {
-    drawDiagonalBoards(currentCtx, minX, maxX, minY, maxY, pictureFrameOffset,
-                       boardWidthPx, gapPx, materialColors, scale);
+    drawDiagonalBoardsClipped(currentCtx, points, minX, maxX, minY, maxY, pictureFrameOffset,
+                              boardWidthPx, gapPx, materialColors, scale);
   }
 
   // Draw picture frame border AFTER main boards so it's visible on top
+  // Picture frame also needs to respect the polygon boundary
   if (pictureFrame !== 'none') {
-    drawPictureFrameBorder(currentCtx, points, pictureFrame, materialColors, scaledLineWidth);
+    drawPictureFrameBorderClipped(currentCtx, points, pictureFrame, materialColors, scaledLineWidth);
   }
 
   // Draw breaker boards
@@ -3464,6 +3467,157 @@ function drawPictureFrameBorder(currentCtx, points, pictureFrame, colors, scaled
     if (len === 0) continue;
 
     // Use same winding-adjusted perpendicular
+    const perpX = (-dy / len) * windingSign;
+    const perpY = (dx / len) * windingSign;
+    const totalInset = numBoards * (boardWidthPx + gapWidthPx);
+
+    currentCtx.beginPath();
+    currentCtx.moveTo(p1.x + perpX * totalInset, p1.y + perpY * totalInset);
+    currentCtx.lineTo(p2.x + perpX * totalInset, p2.y + perpY * totalInset);
+    currentCtx.stroke();
+  }
+}
+
+/**
+ * Draw diagonal deck boards with proper clipping to polygon boundary
+ * This version is aware of the actual deck polygon shape (for L-shapes, etc.)
+ */
+function drawDiagonalBoardsClipped(ctx, points, minX, maxX, minY, maxY, offset, boardWidth, gap, colors, scale) {
+  const startY = minY + offset;
+  const endY = maxY - offset;
+  const startX = minX + offset;
+  const endX = maxX - offset;
+
+  const boardSpacing = boardWidth + gap;
+  const deckWidth = endX - startX;
+  const deckHeight = endY - startY;
+  const totalDiagDistance = deckWidth + deckHeight;
+
+  let boardIndex = 0;
+
+  // Draw boards starting from bottom-left going to top-right
+  for (let diagOffset = 0; diagOffset < totalDiagDistance + boardWidth * 2; diagOffset += boardSpacing) {
+    const perpOffsetX = boardWidth / Math.sqrt(2);
+    const perpOffsetY = boardWidth / Math.sqrt(2);
+
+    let x1Start, y1Start;
+    if (diagOffset < deckHeight) {
+      x1Start = startX;
+      y1Start = startY + diagOffset;
+    } else {
+      x1Start = startX + (diagOffset - deckHeight);
+      y1Start = endY;
+    }
+
+    // Calculate line length WITHOUT the extra extension
+    // The canvas clipping will handle boundary trimming
+    const lineLength = Math.min(endX - x1Start, y1Start - startY);
+
+    // Only add small extension within the bounding box
+    const safeExtension = Math.min(boardWidth, Math.min(endX - x1Start - lineLength, y1Start - startY - lineLength));
+    let x1End = x1Start + lineLength + Math.max(0, safeExtension);
+    let y1End = y1Start - lineLength - Math.max(0, safeExtension);
+
+    // Draw the board - clipping path will handle boundaries
+    drawDiagonalBoard(ctx, x1Start, y1Start, x1End, y1End, boardWidth,
+                      colors, boardIndex, scale);
+
+    boardIndex++;
+  }
+}
+
+/**
+ * Draw picture frame border with proper clipping to polygon boundary
+ * Handles concave corners correctly by using the canvas clip
+ */
+function drawPictureFrameBorderClipped(currentCtx, points, pictureFrame, colors, scaledLineWidth) {
+  const boardWidthInches = 5.5;
+  const boardWidthPx = boardWidthInches / 12 * config.PIXELS_PER_FOOT;
+  const gapWidthPx = 0.125 / 12 * config.PIXELS_PER_FOOT;
+
+  const numBoards = pictureFrame === 'double' ? 2 : 1;
+
+  // Board colors - darker than main boards
+  const baseColor = colors.boardFill || 'rgb(139, 105, 70)';
+  const rgbMatch = baseColor.match(/\d+/g);
+  const darkenFactor = 0.7;
+  const boardFill = rgbMatch
+    ? `rgb(${Math.round(rgbMatch[0] * darkenFactor)}, ${Math.round(rgbMatch[1] * darkenFactor)}, ${Math.round(rgbMatch[2] * darkenFactor)})`
+    : 'rgb(97, 74, 49)';
+  const boardStroke = rgbMatch
+    ? `rgb(${Math.round(rgbMatch[0] * 0.5)}, ${Math.round(rgbMatch[1] * 0.5)}, ${Math.round(rgbMatch[2] * 0.5)})`
+    : 'rgb(70, 53, 35)';
+
+  // Determine polygon winding order
+  let windingSum = 0;
+  for (let i = 0; i < points.length; i++) {
+    const p1 = points[i];
+    const p2 = points[(i + 1) % points.length];
+    windingSum += (p2.x - p1.x) * (p2.y + p1.y);
+  }
+  const windingSign = windingSum >= 0 ? -1 : 1;
+
+  // Draw picture frame boards along each edge
+  // The canvas clip is already set, so boards will be clipped at concave corners
+  for (let boardNum = 0; boardNum < numBoards; boardNum++) {
+    const outerInset = boardNum * (boardWidthPx + gapWidthPx);
+    const innerInset = (boardNum + 1) * (boardWidthPx + gapWidthPx) - gapWidthPx;
+
+    for (let i = 0; i < points.length; i++) {
+      const p1 = points[i];
+      const p2 = points[(i + 1) % points.length];
+
+      const dx = p2.x - p1.x;
+      const dy = p2.y - p1.y;
+      const len = Math.sqrt(dx * dx + dy * dy);
+      if (len === 0) continue;
+
+      const edgeX = dx / len;
+      const edgeY = dy / len;
+      const perpX = (-dy / len) * windingSign;
+      const perpY = (dx / len) * windingSign;
+
+      // Calculate corners with slight extension for clean overlap
+      // The clipping path will trim anything outside the polygon
+      const outer1X = p1.x + perpX * outerInset;
+      const outer1Y = p1.y + perpY * outerInset;
+      const outer2X = p2.x + perpX * outerInset;
+      const outer2Y = p2.y + perpY * outerInset;
+      const inner1X = p1.x + perpX * innerInset;
+      const inner1Y = p1.y + perpY * innerInset;
+      const inner2X = p2.x + perpX * innerInset;
+      const inner2Y = p2.y + perpY * innerInset;
+
+      // Draw filled rectangle for the board
+      currentCtx.fillStyle = boardFill;
+      currentCtx.beginPath();
+      currentCtx.moveTo(outer1X, outer1Y);
+      currentCtx.lineTo(outer2X, outer2Y);
+      currentCtx.lineTo(inner2X, inner2Y);
+      currentCtx.lineTo(inner1X, inner1Y);
+      currentCtx.closePath();
+      currentCtx.fill();
+
+      // Draw board outline
+      currentCtx.strokeStyle = boardStroke;
+      currentCtx.lineWidth = scaledLineWidth(1);
+      currentCtx.setLineDash([]);
+      currentCtx.stroke();
+    }
+  }
+
+  // Draw inner edge line
+  currentCtx.strokeStyle = boardStroke;
+  currentCtx.lineWidth = scaledLineWidth(1.5);
+  for (let i = 0; i < points.length; i++) {
+    const p1 = points[i];
+    const p2 = points[(i + 1) % points.length];
+
+    const dx = p2.x - p1.x;
+    const dy = p2.y - p1.y;
+    const len = Math.sqrt(dx * dx + dy * dy);
+    if (len === 0) continue;
+
     const perpX = (-dy / len) * windingSign;
     const perpY = (dx / len) * windingSign;
     const totalInset = numBoards * (boardWidthPx + gapWidthPx);

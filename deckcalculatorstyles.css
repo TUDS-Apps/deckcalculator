@@ -782,12 +782,31 @@ canvas.mode-transition {
   transition: background-color 0.15s ease;
 }
 
-.bom-table tr:hover td {
+.bom-table tr:hover:not(.bom-category-header):not(.bom-total-row) {
   background-color: rgba(74, 144, 226, 0.04);
 }
 
-.bom-table tr:nth-child(even) {
-  background-color: #f9fafb;
+/* Alternating row backgrounds for data rows - applies to ALL cells including the last (Total Price) column */
+.bom-table tr.bom-data-row.bom-row-odd {
+  background-color: #ffffff !important;
+}
+
+.bom-table tr.bom-data-row.bom-row-odd td,
+.bom-table tr.bom-data-row.bom-row-odd td:last-child,
+.bom-table tr.bom-data-row.bom-row-odd td.total-price-cell {
+  background-color: #ffffff !important;
+  background: #ffffff !important;
+}
+
+.bom-table tr.bom-data-row.bom-row-even {
+  background-color: #f9fafb !important;
+}
+
+.bom-table tr.bom-data-row.bom-row-even td,
+.bom-table tr.bom-data-row.bom-row-even td:last-child,
+.bom-table tr.bom-data-row.bom-row-even td.total-price-cell {
+  background-color: #f9fafb !important;
+  background: #f9fafb !important;
 }
 
 .bom-table tr:last-child td {
@@ -813,8 +832,14 @@ canvas.mode-transition {
 }
 
 /* Make the total row stand out */
-.bom-table tr.bom-total-row td {
-  background-color: #f0f9ff;
+.bom-table tr.bom-total-row {
+  background-color: #f0f9ff !important;
+}
+
+.bom-table tr.bom-total-row td,
+.bom-table tr.bom-total-row td:last-child {
+  background: #f0f9ff !important;
+  background-color: #f0f9ff !important;
   color: #0c4a6e;
   font-weight: 600;
   border-top: 2px solid #0c4a6e;
@@ -833,9 +858,23 @@ canvas.mode-transition {
   background-color: #2d4a6f;
 }
 
-.bom-table tr.bom-category-header td {
+/* Category header - apply dark blue to the row and all cells */
+.bom-table tr.bom-category-header {
+  background-color: #1e3a5f !important;
+}
+
+.bom-table tr.bom-category-header td,
+.bom-table tr.bom-category-header td.category-subtotal-cell {
   padding: 0.5rem 1rem;
   border-bottom: 1px solid #3d5a7f;
+  background: #1e3a5f !important;
+  background-color: #1e3a5f !important;
+}
+
+.bom-table tr.bom-category-header:hover,
+.bom-table tr.bom-category-header:hover td,
+.bom-table tr.bom-category-header:hover td.category-subtotal-cell {
+  background-color: #2d4a6f !important;
 }
 
 .category-header-content {
@@ -878,6 +917,55 @@ canvas.mode-transition {
   font-size: 0.9rem;
   font-weight: 600;
   color: #a7d3ff;
+}
+
+/* Subtotal cell in category header - aligns with Total Price column */
+.category-subtotal-cell {
+  text-align: right;
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: #a7d3ff !important;
+  white-space: nowrap;
+  padding-right: 1rem;
+  background: #1e3a5f !important;
+  background-color: #1e3a5f !important;
+}
+
+/* Ensure subtotal cell in category header always has dark blue background */
+.bom-table tr.bom-category-header td.category-subtotal-cell,
+.bom-table tr.bom-category-header > td:last-child,
+.bom-table tbody tr.bom-category-header td.category-subtotal-cell,
+.bom-table tbody tr.bom-category-header td:last-child,
+table.bom-table tr.bom-category-header td.category-subtotal-cell,
+table.bom-table tr.bom-category-header td:last-child {
+  background-color: #1e3a5f !important;
+  color: #a7d3ff !important;
+  background: #1e3a5f !important;
+}
+
+/* Force sixth column (Total Price) backgrounds - explicit overrides */
+.bom-table tbody tr.bom-data-row.bom-row-odd td:nth-child(6),
+.bom-table tbody tr.bom-data-row.bom-row-odd td:last-child {
+  background: #ffffff !important;
+  background-color: #ffffff !important;
+}
+
+.bom-table tbody tr.bom-data-row.bom-row-even td:nth-child(6),
+.bom-table tbody tr.bom-data-row.bom-row-even td:last-child {
+  background: #f9fafb !important;
+  background-color: #f9fafb !important;
+}
+
+.bom-table tbody tr.bom-total-row td:nth-child(2),
+.bom-table tbody tr.bom-total-row td:last-child {
+  background: #f0f9ff !important;
+  background-color: #f0f9ff !important;
+}
+
+.bom-table tbody tr.bom-category-header td:nth-child(2),
+.bom-table tbody tr.bom-category-header td:last-child {
+  background: #1e3a5f !important;
+  background-color: #1e3a5f !important;
 }
 
 /* Collapsed rows */
@@ -953,6 +1041,13 @@ canvas.mode-transition {
   /* Total row styling for print */
   .bom-table tr.bom-total-row td {
     background-color: #f0f9ff !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  /* Data row alternating backgrounds for print */
+  .bom-table tr.bom-data-row.bom-row-even td {
+    background-color: #f9fafb !important;
     -webkit-print-color-adjust: exact !important;
     print-color-adjust: exact !important;
   }

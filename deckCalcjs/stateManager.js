@@ -1,0 +1,412 @@
+// stateManager.js - Centralized Application State Management
+// Extracted from app.js to improve maintainability
+
+// ================================================
+// WIZARD STEP CONFIGURATION
+// ================================================
+export const WIZARD_STEPS = [
+  { id: 'draw', name: 'Draw Shape', shortName: 'Draw', icon: 'pencil' },
+  { id: 'structure', name: 'Structure', shortName: 'Structure', icon: 'grid' },
+  { id: 'stairs', name: 'Stairs', shortName: 'Stairs', icon: 'stairs' },
+  { id: 'decking', name: 'Decking', shortName: 'Decking', icon: 'boards' },
+  { id: 'railing', name: 'Railing', shortName: 'Railing', icon: 'fence', comingSoon: true },
+  { id: 'review', name: 'Review & Save', shortName: 'Review', icon: 'clipboard' }
+];
+
+// ================================================
+// DEFAULT STATE FACTORY
+// ================================================
+
+/**
+ * Creates a fresh tier state object
+ * @param {Object} overrides - Properties to override defaults
+ * @returns {Object} Tier state object
+ */
+export function createTierState(overrides = {}) {
+  return {
+    id: 'tier',
+    name: 'Tier',
+    heightFeet: 4,
+    heightInches: 0,
+    points: [],
+    selectedWallIndices: [],
+    structuralComponents: null,
+    rectangularSections: [],
+    deckDimensions: null,
+    isShapeClosed: false,
+    isDrawing: false,
+    color: '#4A90E2',
+    zOrder: 0,
+    ...overrides
+  };
+}
+
+/**
+ * Creates the default decking state
+ * @returns {Object} Decking state object
+ */
+export function createDeckingState() {
+  return {
+    material: 'pt',           // 'pt' | 'cedar' | 'composite'
+    cedarSize: '5/4x6',       // '5/4x6' | '5/4x5' (only for cedar)
+    boardDirection: 'horizontal', // 'horizontal' | 'diagonal'
+    pictureFrame: 'none',     // 'none' | 'single' | 'double'
+    breakerBoards: [],        // Array of {position: number (feet from ledger), id: string}
+    breakerPlacementMode: false,
+    showBoardLines: true
+  };
+}
+
+/**
+ * Creates the default layer visibility state
+ * @returns {Object} Layer visibility state
+ */
+export function createLayerVisibility() {
+  return {
+    outline: true,
+    ledger: true,
+    joists: true,
+    beams: true,
+    posts: true,
+    blocking: true,
+    dimensions: true,
+    stairs: true,
+    decking: true
+  };
+}
+
+/**
+ * Creates the default unlocked layers state
+ * @returns {Object} Unlocked layers state
+ */
+export function createUnlockedLayers() {
+  return {
+    outline: true,      // Always visible
+    dimensions: true,   // Always visible
+    ledger: false,      // Unlocked by completing Structure step
+    joists: false,      // Unlocked by completing Structure step
+    beams: false,       // Unlocked by completing Structure step
+    posts: false,       // Unlocked by completing Structure step
+    blocking: false,    // Unlocked by completing Structure step
+    stairs: false,      // Unlocked when first stair is placed
+    decking: false      // Unlocked when entering Decking step
+  };
+}
+
+/**
+ * Creates the complete initial application state
+ * @returns {Object} Application state object
+ */
+export function createInitialState() {
+  return {
+    // Drawing state
+    points: [],
+    isDrawing: false,
+    isShapeClosed: false,
+    currentMousePos: null,
+    currentModelMousePos: null,
+
+    // Wall selection
+    wallSelectionMode: false,
+    selectedWallIndices: [],
+
+    // Stair state
+    stairPlacementMode: false,
+    selectedStairIndex: -1,
+    isDraggingStairs: false,
+    draggedStairIndex: -1,
+    hoveredStairIndex: -1,
+    dragStartX: 0,
+    dragStartY: 0,
+    dragInitialStairX: 0,
+    dragInitialStairY: 0,
+
+    // Shape dragging state
+    isDraggingShape: false,
+    shapeDragStartMouse: null,
+    shapeDragInitialPoints: [],
+
+    // Calculation results
+    deckDimensions: null,
+    structuralComponents: null,
+    stairs: [],
+    bom: [],
+    isPrinting: false,
+
+    // Complex shape decomposition
+    rectangularSections: [],
+    showDecompositionShading: false,
+
+    // Viewport state
+    viewportScale: 1.0,
+    viewportOffsetX: 0,
+    viewportOffsetY: 0,
+
+    // Panning state
+    isPanning: false,
+    panStartViewX: 0,
+    panStartViewY: 0,
+    panInitialViewportOffsetX: 0,
+    panInitialViewportOffsetY: 0,
+
+    // Manual dimension input
+    isDimensionInputActive: false,
+    pendingDimensionStartPoint: null,
+
+    // View modes
+    isBlueprintMode: false,
+    viewMode: '2d',
+    viewer3D: null,
+
+    // Measurement tool
+    isMeasureMode: false,
+    measurePoint1: null,
+    measurePoint2: null,
+
+    // Layer states
+    layerVisibility: createLayerVisibility(),
+    unlockedLayers: createUnlockedLayers(),
+
+    // Panel/wizard state
+    currentPanelMode: 'drawing',
+    wizardStep: 'draw',
+    completedSteps: [],
+
+    // Undo/Redo
+    history: [],
+    historyIndex: -1,
+    maxHistorySize: 50,
+    isUndoRedoAction: false,
+
+    // Decking
+    decking: createDeckingState(),
+
+    // Multi-tier
+    tiersEnabled: true,
+    activeTierId: 'upper',
+    tiers: {
+      upper: createTierState({
+        id: 'upper',
+        name: 'Upper Tier',
+        heightFeet: 4,
+        heightInches: 0,
+        color: '#4A90E2',
+        zOrder: 1
+      }),
+      lower: createTierState({
+        id: 'lower',
+        name: 'Lower Tier',
+        heightFeet: 1,
+        heightInches: 6,
+        color: '#10B981',
+        zOrder: 0
+      })
+    }
+  };
+}
+
+// ================================================
+// SINGLETON STATE INSTANCE
+// ================================================
+
+// The actual application state - mutable singleton
+const appState = createInitialState();
+
+// Export the state object (for backwards compatibility)
+export { appState };
+
+// Also expose on window for legacy HTML handlers and debugging
+if (typeof window !== 'undefined') {
+  window.appState = appState;
+}
+
+// ================================================
+// STATE ACCESS HELPERS
+// ================================================
+
+/**
+ * Gets the currently active tier
+ * @returns {Object} Active tier state
+ */
+export function getActiveTier() {
+  return appState.tiers[appState.activeTierId];
+}
+
+/**
+ * Gets a specific tier by ID
+ * @param {string} tierId - Tier ID ('upper' or 'lower')
+ * @returns {Object|null} Tier state or null if not found
+ */
+export function getTier(tierId) {
+  return appState.tiers[tierId] || null;
+}
+
+/**
+ * Gets all tier IDs
+ * @returns {string[]} Array of tier IDs
+ */
+export function getTierIds() {
+  return Object.keys(appState.tiers);
+}
+
+/**
+ * Checks if a tier has a completed shape
+ * @param {string} tierId - Tier ID to check
+ * @returns {boolean} True if tier shape is closed
+ */
+export function isTierComplete(tierId) {
+  const tier = appState.tiers[tierId];
+  return tier && tier.isShapeClosed && tier.points.length >= 3;
+}
+
+/**
+ * Gets the deck height in total inches for a tier
+ * @param {string} tierId - Tier ID
+ * @returns {number} Height in inches
+ */
+export function getTierHeightInches(tierId) {
+  const tier = appState.tiers[tierId];
+  if (!tier) return 0;
+  return (tier.heightFeet * 12) + tier.heightInches;
+}
+
+// ================================================
+// TIER SYNC FUNCTIONS (moved from app.js)
+// ================================================
+
+/**
+ * Syncs the active tier's data to legacy appState fields.
+ * This allows existing calculation code to work unchanged.
+ */
+export function syncActiveTierToLegacy() {
+  const tier = appState.tiers[appState.activeTierId];
+  if (!tier) return;
+
+  appState.points = tier.points || [];
+  appState.selectedWallIndices = tier.selectedWallIndices || [];
+  appState.structuralComponents = tier.structuralComponents;
+  appState.rectangularSections = tier.rectangularSections || [];
+  appState.deckDimensions = tier.deckDimensions;
+  appState.isShapeClosed = tier.isShapeClosed || false;
+  appState.isDrawing = tier.isDrawing || false;
+
+  console.log(`[STATE] Synced tier '${tier.name}' to legacy state (closed: ${appState.isShapeClosed}, points: ${appState.points.length})`);
+}
+
+/**
+ * Syncs legacy appState fields back to the active tier.
+ * Called after calculations or edits modify the legacy fields.
+ */
+export function syncLegacyToActiveTier() {
+  const tier = appState.tiers[appState.activeTierId];
+  if (!tier) return;
+
+  tier.points = appState.points;
+  tier.selectedWallIndices = appState.selectedWallIndices;
+  tier.structuralComponents = appState.structuralComponents;
+  tier.rectangularSections = appState.rectangularSections;
+  tier.deckDimensions = appState.deckDimensions;
+  tier.isShapeClosed = appState.isShapeClosed;
+  tier.isDrawing = appState.isDrawing;
+
+  console.log(`[STATE] Synced legacy state back to tier '${tier.name}' (closed: ${tier.isShapeClosed}, points: ${tier.points.length})`);
+}
+
+// ================================================
+// STATE RESET FUNCTIONS
+// ================================================
+
+/**
+ * Resets the application state to initial values
+ */
+export function resetState() {
+  const initial = createInitialState();
+  Object.keys(initial).forEach(key => {
+    appState[key] = initial[key];
+  });
+  console.log('[STATE] Application state reset');
+}
+
+/**
+ * Resets a specific tier to initial values
+ * @param {string} tierId - Tier ID to reset
+ */
+export function resetTier(tierId) {
+  const tier = appState.tiers[tierId];
+  if (!tier) return;
+
+  const defaults = tierId === 'upper'
+    ? createTierState({ id: 'upper', name: 'Upper Tier', heightFeet: 4, heightInches: 0, color: '#4A90E2', zOrder: 1 })
+    : createTierState({ id: 'lower', name: 'Lower Tier', heightFeet: 1, heightInches: 6, color: '#10B981', zOrder: 0 });
+
+  Object.keys(defaults).forEach(key => {
+    tier[key] = defaults[key];
+  });
+
+  console.log(`[STATE] Tier '${tierId}' reset`);
+}
+
+/**
+ * Clears edit mode flags
+ */
+export function clearEditModes() {
+  appState.shapeEditMode = false;
+  appState.wallSelectionMode = false;
+  appState.stairPlacementMode = false;
+  appState.hoveredVertexIndex = -1;
+  appState.hoveredEdgeIndex = -1;
+  appState.isDraggingShape = false;
+  appState.isDraggingStairs = false;
+}
+
+// ================================================
+// LAYER MANAGEMENT
+// ================================================
+
+/**
+ * Unlocks structure layers (called when structure step is completed)
+ */
+export function unlockStructureLayers() {
+  appState.unlockedLayers.ledger = true;
+  appState.unlockedLayers.joists = true;
+  appState.unlockedLayers.beams = true;
+  appState.unlockedLayers.posts = true;
+  appState.unlockedLayers.blocking = true;
+  console.log('[STATE] Structure layers unlocked');
+}
+
+/**
+ * Unlocks stairs layer
+ */
+export function unlockStairsLayer() {
+  appState.unlockedLayers.stairs = true;
+  console.log('[STATE] Stairs layer unlocked');
+}
+
+/**
+ * Unlocks decking layer
+ */
+export function unlockDeckingLayer() {
+  appState.unlockedLayers.decking = true;
+  console.log('[STATE] Decking layer unlocked');
+}
+
+/**
+ * Sets visibility for a specific layer
+ * @param {string} layerName - Layer name
+ * @param {boolean} visible - Visibility state
+ */
+export function setLayerVisibility(layerName, visible) {
+  if (layerName in appState.layerVisibility) {
+    appState.layerVisibility[layerName] = visible;
+  }
+}
+
+/**
+ * Checks if a layer is both unlocked and visible
+ * @param {string} layerName - Layer name
+ * @returns {boolean} True if layer should be shown
+ */
+export function isLayerVisible(layerName) {
+  return appState.unlockedLayers[layerName] && appState.layerVisibility[layerName];
+}

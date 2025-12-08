@@ -560,6 +560,7 @@ function processLumber(structure, inputs, bomItems, parsedStockData) {
 
 function processFootings(structure, inputs, bomItems, parsedStockData) {
   const footingCount = structure.footings?.length || 0;
+  console.log('[BOM Footings] Footing count:', footingCount, 'Footing type:', inputs?.footingType);
   if (footingCount > 0) {
     const footingType = inputs.footingType;
     let footingItem = null,
@@ -585,14 +586,14 @@ function processFootings(structure, inputs, bomItems, parsedStockData) {
       footingDesc = "Helical Pile (Installed)";
     }
     
-    addItemToBOMAggregated(bomItems, footingItem, footingDesc, footingCount, "BEAMS, POSTS & FOOTINGS");
+    addItemToBOMAggregated(bomItems, footingItem, footingDesc, footingCount, "BEAMS & POSTS");
     if (slabItem)
       addItemToBOMAggregated(
         bomItems,
         slabItem,
         "Deck Slab 16x16",
         footingCount,
-        "BEAMS, POSTS & FOOTINGS"
+        "BEAMS & POSTS"
       );
   }
 }
@@ -607,7 +608,24 @@ function processHardwareAndAccessories(
   let totalScrews1_5 = 0;
   let totalScrews2_5 = 0;
 
+  console.log('[BOM Hardware] Starting hardware processing...');
+  console.log('[BOM Hardware] Structure:', {
+    hasLedger: !!structure?.ledger,
+    joistCount: structure?.joists?.length || 0,
+    beamCount: structure?.beams?.length || 0,
+    postCount: structure?.posts?.length || 0,
+    rimJoistCount: structure?.rimJoists?.length || 0,
+    cornerCount: structure?.cornerCount
+  });
+  console.log('[BOM Hardware] Inputs:', {
+    attachmentType: inputs?.attachmentType,
+    beamType: inputs?.beamType,
+    fasteners: inputs?.fasteners,
+    joistProtection: inputs?.joistProtection
+  });
+
   if (!structure || !deckDimensions) {
+    console.log('[BOM Hardware] Exiting early - no structure or deckDimensions');
     return { totalScrews1_5, totalScrews2_5 };
   }
 
@@ -619,6 +637,12 @@ function processHardwareAndAccessories(
     structure.beams?.[0]?.size ||
     "2x8";
 
+  console.log('[BOM Hardware] Ledger fasteners check:', {
+    attachmentType: inputs.attachmentType,
+    hasLedger: !!structure.ledger,
+    ledgerLength: structure.ledger?.lengthFeet
+  });
+
   if (inputs.attachmentType === "house_rim" && structure.ledger) {
     const lenIn = structure.ledger.lengthFeet * 12;
     const count = Math.max(4, Math.ceil(lenIn / 16) * 2);
@@ -628,7 +652,8 @@ function processHardwareAndAccessories(
         i.item?.includes('4"') &&
         i.item?.toLowerCase().includes("single")
     );
-    addItemToBOMAggregated(bomItems, item, 'Ledger Fastener (GRK 4")', count, "BEAMS, POSTS & FOOTINGS");
+    console.log('[BOM Hardware] Adding ledger fasteners:', count, 'Found item:', !!item);
+    addItemToBOMAggregated(bomItems, item, 'Ledger Fastener (GRK 4")', count, "BEAMS & POSTS");
   } else if (
     inputs.attachmentType === "concrete" &&
     structure.rimJoists?.some((r) => r.usage === "Wall Rim Joist")
@@ -648,15 +673,22 @@ function processHardwareAndAccessories(
         item,
         "Wall Rim Fastener (Titen HD 1/2X4)",
         count,
-        "BEAMS, POSTS & FOOTINGS"
+        "BEAMS & POSTS"
       );
     }
   }
 
   // H2.5Z hurricane ties: only for drop beam configurations
   // One tie per joist at each drop beam intersection
+  console.log('[BOM Hardware] Hurricane ties check:', {
+    beamType: inputs.beamType,
+    beamCount: structure.beams?.length || 0,
+    beams: structure.beams?.map(b => ({ usage: b.usage, isFlush: b.isFlush }))
+  });
+
   if (inputs.beamType === "drop") {
     const dropBeamCount = structure.beams?.filter(b => !b.isFlush).length || 0;
+    console.log('[BOM Hardware] Drop beam count:', dropBeamCount);
 
     if (dropBeamCount > 0) {
       const joistCount = (structure.joists || []).length;
@@ -664,12 +696,14 @@ function processHardwareAndAccessories(
         (r) => r.usage === "End Joist"
       ).length;
       const tieCount = (joistCount + endJoistCount) * dropBeamCount;
+      console.log('[BOM Hardware] Hurricane tie count:', tieCount, '(joists:', joistCount, 'endJoists:', endJoistCount, ')');
 
       if (tieCount > 0) {
         const h25Item = parsedStockData.find((i) =>
           i.item?.toLowerCase().includes("h2.5az")
         );
-        addItemToBOMAggregated(bomItems, h25Item, "H2.5 Tie (Drop Beam)", tieCount, "JOISTS, LEDGER, RIMS & BLOCKING");
+        console.log('[BOM Hardware] H2.5AZ item found:', !!h25Item);
+        addItemToBOMAggregated(bomItems, h25Item, "H2.5 Tie (Drop Beam)", tieCount, "HARDWARE");
         if (h25Item) totalScrews1_5 += tieCount * 10;
       }
     }
@@ -681,6 +715,13 @@ function processHardwareAndAccessories(
     (j) => j.usage === "Joist" || j.usage === "Picture Frame Joist"
   );
 
+  console.log('[BOM Hardware] Joist hanger calculation:', {
+    candidateJoists: candidateJoistSegmentsForHangers.length,
+    attachmentType: inputs.attachmentType,
+    beamType: inputs.beamType,
+    hasLedger: !!structure.ledger
+  });
+
   if (candidateJoistSegmentsForHangers.length > 0) {
     // Calculate joist runs (segments may be split by mid-beams)
     const numJoistSegments = candidateJoistSegmentsForHangers.length;
@@ -691,9 +732,12 @@ function processHardwareAndAccessories(
       ? Math.ceil(numJoistSegments / (numMidBeams + 1))
       : numJoistSegments;
 
+    console.log('[BOM Hardware] Joist runs:', { numJoistSegments, numMidBeams, numJoistRuns });
+
     // 1. Hangers at ledger (if ledger exists)
     if (inputs.attachmentType === "house_rim" && structure.ledger) {
       hanger_count_final += numJoistRuns;
+      console.log('[BOM Hardware] Adding hangers at ledger:', numJoistRuns);
     }
 
     // 2. Hangers at flush wall-side beam (floating deck with flush beams)
@@ -703,12 +747,14 @@ function processHardwareAndAccessories(
       );
       if (wallSideBeam && wallSideBeam.isFlush) {
         hanger_count_final += numJoistRuns;
+        console.log('[BOM Hardware] Adding hangers at wall-side beam:', numJoistRuns);
       }
     }
 
     // 3. Hangers at flush mid-beams (joists connect from both sides)
     if (inputs.beamType === "flush" && numMidBeams > 0) {
       hanger_count_final += numJoistRuns * 2 * numMidBeams;
+      console.log('[BOM Hardware] Adding hangers at mid-beams:', numJoistRuns * 2 * numMidBeams);
     }
 
     // 4. Hangers at flush outer beam
@@ -716,9 +762,12 @@ function processHardwareAndAccessories(
       const outerBeam = structure.beams?.find((b) => b.usage === "Outer Beam");
       if (outerBeam) {
         hanger_count_final += numJoistRuns;
+        console.log('[BOM Hardware] Adding hangers at outer beam:', numJoistRuns);
       }
     }
   }
+
+  console.log('[BOM Hardware] Total joist hangers:', hanger_count_final);
 
   if (hanger_count_final > 0) {
     let hangerLookup = "";
@@ -748,7 +797,7 @@ function processHardwareAndAccessories(
         item,
         `Joist Hanger (${primaryJoistSize} for Joist/PF Joist)`,
         hanger_count_final,
-        "JOISTS, LEDGER, RIMS & BLOCKING"
+        "HARDWARE"
       );
       if (item) {
         totalScrews1_5 += hanger_count_final * screws_1_5_per_hanger;
@@ -758,6 +807,11 @@ function processHardwareAndAccessories(
   }
 
   const postCount = structure.posts?.length || 0;
+  console.log('[BOM Hardware] Beam connectors check:', {
+    postCount,
+    postSize: structure.posts?.[0]?.size
+  });
+
   if (postCount > 0 && structure.posts[0]?.size) {
     const pSize = structure.posts[0].size;
     const mainBeamConnectedToPosts = structure.beams?.find(
@@ -777,24 +831,32 @@ function processHardwareAndAccessories(
       screws_per_bcs = 16;
     }
 
+    console.log('[BOM Hardware] Beam connector lookup:', connectorLookup, 'beamPly:', beamPlyForConnector);
+
     if (connectorLookup) {
       const item = parsedStockData.find(
         (i) =>
           i.item?.toLowerCase().includes(connectorLookup) &&
           i.item?.toLowerCase().includes("bcs")
       );
+      console.log('[BOM Hardware] BCS item found:', !!item);
       addItemToBOMAggregated(
         bomItems,
         item,
         `Beam Connector (${pSize} Post, ${beamPlyForConnector}-ply Beam)`,
         postCount,
-        "BEAMS, POSTS & FOOTINGS"
+        "BEAMS & POSTS"
       );
       if (item) totalScrews2_5 += postCount * screws_per_bcs;
     }
   }
 
   const numCornerAngles = structure.cornerCount || 4;
+  console.log('[BOM Hardware] Corner angles check:', {
+    numCornerAngles,
+    primaryJoistSize
+  });
+
   if (primaryJoistSize) {
     let angleLookup = "";
     let screws_per_angle = 0;
@@ -809,6 +871,8 @@ function processHardwareAndAccessories(
       screws_per_angle = 10;
     }
 
+    console.log('[BOM Hardware] Corner angle lookup:', angleLookup);
+
     if (angleLookup) {
       const item = parsedStockData.find(
         (i) =>
@@ -817,12 +881,13 @@ function processHardwareAndAccessories(
           (i.item?.toLowerCase().includes(" zmax") ||
             i.item?.toLowerCase().includes(" angle"))
       );
+      console.log('[BOM Hardware] Corner angle item found:', !!item, item?.item);
       addItemToBOMAggregated(
         bomItems,
         item,
         `Corner Angle (${angleLookup.toUpperCase()})`,
         numCornerAngles,
-        "JOISTS, LEDGER, RIMS & BLOCKING"
+        "HARDWARE"
       );
       if (item) totalScrews1_5 += numCornerAngles * screws_per_angle;
     }
@@ -871,14 +936,14 @@ function processHardwareAndAccessories(
       fDesc = `Framing Nails (Paslode 3-1/4") - ${fQty} box${fQty > 1 ? 'es' : ''}`;
     }
   }
-  if (fItem && fQty > 0) addItemToBOMAggregated(bomItems, fItem, fDesc, fQty, "JOISTS, LEDGER, RIMS & BLOCKING");
+  if (fItem && fQty > 0) addItemToBOMAggregated(bomItems, fItem, fDesc, fQty, "HARDWARE");
   else
     addItemToBOMAggregated(
       bomItems,
       null,
       `${fDesc} - No Stock Found or Zero Qty`,
       1,
-      "JOISTS, LEDGER, RIMS & BLOCKING"
+      "HARDWARE"
     );
 
   if (inputs.joistProtection !== "none") {
@@ -900,7 +965,7 @@ function processHardwareAndAccessories(
           item,
           'G-Tape (2" for Joists/Rims/Ledger)',
           rolls,
-          "JOISTS, LEDGER, RIMS & BLOCKING"
+          "HARDWARE"
         );
       }
       structure.beams?.forEach((b) => {
@@ -931,7 +996,7 @@ function processHardwareAndAccessories(
         const item = parsedStockData.find((i) =>
           i.item?.toLowerCase().includes("deck frame coating")
         );
-        addItemToBOMAggregated(bomItems, item, "Deck Frame Coating", pails, "JOISTS, LEDGER, RIMS & BLOCKING");
+        addItemToBOMAggregated(bomItems, item, "Deck Frame Coating", pails, "HARDWARE");
       }
     }
   }
@@ -944,13 +1009,13 @@ function processHardwareAndAccessories(
     const sealer = parsedStockData.find((i) =>
       i.item?.toLowerCase().includes("end cut sealer")
     );
-    addItemToBOMAggregated(bomItems, sealer, "End Cut Sealer", 1, "JOISTS, LEDGER, RIMS & BLOCKING");
+    addItemToBOMAggregated(bomItems, sealer, "End Cut Sealer", 1, "HARDWARE");
 
     if (sealer || inputs.joistProtection === "coating") {
       const brush = parsedStockData.find((i) =>
         i.item?.toLowerCase().includes("polyester stain brush")
       );
-      addItemToBOMAggregated(bomItems, brush, "Applicator Brush", 1, "JOISTS, LEDGER, RIMS & BLOCKING");
+      addItemToBOMAggregated(bomItems, brush, "Applicator Brush", 1, "HARDWARE");
     }
   }
   return { totalScrews1_5, totalScrews2_5 };
@@ -1517,7 +1582,7 @@ export function calculateBOM(structure, inputs, stairs, deckDimensions, deckingS
           null,
           `SD Screws ${screwDesc} - No Boxes Available`,
           totalNeeded,
-          "JOISTS, LEDGER, RIMS & BLOCKING"
+          "HARDWARE"
         );
         return;
       }
@@ -1575,7 +1640,7 @@ export function calculateBOM(structure, inputs, stairs, deckDimensions, deckingS
             box,
             `SD Screws ${screwDesc} (Box of ${box.pkg_qty})`,
             qty,
-            "JOISTS, LEDGER, RIMS & BLOCKING"
+            "HARDWARE"
           );
         });
       } else {
@@ -1585,7 +1650,7 @@ export function calculateBOM(structure, inputs, stairs, deckDimensions, deckingS
           null,
           `SD Screws ${screwDesc} - Could not determine box combination`,
           totalNeeded,
-          "JOISTS, LEDGER, RIMS & BLOCKING"
+          "HARDWARE"
         );
       }
     };
