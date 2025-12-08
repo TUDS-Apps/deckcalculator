@@ -10023,7 +10023,7 @@ window.closeFeedbackModal = function() {
  */
 function captureCanvasScreenshot() {
   try {
-    const canvas = document.getElementById('mainCanvas');
+    const canvas = document.getElementById('deckCanvas');
     if (!canvas) {
       console.warn('[FEEDBACK] Canvas not found');
       return null;
@@ -10054,6 +10054,24 @@ function captureCanvasScreenshot() {
 }
 
 /**
+ * Removes undefined values from an object (Firestore doesn't allow undefined)
+ */
+function removeUndefined(obj) {
+  if (obj === null || obj === undefined) return null;
+  if (typeof obj !== 'object') return obj;
+  if (Array.isArray(obj)) {
+    return obj.map(item => removeUndefined(item));
+  }
+  const cleaned = {};
+  for (const [key, value] of Object.entries(obj)) {
+    if (value !== undefined) {
+      cleaned[key] = removeUndefined(value);
+    }
+  }
+  return cleaned;
+}
+
+/**
  * Captures technical data for debugging
  */
 function captureTechnicalData() {
@@ -10065,14 +10083,14 @@ function captureTechnicalData() {
       screenSize: `${window.innerWidth}x${window.innerHeight}`,
 
       // Current state
-      currentTier: appState.currentTier,
-      currentWizardStep: appState.currentWizardStep,
-      drawMode: appState.drawMode,
+      currentTier: appState.currentTier || 'none',
+      currentWizardStep: appState.currentWizardStep || 0,
+      drawMode: appState.drawMode || 'none',
 
       // Shape data
       pointsCount: appState.points?.length || 0,
       points: appState.points?.map(p => ({ x: Math.round(p.x), y: Math.round(p.y) })) || [],
-      isClosed: appState.isClosed,
+      isClosed: appState.isClosed || false,
 
       // Multi-tier info
       hasUpperTier: !!appState.upperTier,
@@ -10082,13 +10100,13 @@ function captureTechnicalData() {
 
       // Structure settings
       structureSettings: appState.structureSettings ? {
-        heightFeet: appState.structureSettings.heightFeet,
-        heightInches: appState.structureSettings.heightInches,
-        footingType: appState.structureSettings.footingType,
-        postSize: appState.structureSettings.postSize,
-        joistSpacing: appState.structureSettings.joistSpacing,
-        attachmentType: appState.structureSettings.attachmentType,
-        beamType: appState.structureSettings.beamType
+        heightFeet: appState.structureSettings.heightFeet || 0,
+        heightInches: appState.structureSettings.heightInches || 0,
+        footingType: appState.structureSettings.footingType || 'unknown',
+        postSize: appState.structureSettings.postSize || 'unknown',
+        joistSpacing: appState.structureSettings.joistSpacing || 'unknown',
+        attachmentType: appState.structureSettings.attachmentType || 'unknown',
+        beamType: appState.structureSettings.beamType || 'unknown'
       } : null,
 
       // Structural components summary
@@ -10103,16 +10121,16 @@ function captureTechnicalData() {
       // Stair info
       stairCount: appState.stairs?.length || 0,
       stairs: appState.stairs?.map(s => ({
-        id: s.id,
-        width: s.width,
-        targetEdge: s.targetEdge
+        id: s.id || 'unknown',
+        width: s.width || 0,
+        targetEdge: s.targetEdge || 'unknown'
       })) || [],
 
       // Decking settings
       deckingSettings: appState.deckingSettings ? {
-        material: appState.deckingSettings.material,
-        direction: appState.deckingSettings.direction,
-        pictureFrame: appState.deckingSettings.pictureFrame
+        material: appState.deckingSettings.material || 'unknown',
+        direction: appState.deckingSettings.direction || 'unknown',
+        pictureFrame: appState.deckingSettings.pictureFrame || false
       } : null,
 
       // User info (if logged in)
@@ -10122,10 +10140,11 @@ function captureTechnicalData() {
       calculatedArea: appState.calculatedArea || null
     };
 
-    feedbackData.technicalData = data;
+    // Remove any remaining undefined values (Firestore doesn't allow them)
+    feedbackData.technicalData = removeUndefined(data);
     console.log('[FEEDBACK] Technical data captured');
 
-    return data;
+    return feedbackData.technicalData;
   } catch (error) {
     console.error('[FEEDBACK] Error capturing technical data:', error);
     return { error: error.message };
