@@ -5661,17 +5661,24 @@ window.set3DViewPreset = set3DViewPreset;
 
 // --- Decomposition Visualization Toggle ---
 function handleToggleDecomposition() {
-  appState.showDecompositionShading = !appState.showDecompositionShading;
+  console.log('[DECOMPOSITION] Button clicked');
+  console.log('[DECOMPOSITION] Current state:', appState.showDecompositionShading);
+  console.log('[DECOMPOSITION] rectangularSections:', appState.rectangularSections?.length || 0, 'sections');
+  console.log('[DECOMPOSITION] isShapeClosed:', appState.isShapeClosed);
 
-  // Update button appearance
-  if (appState.showDecompositionShading) {
-    toggleDecompositionBtn.classList.add('btn-primary');
-    toggleDecompositionBtn.classList.remove('btn-secondary');
-    uiController.updateCanvasStatus("Decomposition view: Showing rectangle decomposition");
-  } else {
-    toggleDecompositionBtn.classList.add('btn-secondary');
-    toggleDecompositionBtn.classList.remove('btn-primary');
-    uiController.updateCanvasStatus("Standard view: Rectangle decomposition hidden");
+  appState.showDecompositionShading = !appState.showDecompositionShading;
+  console.log('[DECOMPOSITION] New state:', appState.showDecompositionShading);
+
+  // Query button fresh to update appearance
+  const btn = document.getElementById("toggleDecompositionBtn");
+  if (btn) {
+    if (appState.showDecompositionShading) {
+      btn.classList.add('active');
+      uiController.updateCanvasStatus("Decomposition view: Showing rectangle decomposition");
+    } else {
+      btn.classList.remove('active');
+      uiController.updateCanvasStatus("Standard view: Rectangle decomposition hidden");
+    }
   }
 
   redrawApp();
@@ -5962,7 +5969,11 @@ document.addEventListener("DOMContentLoaded", () => {
   if (blueprintToggleBtn) blueprintToggleBtn.addEventListener("click", handleBlueprintToggle);
   const measureToolBtn = document.getElementById("measureToolBtn");
   if (measureToolBtn) measureToolBtn.addEventListener("click", handleMeasureToolToggle);
-  if (toggleDecompositionBtn) toggleDecompositionBtn.addEventListener("click", handleToggleDecomposition);
+
+  // Query decomposition button fresh to ensure DOM is ready
+  const decompositionBtn = document.getElementById("toggleDecompositionBtn");
+  console.log('[INIT] Decomposition button found:', !!decompositionBtn);
+  if (decompositionBtn) decompositionBtn.addEventListener("click", handleToggleDecomposition);
 
   // Add dimension input button event listeners
   if (applyDimensionBtn) applyDimensionBtn.addEventListener("click", handleDimensionInputApply);
@@ -10004,6 +10015,9 @@ window.openFeedbackModal = function() {
 
   // Pre-capture canvas screenshot for preview (async, will update when ready)
   captureCanvasOnly(); // Start with canvas-only for speed
+
+  // Initialize draggable behavior
+  initDraggableModal('feedbackModalContent');
 };
 
 /**
@@ -10015,8 +10029,74 @@ window.closeFeedbackModal = function() {
     modal.classList.add('hidden');
     modal.style.display = 'none';
   }
+  // Reset modal position
+  const modalContent = document.getElementById('feedbackModalContent');
+  if (modalContent) {
+    modalContent.style.transform = '';
+    modalContent.style.left = '';
+    modalContent.style.top = '';
+  }
   feedbackData = { screenshot: null, technicalData: null };
 };
+
+/**
+ * Makes a modal draggable by its header
+ */
+function initDraggableModal(modalContentId) {
+  const modalContent = document.getElementById(modalContentId);
+  if (!modalContent) return;
+
+  const handle = modalContent.querySelector('.draggable-handle');
+  if (!handle) return;
+
+  let isDragging = false;
+  let startX, startY, initialX, initialY;
+
+  // Get current transform or default to 0
+  function getCurrentTransform() {
+    const style = window.getComputedStyle(modalContent);
+    const transform = style.transform;
+    if (transform === 'none') return { x: 0, y: 0 };
+
+    const matrix = transform.match(/matrix.*\((.+)\)/);
+    if (matrix) {
+      const values = matrix[1].split(', ');
+      return { x: parseFloat(values[4]) || 0, y: parseFloat(values[5]) || 0 };
+    }
+    return { x: 0, y: 0 };
+  }
+
+  handle.addEventListener('mousedown', (e) => {
+    // Don't drag if clicking on buttons
+    if (e.target.closest('button')) return;
+
+    isDragging = true;
+    const current = getCurrentTransform();
+    initialX = current.x;
+    initialY = current.y;
+    startX = e.clientX;
+    startY = e.clientY;
+
+    modalContent.style.transition = 'none';
+    e.preventDefault();
+  });
+
+  document.addEventListener('mousemove', (e) => {
+    if (!isDragging) return;
+
+    const dx = e.clientX - startX;
+    const dy = e.clientY - startY;
+
+    modalContent.style.transform = `translate(${initialX + dx}px, ${initialY + dy}px)`;
+  });
+
+  document.addEventListener('mouseup', () => {
+    if (isDragging) {
+      isDragging = false;
+      modalContent.style.transition = '';
+    }
+  });
+}
 
 /**
  * Gets the selected screenshot type
