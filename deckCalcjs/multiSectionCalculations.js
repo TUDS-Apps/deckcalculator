@@ -2334,3 +2334,6 @@ function extendDiagonalBeamToEdge(beam, dimensions, diagEdge, deckCenter) {
 
   return extendedBeam;
 }
+
+// Export clipping/geometry utilities for testing
+export { clipBeamToDeckBoundary, clipJoistToBoundary, isPointInsidePolygon, isPointOnSegment, lineIntersection };

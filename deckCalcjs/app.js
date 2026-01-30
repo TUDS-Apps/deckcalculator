@@ -1,19 +1,20 @@
 // app.js - Main Application Logic (v6 - Panning & Button Relocation)
 
 // --- Module Imports ---
-import * as config from "./config.js?v=8";
-import * as utils from "./utils.js?v=8";
-import * as dataManager from "./dataManager.js?v=8";
-import * as uiController from "./uiController.js?v=8";
-import * as deckCalculations from "./deckCalculations.js?v=8";
-import * as stairCalculations from "./stairCalculations.js?v=8";
-import * as canvasLogic from "./canvasLogic.js?v=8";
-import * as bomCalculations from "./bomCalculations.js?v=8";
-import * as shapeValidator from "./shapeValidator.js?v=8";
-import * as shapeDecomposer from "./shapeDecomposer.js?v=8";
-import * as shopifyService from "./shopifyService.js?v=8";
+import * as config from "./config.js";
+import * as utils from "./utils.js";
+import * as dataManager from "./dataManager.js";
+import * as uiController from "./uiController.js";
+import * as deckCalculations from "./deckCalculations.js";
+import * as stairCalculations from "./stairCalculations.js";
+import * as canvasLogic from "./canvasLogic.js";
+import * as bomCalculations from "./bomCalculations.js";
+import * as shapeValidator from "./shapeValidator.js";
+import * as shapeDecomposer from "./shapeDecomposer.js";
+import * as shopifyService from "./shopifyService.js";
 import { DeckViewer3D } from "./deckViewer3D.js";
-import * as multiSectionCalculations from "./multiSectionCalculations.js?v=8";
+import * as multiSectionCalculations from "./multiSectionCalculations.js";
+import * as drawingStateMachine from "./drawingStateMachine.js";
 
 // --- State Management (extracted to stateManager.js) ---
 import {
@@ -26,7 +27,7 @@ import {
   unlockStructureLayers,
   unlockStairsLayer,
   unlockDeckingLayer
-} from "./stateManager.js?v=8";
+} from "./stateManager.js";
 
 // --- DOM Helpers (cached element access) ---
 import {
@@ -45,7 +46,7 @@ import {
   openModal,
   closeModal,
   preCacheElements
-} from "./domHelpers.js?v=8";
+} from "./domHelpers.js";
 
 // --- Structural Validation (debug rendering issues) ---
 import {
@@ -54,7 +55,7 @@ import {
   drawValidationDebugOverlay,
   autoCorrectComponents,
   logAutoCorrections
-} from "./structuralValidator.js?v=9";
+} from "./structuralValidator.js";
 
 // NOTE: Application state (appState) is now imported from stateManager.js
 // The sync functions (syncActiveTierToLegacy, syncLegacyToActiveTier) are also imported
@@ -3762,44 +3763,36 @@ function handleKeyDown(event) {
 }
 
 function handleCanvasClick(viewMouseX, viewMouseY) {
-  // If panning was just completed on mouseup, don't process a click immediately
+  // Guard: panning was just completed
   if (appState.wasPanningOnMouseUp) {
-    appState.wasPanningOnMouseUp = false; // Reset flag
+    appState.wasPanningOnMouseUp = false;
     return;
   }
 
-  // If vertex/edge dragging was just completed, don't process a click
-  // This prevents accidental vertex removal after a drag
+  // Guard: vertex/edge dragging was just completed
   if (appState.wasEditingOnMouseUp) {
-    appState.wasEditingOnMouseUp = false; // Reset flag
+    appState.wasEditingOnMouseUp = false;
     return;
   }
 
   const modelMouse = getModelMousePosition(viewMouseX, viewMouseY);
   appState.currentModelMousePos = modelMouse;
 
-  // If dimension input is active, cancel it but DON'T place a point
-  // This prevents double points when canceling dimension input
+  // Guard: dimension input active
   if (appState.isDimensionInputActive) {
     handleDimensionInputCancel();
-    return; // Skip placing a point on this click
+    return;
   }
 
-  // Handle tier selection clicks (multi-tier mode)
-  // Allow clicking on an inactive tier's shape to switch to it
-  // BUT only if the active tier's shape is already closed (not currently drawing)
+  // Guard: tier switching (needs canvasLogic/shapeDecomposer, stays in app.js)
   if (appState.tiersEnabled && appState.wizardStep === 'draw' && appState.tiers) {
     const activeTierId = appState.activeTierId || 'upper';
     const activeTier = appState.tiers[activeTierId];
-
-    // Only allow tier switching if the active tier is closed (not drawing)
-    // This prevents tier switches from intercepting drawing clicks
     if (activeTier && activeTier.isShapeClosed) {
       for (const tierId in appState.tiers) {
-        if (tierId === activeTierId) continue; // Skip active tier
+        if (tierId === activeTierId) continue;
         const tier = appState.tiers[tierId];
         if (tier.points && tier.points.length >= 3) {
-          // Check if click is inside this tier's shape
           if (shapeDecomposer.isPointInsidePolygon(modelMouse, tier.points)) {
             switchActiveTier(tierId);
             uiController.updateCanvasStatus(`Switched to ${tier.name}`);
@@ -3810,434 +3803,240 @@ function handleCanvasClick(viewMouseX, viewMouseY) {
     }
   }
 
-  // Handle measurement tool clicks
-  if (appState.isMeasureMode) {
-    if (handleMeasureClick(modelMouse.x, modelMouse.y)) {
-      return; // Measurement handled the click
-    }
-  }
-
-  // Handle breaker board placement clicks
-  if (appState.decking && appState.decking.breakerPlacementMode) {
-    if (handleBreakerPlacement(modelMouse.x, modelMouse.y)) {
-      return; // Breaker placement handled the click
-    }
-  }
-
-  // Skip stair placement if breaker placement mode is active
-  if (appState.stairPlacementMode && !(appState.decking && appState.decking.breakerPlacementMode)) {
-    handleStairPlacementClick(modelMouse.x, modelMouse.y);
-    return;
-  }
-
-  // Handle icon clicks for add/remove vertices (unified edit mode)
-  if (appState.isShapeClosed &&
-      appState.shapeEditMode &&
-      appState.hoveredIconType &&
-      appState.wizardStep === 'draw') {
-
-    // Debounce: prevent rapid clicks from triggering multiple operations
-    const now = Date.now();
-    if (appState.lastVertexEditTime && (now - appState.lastVertexEditTime) < 200) {
-      return; // Ignore clicks within 200ms of the last edit
-    }
-    appState.lastVertexEditTime = now;
-
-    // Click on delete icon to REMOVE vertex
-    if (appState.hoveredIconType === 'delete' && appState.hoveredVertexIndex >= 0) {
-      const success = removeVertex(appState.hoveredVertexIndex);
-      if (success) {
-        saveHistoryState('Remove vertex');
-        recalculateShapeAfterEdit();
-        uiController.updateCanvasStatus('Point removed.');
-      }
-      appState.hoveredIconType = null; // Reset after action
-      redrawApp();
-      return;
-    }
-
-    // Click on add icon to ADD a vertex
-    if (appState.hoveredIconType === 'add' && appState.hoveredEdgeIndex >= 0) {
-      const success = insertVertexOnEdge(appState.hoveredEdgeIndex, modelMouse);
-      if (success) {
-        saveHistoryState('Add vertex');
-        recalculateShapeAfterEdit();
-        uiController.updateCanvasStatus('Point added.');
-      }
-      appState.hoveredIconType = null; // Reset after action
-      redrawApp();
-      return;
-    }
-  }
-
-  // Delete button clicks are now handled through the UI panel, not canvas clicks
-  // Skip wall selection handling when in shape edit mode
-  if (appState.wallSelectionMode && !appState.shapeEditMode) {
-    const clickedWallIndex = canvasLogic.findClickedWallIndex(
-      modelMouse.x,
-      modelMouse.y,
-      appState.points,
-      appState.viewportScale
-    );
-    if (clickedWallIndex !== -1) {
-      // Handle multi-wall selection
-      const currentIndex = appState.selectedWallIndices.indexOf(clickedWallIndex);
-      
-      if (currentIndex === -1) {
-        // Wall not selected - add it if parallel validation passes
-        const tempIndices = [...appState.selectedWallIndices, clickedWallIndex];
-        const validation = validateSelectedWalls(tempIndices, appState.points);
-
-        if (validation.isValid) {
-          appState.selectedWallIndices.push(clickedWallIndex);
-          saveHistoryState('Select wall');
-          uiController.updateCanvasStatus(
-            `${appState.selectedWallIndices.length} wall(s) selected for ledger attachment.`
-          );
-        } else {
-          uiController.updateCanvasStatus(`Error: ${validation.error}`);
-        }
-      } else {
-        // Wall already selected - remove it
-        appState.selectedWallIndices.splice(currentIndex, 1);
-        saveHistoryState('Deselect wall');
-        uiController.updateCanvasStatus(
-          appState.selectedWallIndices.length > 0
-            ? `${appState.selectedWallIndices.length} wall(s) selected for ledger attachment.`
-            : "Click wall edges to select for ledger attachment."
-        );
-      }
-
-      // Update decomposition if we have at least one wall selected
-      if (appState.selectedWallIndices.length > 0) {
-        decomposeClosedShape();
-        // Trigger auto-calculation to generate framing plan
-        triggerAutoCalculation();
-      } else {
-        appState.rectangularSections = [];
-      }
-
-      // Update the wizard Next button state
-      updateWizardNextButton(appState.wizardStep);
-
-      // Only exit wall selection mode when Generate Plan is clicked
-      // Keep wall selection mode active for multi-selection
-      updateContextualPanel();
-      redrawApp();
-    }
-  } else if (
-    !appState.isDrawing &&
-    appState.isShapeClosed &&
-    appState.stairs.length > 0
-  ) {
-    let didClickOnStair = false;
-    for (let i = 0; i < appState.stairs.length; i++) {
-      if (
-        canvasLogic.isPointInStairBounds(
-          modelMouse.x,
-          modelMouse.y,
-          appState.stairs[i],
-          appState.deckDimensions,
-          appState.viewportScale
-        )
-      ) {
-        appState.selectedStairIndex =
-          appState.selectedStairIndex === i ? -1 : i;
-        didClickOnStair = true;
-        break;
-      }
-    }
-    if (
-      !didClickOnStair &&
-      appState.selectedStairIndex !== -1 &&
-      !appState.isDraggingStairs
-    ) {
-      appState.selectedStairIndex = -1;
-    }
-    if (didClickOnStair && appState.isDraggingStairs) {
-      /* Already handled by mousedown */
-    } else if (didClickOnStair) {
-      redrawApp();
-      return;
-    }
-  }
-
-  if (
-    appState.isShapeClosed &&
-    !appState.stairPlacementMode &&
-    appState.selectedStairIndex === -1 &&
-    !appState.isDraggingStairs
-  ) {
-    const clickedWallIdx = canvasLogic.findClickedWallIndex(
-      modelMouse.x,
-      modelMouse.y,
-      appState.points,
-      appState.viewportScale
-    );
-    if (
-      clickedWallIdx !== -1 &&
-      !appState.selectedWallIndices.includes(clickedWallIdx)
-    ) {
-      appState.wallSelectionMode = true;
-      appState.selectedWallIndices = [];
-      appState.structuralComponents = null;
-      appState.bom = [];
-      uiController.resetUIOutputs();
-      updateContextualPanel();
-      updateWizardNextButton('draw'); // Disable Next button until wall selected
-    }
-  }
-
-  // Ensure legacy state reflects active tier before checking drawing conditions
-  // This prevents state desync issues when drawing on secondary tiers
+  // Ensure legacy state reflects active tier before state determination
   if (appState.tiersEnabled && appState.tiers[appState.activeTierId]) {
     const activeTier = appState.tiers[appState.activeTierId];
     if (!activeTier.isShapeClosed) {
-      // Active tier is not closed - ensure legacy state matches for drawing
       appState.isShapeClosed = false;
       appState.wallSelectionMode = false;
     }
   }
 
-  if (!appState.isShapeClosed && !appState.wallSelectionMode) {
-    // Prevent concurrent click processing (for synthetic events)
-    if (appState.isProcessingClick) {
-      return;
-    }
-    appState.isProcessingClick = true;
+  // Determine current state and dispatch to state machine
+  const currentState = drawingStateMachine.getCurrentState(appState);
+  let action;
 
-    // Debounce: prevent rapid clicks from triggering multiple point additions
+  // For WALL_SELECT, pre-compute the clicked wall index (DOM-dependent)
+  if (currentState === drawingStateMachine.DrawingState.WALL_SELECT) {
+    const clickedWallIndex = canvasLogic.findClickedWallIndex(
+      modelMouse.x, modelMouse.y, appState.points, appState.viewportScale
+    );
+    action = drawingStateMachine.handleWallSelectClick(clickedWallIndex, appState);
+  } else if (currentState === drawingStateMachine.DrawingState.IDLE ||
+             currentState === drawingStateMachine.DrawingState.DRAWING) {
+    // Debounce for drawing states
+    if (appState.isProcessingClick) return;
+    appState.isProcessingClick = true;
     const now = Date.now();
     if (appState.lastPointAddTime && (now - appState.lastPointAddTime) < 100) {
       appState.isProcessingClick = false;
-      return; // Ignore clicks within 100ms of the last point add
-    }
-    appState.lastPointAddTime = now;
-
-    // First, check if we're trying to close the shape by clicking near the first point
-    // We need to check this BEFORE orthogonal snapping, since the snapping might
-    // push the position away from the first point
-    const modelSnapTolerance =
-      config.SNAP_TOLERANCE_PIXELS / appState.viewportScale;
-
-    let snappedModelPos;
-    let isClosingClick = false;
-
-    // Check if clicking near first point to close shape (using raw mouse position)
-    if (appState.points.length >= 3) {
-      const distanceToFirstPoint = utils.distance(modelMouse, appState.points[0]);
-      // Use a generous tolerance for closing detection (3x the normal snap tolerance)
-      // This makes it easier for users to close shapes by clicking near the first point
-      if (distanceToFirstPoint < modelSnapTolerance * 3) {
-        // Snap directly to the first point for closing
-        snappedModelPos = { ...appState.points[0] };
-        isClosingClick = true;
-      }
-    }
-
-    // If not a closing click, use normal snapping
-    if (!isClosingClick) {
-      snappedModelPos = canvasLogic.getSnappedPos(
-        modelMouse.x,
-        modelMouse.y,
-        appState.points,
-        appState.isShapeClosed
-      );
-    }
-
-    const modelLimitX = config.MODEL_WIDTH_FEET * config.PIXELS_PER_FOOT;
-    const modelLimitY = config.MODEL_HEIGHT_FEET * config.PIXELS_PER_FOOT;
-    if (
-      snappedModelPos.x < 0 ||
-      snappedModelPos.x > modelLimitX ||
-      snappedModelPos.y < 0 ||
-      snappedModelPos.y > modelLimitY
-    ) {
-      uiController.updateCanvasStatus(
-        "Cannot draw outside the designated area (100ft x 100ft)."
-      );
-      redrawApp();
       return;
     }
+    appState.lastPointAddTime = now;
+    action = drawingStateMachine.handleClick(modelMouse, appState, config);
+    appState.isProcessingClick = false;
+  } else {
+    action = drawingStateMachine.handleClick(modelMouse, appState, config);
+  }
 
-    // Process new point or close shape
-    if (appState.points.length >= 3 && isClosingClick) {
-      // Closing click detected - close the shape
-      // Create a temporary shape for validation that includes corner point and closing
-      let tempPoints = [...appState.points];
+  // Apply the action (state mutation happens here only)
+  applyDrawingAction(action, modelMouse);
 
-      // Create orthogonal closing path if needed
-      const lastPoint = tempPoints[tempPoints.length - 1];
-      const startPoint = tempPoints[0];
+  redrawApp();
+}
 
-      // Minimum segment length in pixels (3 inches = 0.25 feet)
-      // Used to auto-correct small misalignments that would create invalid short segments
-      const minSegmentPixels = 0.25 * config.PIXELS_PER_FOOT;
+// --- State Machine Action Applicator ---
+// This is the ONLY place state mutation happens for canvas click events.
+function applyDrawingAction(action, modelMouse) {
+  if (!action) return;
 
-      let dx = Math.abs(lastPoint.x - startPoint.x);
-      let dy = Math.abs(lastPoint.y - startPoint.y);
+  // Handle NONE with delegation flags
+  if (action.type === drawingStateMachine.ActionType.NONE) {
+    if (action._delegateStairSelect) {
+      applyStairSelection(action.position);
+    }
+    if (action._delegateWallReenter) {
+      applyWallReenter(action.position);
+    }
+    return;
+  }
 
-      // Auto-correct small misalignments to prevent creating invalid short segments
-      // If the x/y difference is smaller than minimum segment length, snap to alignment
-      if (dx > config.EPSILON && dx < minSegmentPixels) {
-        // Small x misalignment - snap last point's x to start point's x
-        console.log(`[CLOSE] Auto-correcting small X misalignment (${dx.toFixed(2)}px < ${minSegmentPixels.toFixed(2)}px min)`);
-        tempPoints[tempPoints.length - 1] = { ...lastPoint, x: startPoint.x };
-        dx = 0;
-      }
-      if (dy > config.EPSILON && dy < minSegmentPixels) {
-        // Small y misalignment - snap last point's y to start point's y
-        console.log(`[CLOSE] Auto-correcting small Y misalignment (${dy.toFixed(2)}px < ${minSegmentPixels.toFixed(2)}px min)`);
-        tempPoints[tempPoints.length - 1] = { ...tempPoints[tempPoints.length - 1], y: startPoint.y };
-        dy = 0;
-      }
+  switch (action.type) {
+    // --- Delegation to existing handlers ---
+    case drawingStateMachine.ActionType.DELEGATE_MEASURE:
+      handleMeasureClick(action.position.x, action.position.y);
+      break;
 
-      if (dx > config.EPSILON && dy > config.EPSILON) {
-        // We need to add a corner point to ensure 90-degree angles
-        // (only if both dx and dy are significant after auto-correction)
+    case drawingStateMachine.ActionType.DELEGATE_BREAKER:
+      handleBreakerPlacement(action.position.x, action.position.y);
+      break;
 
-        // Get the potentially updated last point (may have been auto-corrected above)
-        const updatedLastPoint = tempPoints[tempPoints.length - 1];
+    case drawingStateMachine.ActionType.DELEGATE_STAIR:
+      handleStairPlacementClick(action.position.x, action.position.y);
+      break;
 
-        // Calculate both possible corner points
-        const cornerOption1 = { x: startPoint.x, y: updatedLastPoint.y }; // Go horizontal first
-        const cornerOption2 = { x: updatedLastPoint.x, y: startPoint.y }; // Go vertical first
+    // --- Drawing actions ---
+    case drawingStateMachine.ActionType.ADD_POINT:
+      appState.points.push(action.point);
+      appState.isDrawing = true;
+      saveHistoryState('Add point');
+      syncLegacyToActiveTier();
+      updateContextualPanel();
+      break;
 
-        // Check if either corner option already exists in the points array
-        const option1Exists = tempPoints.some(p =>
-          Math.abs(p.x - cornerOption1.x) < config.EPSILON &&
-          Math.abs(p.y - cornerOption1.y) < config.EPSILON
-        );
-        const option2Exists = tempPoints.some(p =>
-          Math.abs(p.x - cornerOption2.x) < config.EPSILON &&
-          Math.abs(p.y - cornerOption2.y) < config.EPSILON
-        );
-
-        // Choose the corner point that doesn't already exist
-        // If both exist or neither exist, fall back to the shorter distance heuristic
-        let cornerPoint;
-        if (option1Exists && !option2Exists) {
-          cornerPoint = cornerOption2;
-        } else if (option2Exists && !option1Exists) {
-          cornerPoint = cornerOption1;
-        } else if (!option1Exists && !option2Exists) {
-          // Neither exists, use the shorter distance heuristic
-          cornerPoint = dx < dy ? cornerOption1 : cornerOption2;
-        } else {
-          // Both exist - this means we don't need a corner point
-          // (the shape can close directly through existing points)
-          cornerPoint = null;
-        }
-
-        // Add the corner point to temp array if needed
-        if (cornerPoint) {
-          tempPoints.push(cornerPoint);
-        }
-      }
-
-      // Add closing point to temp array
-      tempPoints.push({ ...tempPoints[0] });
-
-      // Validate the complete shape before accepting it
-      const validation = shapeValidator.validateShape(tempPoints);
-      if (!validation.isValid) {
-        uiController.updateCanvasStatus(`Shape validation failed: ${validation.error}`);
-        redrawApp();
-        return;
-      }
-
-      // If validation passed, actually apply the changes
-      // First, apply any auto-corrections to the last point
-      const originalLastIndex = appState.points.length - 1;
-      const correctedLastPoint = tempPoints[originalLastIndex];
-      if (correctedLastPoint.x !== appState.points[originalLastIndex].x ||
-          correctedLastPoint.y !== appState.points[originalLastIndex].y) {
-        // Last point was auto-corrected for small misalignment
-        appState.points[originalLastIndex] = correctedLastPoint;
-      }
-
-      // Add corner point if one was added
-      if (tempPoints.length > appState.points.length + 1) {
-        // Corner point was added (it's the second-to-last point before closing)
-        appState.points.push(tempPoints[tempPoints.length - 2]);
-        uiController.updateCanvasStatus(
-          "Added corner point to maintain 90-degree angles."
-        );
-      }
-
-      // Now close the shape
-      appState.points.push({ ...appState.points[0] });
-
+    case drawingStateMachine.ActionType.CLOSE_SHAPE:
+      appState.points = action.hasManualDimensions
+        ? action.closedPoints
+        : action.simplifiedPoints;
       appState.isShapeClosed = true;
       appState.isDrawing = false;
       appState.currentMousePos = null;
       appState.currentModelMousePos = null;
 
-      // Only simplify points if no manual dimensions are present
-      const hasManualDimensions = appState.points.some(p => p.isManualDimension === true);
-      if (!hasManualDimensions) {
-        appState.points = utils.simplifyPoints(appState.points);
-      } else {
-        console.log("IMPORTANT: Skipping simplification because manual dimensions are present");
+      if (action.cornerAdded) {
+        uiController.updateCanvasStatus('Added corner point to maintain 90-degree angles.');
       }
 
       calculateAndUpdateDeckDimensions();
-
-      // Reset decomposition since no wall is selected yet
       appState.rectangularSections = [];
 
-      // Check if we need wall selection based on attachment type
       const currentAttachmentType = getAttachmentType();
       if (currentAttachmentType === 'house_rim') {
-        // House rim (ledger) attachment requires wall selection
         appState.wallSelectionMode = true;
-        uiController.updateCanvasStatus("Click wall edges to select for ledger attachment.");
+        uiController.updateCanvasStatus('Click wall edges to select for ledger attachment.');
       } else {
-        // Non-ledger types (concrete, floating) don't need wall selection
         appState.wallSelectionMode = false;
-        // Decompose shape with no walls (will use default orientation)
         decomposeClosedShape();
-        // Trigger auto-calculation immediately
         triggerAutoCalculation();
       }
 
-      // Update the wizard Next button state
       updateWizardNextButton(appState.wizardStep);
-
       saveHistoryState('Close shape');
-      syncLegacyToActiveTier(); // Sync closed shape to tier
-      updateTierUI(); // Update tier UI (show tabs if multiple tiers, etc.)
+      syncLegacyToActiveTier();
+      updateTierUI();
       updateContextualPanel();
-    } else if (appState.points.length >= 3) {
-      // 3+ points but not a closing click - add another point
-      if (utils.distance(snappedModelPos, appState.points[appState.points.length - 1]) > config.EPSILON) {
-        appState.points.push(snappedModelPos);
-        appState.isDrawing = true;
-        saveHistoryState('Add point');
-        syncLegacyToActiveTier(); // Sync point to tier
-        updateContextualPanel();
+      break;
+
+    case drawingStateMachine.ActionType.CLOSE_SHAPE_FAILED:
+      uiController.updateCanvasStatus(`Shape validation failed: ${action.error}`);
+      break;
+
+    case drawingStateMachine.ActionType.OUT_OF_BOUNDS:
+      uiController.updateCanvasStatus(action.message);
+      break;
+
+    // --- Wall selection ---
+    case drawingStateMachine.ActionType.SELECT_WALL: {
+      const tempIndices = [...appState.selectedWallIndices, action.wallIndex];
+      const validation = validateSelectedWalls(tempIndices, appState.points);
+      if (validation.isValid) {
+        appState.selectedWallIndices.push(action.wallIndex);
+        saveHistoryState('Select wall');
+        uiController.updateCanvasStatus(
+          `${appState.selectedWallIndices.length} wall(s) selected for ledger attachment.`
+        );
+      } else {
+        uiController.updateCanvasStatus(`Error: ${validation.error}`);
       }
-    } else {
-      // First or second point
-      if (
-        appState.points.length === 0 ||
-        utils.distance(
-          snappedModelPos,
-          appState.points[appState.points.length - 1]
-        ) > config.EPSILON
-      ) {
-        appState.points.push(snappedModelPos);
-        appState.isDrawing = true;
-        saveHistoryState('Add point');
-        syncLegacyToActiveTier(); // Sync point to tier
-        updateContextualPanel();
+      if (appState.selectedWallIndices.length > 0) {
+        decomposeClosedShape();
+        triggerAutoCalculation();
       }
+      updateWizardNextButton(appState.wizardStep);
+      updateContextualPanel();
+      break;
     }
 
-    // Reset processing flag
-    appState.isProcessingClick = false;
+    case drawingStateMachine.ActionType.DESELECT_WALL: {
+      const idx = appState.selectedWallIndices.indexOf(action.wallIndex);
+      if (idx !== -1) appState.selectedWallIndices.splice(idx, 1);
+      saveHistoryState('Deselect wall');
+      uiController.updateCanvasStatus(
+        appState.selectedWallIndices.length > 0
+          ? `${appState.selectedWallIndices.length} wall(s) selected for ledger attachment.`
+          : 'Click wall edges to select for ledger attachment.'
+      );
+      if (appState.selectedWallIndices.length > 0) {
+        decomposeClosedShape();
+        triggerAutoCalculation();
+      } else {
+        appState.rectangularSections = [];
+      }
+      updateWizardNextButton(appState.wizardStep);
+      updateContextualPanel();
+      break;
+    }
+
+    // --- Editing ---
+    case drawingStateMachine.ActionType.REMOVE_VERTEX: {
+      const now = Date.now();
+      if (appState.lastVertexEditTime && (now - appState.lastVertexEditTime) < 200) break;
+      appState.lastVertexEditTime = now;
+
+      const success = removeVertex(action.vertexIndex);
+      if (success) {
+        saveHistoryState('Remove vertex');
+        recalculateShapeAfterEdit();
+        uiController.updateCanvasStatus('Point removed.');
+      }
+      appState.hoveredIconType = null;
+      break;
+    }
+
+    case drawingStateMachine.ActionType.ADD_VERTEX: {
+      const now = Date.now();
+      if (appState.lastVertexEditTime && (now - appState.lastVertexEditTime) < 200) break;
+      appState.lastVertexEditTime = now;
+
+      const success = insertVertexOnEdge(action.edgeIndex, action.position);
+      if (success) {
+        saveHistoryState('Add vertex');
+        recalculateShapeAfterEdit();
+        uiController.updateCanvasStatus('Point added.');
+      }
+      appState.hoveredIconType = null;
+      break;
+    }
+
+    default:
+      console.warn(`[applyDrawingAction] Unknown action type: ${action.type}`);
   }
-  redrawApp();
+}
+
+// --- Delegation helpers for DOM-dependent stair/wall operations ---
+function applyStairSelection(modelMouse) {
+  if (!appState.isShapeClosed || !appState.stairs || appState.stairs.length === 0) return;
+  let didClickOnStair = false;
+  for (let i = 0; i < appState.stairs.length; i++) {
+    if (canvasLogic.isPointInStairBounds(
+      modelMouse.x, modelMouse.y, appState.stairs[i],
+      appState.deckDimensions, appState.viewportScale
+    )) {
+      appState.selectedStairIndex = appState.selectedStairIndex === i ? -1 : i;
+      didClickOnStair = true;
+      break;
+    }
+  }
+  if (!didClickOnStair && appState.selectedStairIndex !== -1 && !appState.isDraggingStairs) {
+    appState.selectedStairIndex = -1;
+  }
+}
+
+function applyWallReenter(modelMouse) {
+  if (!appState.isShapeClosed || appState.stairPlacementMode ||
+      appState.selectedStairIndex !== -1 || appState.isDraggingStairs) return;
+  const clickedWallIdx = canvasLogic.findClickedWallIndex(
+    modelMouse.x, modelMouse.y, appState.points, appState.viewportScale
+  );
+  if (clickedWallIdx !== -1 && !appState.selectedWallIndices.includes(clickedWallIdx)) {
+    appState.wallSelectionMode = true;
+    appState.selectedWallIndices = [];
+    appState.structuralComponents = null;
+    appState.bom = [];
+    uiController.resetUIOutputs();
+    updateContextualPanel();
+    updateWizardNextButton('draw');
+  }
 }
 
 function handleStairPlacementClick(modelMouseX, modelMouseY) {

@@ -1,7 +1,7 @@
 // bomCalculations.js (v33 - Updated Landing Depths/Qty Rules)
-import { getParsedStockData } from "./dataManager.js?v=8";
-import { EPSILON } from "./config.js?v=8";
-import { formatFeetInches } from "./utils.js?v=8";
+import { getParsedStockData } from "./dataManager.js";
+import { EPSILON } from "./config.js";
+import { formatFeetInches } from "./utils.js";
 
 // --- Stock Selection Helper Functions ---
 function findBestStockLength(requiredLengthFeet, availableStockForSize) {

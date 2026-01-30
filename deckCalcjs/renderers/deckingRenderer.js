@@ -1,7 +1,7 @@
 // deckingRenderer.js - Decking board rendering functions
 // Extracted from canvasLogic.js for better modularity
 
-import * as config from "../config.js?v=8";
+import * as config from "../config.js";
 
 // ================================================
 // MAIN ENTRY POINT

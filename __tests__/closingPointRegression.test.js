@@ -9,95 +9,15 @@
  * closing point, then decomposeShape did slice(0,-1) assuming it existed.
  */
 
-const EPSILON = 0.01;
+import { simplifyPoints } from '../deckCalcjs/utils.js';
 
 // ============================================================================
-// FUNCTION IMPLEMENTATIONS (copied from source files for testing)
+// TEST HELPERS
 // ============================================================================
 
 /**
- * Simplifies a polygon outline by removing collinear points.
- * CRITICAL: Must preserve closing point if original shape was closed.
- */
-function simplifyPoints(pointArray) {
-  if (!pointArray || pointArray.length < 3) {
-    return [...pointArray];
-  }
-
-  const simplified = [pointArray[0]];
-  const tolerance = 0.1;
-
-  for (let i = 1; i < pointArray.length - 1; i++) {
-    const p1 = simplified[simplified.length - 1];
-    const p2 = pointArray[i];
-    const p3 = pointArray[i + 1];
-
-    const crossProduct =
-      (p2.y - p1.y) * (p3.x - p2.x) - (p2.x - p1.x) * (p3.y - p2.y);
-
-    if (Math.abs(crossProduct) > tolerance) {
-      if (p2.x !== p1.x || p2.y !== p1.y) {
-        simplified.push(p2);
-      }
-    }
-  }
-
-  const lastOriginalPoint = pointArray[pointArray.length - 1];
-  const lastSimplifiedPoint = simplified[simplified.length - 1];
-  if (
-    lastOriginalPoint.x !== lastSimplifiedPoint.x ||
-    lastOriginalPoint.y !== lastSimplifiedPoint.y
-  ) {
-    simplified.push(lastOriginalPoint);
-  }
-
-  if (simplified.length >= 3) {
-    const pN_1 = simplified[simplified.length - 2];
-    const pN = simplified[simplified.length - 1];
-    const p1 = simplified[0];
-    let crossProductEnd =
-      (pN.y - pN_1.y) * (p1.x - pN.x) - (pN.x - pN_1.x) * (p1.y - pN.y);
-    if (Math.abs(crossProductEnd) <= tolerance) {
-      simplified.pop();
-    }
-
-    if (simplified.length >= 3) {
-      const pN_new = simplified[simplified.length - 1];
-      const p1_new = simplified[0];
-      const p2_new = simplified[1];
-      let crossProductStart =
-        (p1_new.y - pN_new.y) * (p2_new.x - p1_new.x) -
-        (p1_new.x - pN_new.x) * (p2_new.y - p1_new.y);
-      if (Math.abs(crossProductStart) <= tolerance) {
-        simplified.shift();
-      }
-    }
-  }
-
-  // CRITICAL FIX: Preserve the closing point if the original shape was closed
-  if (simplified.length > 1 && pointArray.length > 1) {
-    const origFirst = pointArray[0];
-    const origLast = pointArray[pointArray.length - 1];
-    const wasClosedShape = Math.abs(origLast.x - origFirst.x) < tolerance &&
-                           Math.abs(origLast.y - origFirst.y) < tolerance;
-
-    if (wasClosedShape) {
-      const simpFirst = simplified[0];
-      const simpLast = simplified[simplified.length - 1];
-      const isAlreadyClosed = Math.abs(simpLast.x - simpFirst.x) < tolerance &&
-                              Math.abs(simpLast.y - simpFirst.y) < tolerance;
-
-      if (!isAlreadyClosed) {
-        simplified.push({ ...simplified[0] });
-      }
-    }
-  }
-
-  return simplified;
-}
-
-/**
- * Mock decomposeShape that demonstrates proper closing point handling
+ * Mock decomposeShape that tests closing point detection logic.
+ * This is NOT the real decomposer — it only checks closing point handling.
  */
 function decomposeShape(points, ledgerWallIndex) {
   // Check if the shape has a closing point (first and last points are the same)

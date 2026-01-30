@@ -11,9 +11,9 @@ import {
   PICTURE_FRAME_DOUBLE_INSET_INCHES,
   MAX_BLOCKING_SPACING_FEET,
   JOIST_SIZE_ORDER,
-} from "./config.js?v=8";
-import { distance } from "./utils.js?v=8";
-import { getMaxJoistSpans, recommendBeamSize, validateBeamSpan, calculateFootingDiameter, calculateTributaryArea } from "./dataManager.js?v=8";
+} from "./config.js";
+import { distance } from "./utils.js";
+import { getMaxJoistSpans, recommendBeamSize, validateBeamSpan, calculateFootingDiameter, calculateTributaryArea } from "./dataManager.js";
 
 // --- Constants ---
 const ACTUAL_LUMBER_THICKNESS_INCHES = 1.5;

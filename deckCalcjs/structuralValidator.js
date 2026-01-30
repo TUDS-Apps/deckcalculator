@@ -1,7 +1,7 @@
 // structuralValidator.js - Validates structural components stay within deck boundary
 // Use this to catch rendering issues early and debug geometry problems
 
-import * as config from "./config.js?v=8";
+import * as config from "./config.js";
 
 const PIXELS_PER_FOOT = config.PIXELS_PER_FOOT;
 const TOLERANCE_PIXELS = 5; // Allow 5 pixels of margin for floating point errors
