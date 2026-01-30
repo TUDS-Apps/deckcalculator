@@ -8095,10 +8095,9 @@ const wizardStepDefinitions = [
 function checkFirstTimeUser() {
   const hasSeenWizard = localStorage.getItem('tuds-deck-wizard-seen');
   if (!hasSeenWizard) {
-    // Show wizard after a short delay to let the page load
-    setTimeout(() => {
-      startHelpWizard();
-    }, 1000);
+    // First-time users land on Mode Selection step — don't auto-start wizard overlay
+    // They can start the tutorial manually via the Help button
+    localStorage.setItem('tuds-deck-wizard-seen', 'true');
   } else {
     // Returning user - show projects modal after a short delay
     setTimeout(() => {
