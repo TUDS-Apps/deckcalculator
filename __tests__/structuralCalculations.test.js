@@ -198,3 +198,126 @@ describe('Structural Calculations', () => {
   });
 
 });
+
+describe('L-shape structural validation', () => {
+  let result;
+  beforeAll(() => {
+    // L-shape: 12' wide top, 6' wide bottom leg, 10' tall
+    const points = [
+      { x: 0, y: 0 },
+      { x: ft(12), y: 0 },
+      { x: ft(12), y: ft(5) },
+      { x: ft(6), y: ft(5) },
+      { x: ft(6), y: ft(10) },
+      { x: 0, y: ft(10) },
+    ];
+    const dims = {
+      widthFeet: 12,
+      heightFeet: 10,
+      minX: 0,
+      maxX: ft(12),
+      minY: 0,
+      maxY: ft(10),
+    };
+    result = calculateStructure(points, [0], standardInputs, dims);
+  });
+
+  it('should not return an error', () => {
+    expect(result.error).toBeNull();
+  });
+
+  it('should have joists and beams', () => {
+    expect(result.joists.length).toBeGreaterThan(0);
+    expect(result.beams.length).toBeGreaterThan(0);
+  });
+
+  it('should have all beams within deck bounds', () => {
+    for (const beam of result.beams) {
+      expect(beam.p1.x).toBeGreaterThanOrEqual(-1);
+      expect(beam.p1.x).toBeLessThanOrEqual(ft(12) + 1);
+      expect(beam.p1.y).toBeGreaterThanOrEqual(-1);
+      expect(beam.p1.y).toBeLessThanOrEqual(ft(10) + 1);
+      expect(beam.p2.x).toBeGreaterThanOrEqual(-1);
+      expect(beam.p2.x).toBeLessThanOrEqual(ft(12) + 1);
+      expect(beam.p2.y).toBeGreaterThanOrEqual(-1);
+      expect(beam.p2.y).toBeLessThanOrEqual(ft(10) + 1);
+    }
+  });
+
+  it('should not have overlapping beams', () => {
+    for (let i = 0; i < result.beams.length; i++) {
+      for (let j = i + 1; j < result.beams.length; j++) {
+        const b1 = result.beams[i];
+        const b2 = result.beams[j];
+        // Two beams overlap if they're on the same line and their ranges intersect
+        const sameHorizontal = Math.abs(b1.p1.y - b1.p2.y) < 1 &&
+                                Math.abs(b2.p1.y - b2.p2.y) < 1 &&
+                                Math.abs(b1.p1.y - b2.p1.y) < 1;
+        const sameVertical = Math.abs(b1.p1.x - b1.p2.x) < 1 &&
+                              Math.abs(b2.p1.x - b2.p2.x) < 1 &&
+                              Math.abs(b1.p1.x - b2.p1.x) < 1;
+        if (sameHorizontal) {
+          const b1MinX = Math.min(b1.p1.x, b1.p2.x);
+          const b1MaxX = Math.max(b1.p1.x, b1.p2.x);
+          const b2MinX = Math.min(b2.p1.x, b2.p2.x);
+          const b2MaxX = Math.max(b2.p1.x, b2.p2.x);
+          const overlap = Math.min(b1MaxX, b2MaxX) - Math.max(b1MinX, b2MinX);
+          // Allow small overlap at endpoints (1px tolerance)
+          expect(overlap).toBeLessThan(2);
+        }
+        if (sameVertical) {
+          const b1MinY = Math.min(b1.p1.y, b1.p2.y);
+          const b1MaxY = Math.max(b1.p1.y, b1.p2.y);
+          const b2MinY = Math.min(b2.p1.y, b2.p2.y);
+          const b2MaxY = Math.max(b2.p1.y, b2.p2.y);
+          const overlap = Math.min(b1MaxY, b2MaxY) - Math.max(b1MinY, b2MinY);
+          expect(overlap).toBeLessThan(2);
+        }
+      }
+    }
+  });
+});
+
+describe('U-shape structural validation', () => {
+  let result;
+  beforeAll(() => {
+    // U-shape: 14' wide, 10' tall, center cutout 6' wide x 5' deep
+    const points = [
+      { x: 0, y: 0 },
+      { x: ft(14), y: 0 },
+      { x: ft(14), y: ft(10) },
+      { x: ft(10), y: ft(10) },
+      { x: ft(10), y: ft(5) },
+      { x: ft(4), y: ft(5) },
+      { x: ft(4), y: ft(10) },
+      { x: 0, y: ft(10) },
+    ];
+    const dims = {
+      widthFeet: 14,
+      heightFeet: 10,
+      minX: 0,
+      maxX: ft(14),
+      minY: 0,
+      maxY: ft(10),
+    };
+    result = calculateStructure(points, [0], standardInputs, dims);
+  });
+
+  it('should not return an error', () => {
+    expect(result.error).toBeNull();
+  });
+
+  it('should have joists and beams', () => {
+    expect(result.joists.length).toBeGreaterThan(0);
+    expect(result.beams.length).toBeGreaterThan(0);
+  });
+
+  it('should have all joists running in the same direction', () => {
+    // For a horizontal ledger, all joists should be roughly vertical (perpendicular to ledger)
+    const verticalJoists = result.joists.filter(j => Math.abs(j.p1.x - j.p2.x) < 2);
+    const horizontalJoists = result.joists.filter(j => Math.abs(j.p1.y - j.p2.y) < 2);
+    // One direction should dominate
+    const dominantCount = Math.max(verticalJoists.length, horizontalJoists.length);
+    expect(dominantCount).toBe(result.joists.length);
+  });
+});

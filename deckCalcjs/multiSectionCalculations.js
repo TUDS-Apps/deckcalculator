@@ -484,12 +484,138 @@ export function calculateMultiSectionStructure(rectangularSections, inputs, sele
       }
     }
 
+    // Run post-merge validation to detect structural issues
+    validateMergedStructure(mergedStructure, originalPoints);
+
     return mergedStructure;
-    
+
   } catch (error) {
     console.error("Multi-section calculation error:", error);
     return { error: `Multi-section calculation failed: ${error.message}` };
   }
+}
+
+/**
+ * Validates the merged structural result for common issues:
+ * 1. No two beams overlap (occupy the same space)
+ * 2. Every beam is within the deck boundary polygon
+ * 3. Beam endpoints connect to section boundaries (not floating in space)
+ *
+ * Logs console.warn for any violations found. Does not throw errors.
+ *
+ * @param {Object} mergedStructure - The merged structural components
+ * @param {Array<{x: number, y: number}>} originalPoints - Original deck outline points
+ */
+export function validateMergedStructure(mergedStructure, originalPoints) {
+  if (!mergedStructure || !mergedStructure.beams) return;
+
+  const beams = mergedStructure.beams;
+  const OVERLAP_TOLERANCE = 2; // pixels — allow small endpoint-touching overlaps
+
+  // --- Check 1: No two beams overlap ---
+  for (let i = 0; i < beams.length; i++) {
+    for (let j = i + 1; j < beams.length; j++) {
+      const b1 = beams[i];
+      const b2 = beams[j];
+      if (!b1.p1 || !b1.p2 || !b2.p1 || !b2.p2) continue;
+
+      const sameHorizontal =
+        Math.abs(b1.p1.y - b1.p2.y) < 1 &&
+        Math.abs(b2.p1.y - b2.p2.y) < 1 &&
+        Math.abs(b1.p1.y - b2.p1.y) < 1;
+
+      const sameVertical =
+        Math.abs(b1.p1.x - b1.p2.x) < 1 &&
+        Math.abs(b2.p1.x - b2.p2.x) < 1 &&
+        Math.abs(b1.p1.x - b2.p1.x) < 1;
+
+      if (sameHorizontal) {
+        const b1MinX = Math.min(b1.p1.x, b1.p2.x);
+        const b1MaxX = Math.max(b1.p1.x, b1.p2.x);
+        const b2MinX = Math.min(b2.p1.x, b2.p2.x);
+        const b2MaxX = Math.max(b2.p1.x, b2.p2.x);
+        const overlap = Math.min(b1MaxX, b2MaxX) - Math.max(b1MinX, b2MinX);
+        if (overlap > OVERLAP_TOLERANCE) {
+          console.warn(
+            `[validateMergedStructure] Overlapping horizontal beams detected: beam ${i} (x: ${b1MinX.toFixed(1)}-${b1MaxX.toFixed(1)}, y: ${b1.p1.y.toFixed(1)}) and beam ${j} (x: ${b2MinX.toFixed(1)}-${b2MaxX.toFixed(1)}, y: ${b2.p1.y.toFixed(1)}), overlap: ${overlap.toFixed(1)}px`
+          );
+        }
+      }
+
+      if (sameVertical) {
+        const b1MinY = Math.min(b1.p1.y, b1.p2.y);
+        const b1MaxY = Math.max(b1.p1.y, b1.p2.y);
+        const b2MinY = Math.min(b2.p1.y, b2.p2.y);
+        const b2MaxY = Math.max(b2.p1.y, b2.p2.y);
+        const overlap = Math.min(b1MaxY, b2MaxY) - Math.max(b1MinY, b2MinY);
+        if (overlap > OVERLAP_TOLERANCE) {
+          console.warn(
+            `[validateMergedStructure] Overlapping vertical beams detected: beam ${i} (y: ${b1MinY.toFixed(1)}-${b1MaxY.toFixed(1)}, x: ${b1.p1.x.toFixed(1)}) and beam ${j} (y: ${b2MinY.toFixed(1)}-${b2MaxY.toFixed(1)}, x: ${b2.p1.x.toFixed(1)}), overlap: ${overlap.toFixed(1)}px`
+          );
+        }
+      }
+    }
+  }
+
+  // --- Check 2: Every beam is within the deck boundary polygon ---
+  if (originalPoints && originalPoints.length >= 3) {
+    for (let i = 0; i < beams.length; i++) {
+      const beam = beams[i];
+      if (!beam.p1 || !beam.p2) continue;
+
+      const p1Inside = isPointInsidePolygon(beam.p1, originalPoints);
+      const p2Inside = isPointInsidePolygon(beam.p2, originalPoints);
+
+      if (!p1Inside) {
+        console.warn(
+          `[validateMergedStructure] Beam ${i} p1 (${beam.p1.x.toFixed(1)}, ${beam.p1.y.toFixed(1)}) is outside the deck boundary`
+        );
+      }
+      if (!p2Inside) {
+        console.warn(
+          `[validateMergedStructure] Beam ${i} p2 (${beam.p2.x.toFixed(1)}, ${beam.p2.y.toFixed(1)}) is outside the deck boundary`
+        );
+      }
+    }
+  }
+
+  // --- Check 3: Beam endpoints connect to section boundaries (not floating in space) ---
+  // A beam endpoint is "connected" if it is near a polygon edge (within tolerance)
+  if (originalPoints && originalPoints.length >= 3) {
+    const BOUNDARY_TOLERANCE = PIXELS_PER_FOOT * 2; // 2 feet tolerance for being near a boundary
+    for (let i = 0; i < beams.length; i++) {
+      const beam = beams[i];
+      if (!beam.p1 || !beam.p2) continue;
+
+      const p1NearEdge = isPointNearPolygonEdge(beam.p1, originalPoints, BOUNDARY_TOLERANCE);
+      const p2NearEdge = isPointNearPolygonEdge(beam.p2, originalPoints, BOUNDARY_TOLERANCE);
+
+      if (!p1NearEdge && !p2NearEdge) {
+        console.warn(
+          `[validateMergedStructure] Beam ${i} has no endpoints near the deck boundary — possibly floating. p1=(${beam.p1.x.toFixed(1)}, ${beam.p1.y.toFixed(1)}), p2=(${beam.p2.x.toFixed(1)}, ${beam.p2.y.toFixed(1)})`
+        );
+      }
+    }
+  }
+}
+
+/**
+ * Checks if a point is within tolerance distance of any polygon edge.
+ * @param {Object} point - Point {x, y}
+ * @param {Array<{x: number, y: number}>} polygon - Polygon vertices
+ * @param {number} tolerance - Distance tolerance in pixels
+ * @returns {boolean} True if point is near a polygon edge
+ */
+function isPointNearPolygonEdge(point, polygon, tolerance) {
+  if (!polygon || polygon.length < 3) return false;
+
+  for (let i = 0; i < polygon.length; i++) {
+    const edgeP1 = polygon[i];
+    const edgeP2 = polygon[(i + 1) % polygon.length];
+    const dist = pointToSegmentDistanceLocal(point, edgeP1, edgeP2);
+    if (dist <= tolerance) return true;
+  }
+  return false;
 }
 
 /**
