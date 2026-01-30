@@ -7591,6 +7591,7 @@ canvas.mode-transition {
   cursor: pointer;
   transition: all 0.15s ease;
   min-width: 60px;
+  min-height: 48px;
   background: transparent;
   border: none;
   color: var(--gray-500);
@@ -7624,7 +7625,7 @@ canvas.mode-transition {
 }
 
 .mobile-nav-item .nav-label {
-  font-size: var(--text-xs);
+  font-size: var(--text-sm);
   font-weight: var(--font-semibold);
   text-transform: uppercase;
   letter-spacing: 0.02em;
@@ -7720,13 +7721,7 @@ canvas.mode-transition {
   .floating-controls {
     bottom: calc(80px + env(safe-area-inset-bottom, 0px)); /* Above bottom nav */
   }
-}
 
-/* ============================================
-   IMPROVED CANVAS SIZING FOR MOBILE
-   ============================================ */
-
-@media (max-width: 768px) {
   /* Canvas container takes available viewport height */
   #content-panel .info-card {
     min-height: 40vh;
