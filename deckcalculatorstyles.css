@@ -93,13 +93,13 @@
      ====================== */
   --font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
 
-  --text-xs: 0.625rem;    /* 10px */
-  --text-sm: 0.75rem;     /* 12px */
-  --text-base: 0.875rem;  /* 14px */
-  --text-lg: 1rem;        /* 16px */
-  --text-xl: 1.125rem;    /* 18px */
-  --text-2xl: 1.25rem;    /* 20px */
-  --text-3xl: 1.5rem;     /* 24px */
+  --text-xs:   0.6875rem;  /* 11px — minimum size */
+  --text-sm:   0.75rem;    /* 12px */
+  --text-base: 0.875rem;   /* 14px */
+  --text-md:   1rem;       /* 16px */
+  --text-lg:   1.125rem;   /* 18px */
+  --text-xl:   1.25rem;    /* 20px */
+  --text-2xl:  1.5rem;     /* 24px */
 
   --font-normal: 400;
   --font-medium: 500;
@@ -186,7 +186,7 @@ body {
 
 .header-subtitle {
   margin: 0;
-  font-size: 0.875rem;
+  font-size: var(--text-base);
   color: var(--tuds-green);
   font-weight: 500;
   letter-spacing: 0.025em;
@@ -211,7 +211,7 @@ body {
   border: 1px solid rgba(255, 255, 255, 0.2);
   border-radius: 0.5rem;
   color: white;
-  font-size: 0.875rem;
+  font-size: var(--text-base);
   font-weight: 500;
   cursor: pointer;
   transition: all 0.2s ease;
@@ -238,7 +238,7 @@ body {
   border: 1px solid rgba(255, 255, 255, 0.2);
   border-radius: 0.5rem;
   color: white;
-  font-size: 0.875rem;
+  font-size: var(--text-base);
   font-weight: 500;
   cursor: pointer;
   transition: all 0.2s ease;
@@ -277,11 +277,11 @@ body {
   }
 
   .deck-calculator-header h1 {
-    font-size: 1.25rem;
+    font-size: var(--text-xl);
   }
 
   .header-subtitle {
-    font-size: 0.75rem;
+    font-size: var(--text-sm);
   }
 
   .header-actions {
@@ -414,7 +414,7 @@ canvas {
 }
 
 .scale-label {
-  font-size: 0.75rem;
+  font-size: var(--text-sm);
   font-weight: 600;
   color: var(--tuds-navy);
   letter-spacing: 0.025em;
@@ -426,7 +426,7 @@ canvas {
   bottom: 12px;
   right: 12px;
   z-index: 10;
-  font-size: 0.75rem;
+  font-size: var(--text-sm);
 }
 
 .floating-legend-toggle {
@@ -441,7 +441,7 @@ canvas {
   box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
   color: var(--tuds-navy);
   font-weight: 600;
-  font-size: 0.75rem;
+  font-size: var(--text-sm);
   transition: all 0.2s ease;
 }
 
@@ -513,7 +513,7 @@ canvas {
   border-bottom: 1px solid var(--gray-200);
   font-weight: 600;
   color: var(--tuds-navy);
-  font-size: 0.7rem;
+  font-size: var(--text-xs);
   text-transform: uppercase;
   letter-spacing: 0.025em;
 }
@@ -525,7 +525,7 @@ canvas {
 
 .legend-action-btn {
   padding: 2px 6px;
-  font-size: 0.65rem;
+  font-size: var(--text-xs);
   background: var(--gray-100);
   border: 1px solid var(--gray-200);
   border-radius: 3px;
@@ -704,7 +704,7 @@ canvas.mode-transition {
 #bomSection h2 {
   margin: 0;
   line-height: 1;
-  font-size: 1.25rem; /* Ensure consistent font size */
+  font-size: var(--text-xl); /* Ensure consistent font size */
 }
 
 /* Merge the title row with the button row for better alignment */
@@ -743,7 +743,7 @@ canvas.mode-transition {
 }
 
 .bom-placeholder-content p {
-  font-size: 0.95rem;
+  font-size: var(--text-base);
   line-height: 1.5;
   margin: 0;
 }
@@ -912,19 +912,19 @@ canvas.mode-transition {
 }
 
 .category-name {
-  font-size: 0.9rem;
+  font-size: var(--text-base);
   letter-spacing: 0.05em;
 }
 
 .category-count {
-  font-size: 0.8rem;
+  font-size: var(--text-sm);
   font-weight: 400;
   opacity: 0.8;
 }
 
 .category-subtotal {
   margin-left: auto;
-  font-size: 0.9rem;
+  font-size: var(--text-base);
   font-weight: 600;
   color: #a7d3ff;
 }
@@ -932,7 +932,7 @@ canvas.mode-transition {
 /* Subtotal cell in category header - aligns with Total Price column */
 .category-subtotal-cell {
   text-align: right;
-  font-size: 0.9rem;
+  font-size: var(--text-base);
   font-weight: 600;
   color: #a7d3ff !important;
   white-space: nowrap;
@@ -1192,7 +1192,7 @@ table.bom-table tr.bom-category-header td:last-child {
 
 .btn-large {
   padding: var(--space-3) var(--space-6);
-  font-size: var(--text-lg);
+  font-size: var(--text-md);
 }
 
 .btn-primary {
@@ -1343,7 +1343,7 @@ table.bom-table tr.bom-category-header td:last-child {
   color: white;
   padding: 0.375rem 0.625rem;
   border-radius: 0.375rem;
-  font-size: 0.75rem;
+  font-size: var(--text-sm);
   font-weight: 500;
   white-space: nowrap;
   opacity: 0;
@@ -1508,7 +1508,7 @@ table.bom-table tr.bom-category-header td:last-child {
   margin-top: 0.25rem;
   transition: all 0.2s ease;
   background-color: var(--surface-primary);
-  font-size: 0.95rem;
+  font-size: var(--text-base);
 }
 
 .form-input:hover,
@@ -1559,7 +1559,7 @@ table.bom-table tr.bom-category-header td:last-child {
   background-color: var(--tuds-teal);
   color: white;
   border-radius: 50%;
-  font-size: 11px;
+  font-size: var(--text-xs);
   font-weight: 600;
   cursor: help;
   position: relative;
@@ -1581,7 +1581,7 @@ table.bom-table tr.bom-category-header td:last-child {
   color: white;
   padding: 0.5rem 0.75rem;
   border-radius: 0.375rem;
-  font-size: 0.75rem;
+  font-size: var(--text-sm);
   font-weight: 400;
   white-space: normal;
   width: max-content;
@@ -1679,7 +1679,7 @@ table.bom-table tr.bom-category-header td:last-child {
 
 #applyDimensionBtn, #cancelDimensionBtn {
   padding: 0.25rem 0.5rem;
-  font-size: 0.875rem;
+  font-size: var(--text-base);
   transition: all 0.2s ease;
 }
 
@@ -2301,7 +2301,7 @@ table.bom-table tr.bom-category-header td:last-child {
 }
 
 .panel-title {
-  font-size: var(--text-2xl);
+  font-size: var(--text-xl);
   font-weight: var(--font-semibold);
   color: var(--tuds-navy);
   margin-bottom: var(--space-4);
@@ -2357,7 +2357,7 @@ table.bom-table tr.bom-category-header td:last-child {
 .collapsible-toggle::after {
   content: '▼';
   transition: transform 0.2s ease;
-  font-size: 0.875rem;
+  font-size: var(--text-base);
 }
 
 .collapsible-toggle.expanded::after {
@@ -2384,7 +2384,7 @@ table.bom-table tr.bom-category-header td:last-child {
 /* Enhanced button styles */
 .btn-large {
   padding: 1rem 1.5rem;
-  font-size: 1.1rem;
+  font-size: var(--text-lg);
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.025em;
@@ -2449,7 +2449,7 @@ table.bom-table tr.bom-category-header td:last-child {
 }
 
 .spec-section-title {
-  font-size: 1rem;
+  font-size: var(--text-md);
   font-weight: 600;
   color: var(--gray-700);
   margin-bottom: 1rem;
@@ -2503,7 +2503,7 @@ table.bom-table tr.bom-category-header td:last-child {
   }
   
   .panel-title {
-    font-size: 1.125rem;
+    font-size: var(--text-lg);
   }
   
   .panel-title::before {
@@ -2513,7 +2513,7 @@ table.bom-table tr.bom-category-header td:last-child {
   
   .btn-large {
     padding: 0.875rem 1.25rem;
-    font-size: 1rem;
+    font-size: var(--text-md);
   }
   
   .instruction-box {
@@ -2555,7 +2555,7 @@ table.bom-table tr.bom-category-header td:last-child {
   background-color: transparent;
   color: var(--gray-500);
   font-weight: 500;
-  font-size: 0.875rem;
+  font-size: var(--text-base);
   border-radius: 0.5rem;
   cursor: pointer;
   transition: all 0.2s ease;
@@ -2599,7 +2599,7 @@ table.bom-table tr.bom-category-header td:last-child {
   display: inline-block;
   background-color: var(--color-warning);
   color: var(--color-warning);
-  font-size: 0.625rem;
+  font-size: var(--text-xs);
   font-weight: 600;
   padding: 0.125rem 0.375rem;
   border-radius: 0.25rem;
@@ -2668,14 +2668,14 @@ table.bom-table tr.bom-category-header td:last-child {
 }
 
 .coming-soon-title {
-  font-size: 1.5rem;
+  font-size: var(--text-2xl);
   font-weight: 600;
   color: var(--gray-700);
   margin-bottom: 1rem;
 }
 
 .coming-soon-description {
-  font-size: 1rem;
+  font-size: var(--text-md);
   line-height: 1.6;
   color: var(--gray-500);
   max-width: 500px;
@@ -2694,7 +2694,7 @@ table.bom-table tr.bom-category-header td:last-child {
   display: inline-block;
   background-color: var(--gray-200);
   color: var(--gray-600);
-  font-size: 0.75rem;
+  font-size: var(--text-sm);
   font-weight: 500;
   padding: 0.25rem 0.75rem;
   border-radius: 1rem;
@@ -2710,7 +2710,7 @@ table.bom-table tr.bom-category-header td:last-child {
   
   .tab-button {
     padding: 0.5rem 0.75rem;
-    font-size: 0.75rem;
+    font-size: var(--text-sm);
     flex-direction: column;
     gap: 0.25rem;
   }
@@ -2721,7 +2721,7 @@ table.bom-table tr.bom-category-header td:last-child {
   }
   
   .coming-soon-badge {
-    font-size: 0.5rem;
+    font-size: var(--text-xs);
     padding: 0.125rem 0.25rem;
     margin-left: 0;
     margin-top: 0.125rem;
@@ -2747,15 +2747,15 @@ table.bom-table tr.bom-category-header td:last-child {
   }
   
   .coming-soon-title {
-    font-size: 1.25rem;
+    font-size: var(--text-xl);
   }
   
   .coming-soon-description {
-    font-size: 0.875rem;
+    font-size: var(--text-base);
   }
   
   .feature-tag {
-    font-size: 0.625rem;
+    font-size: var(--text-xs);
     padding: 0.125rem 0.5rem;
   }
   
@@ -2777,11 +2777,11 @@ table.bom-table tr.bom-category-header td:last-child {
   }
   
   .tab-label {
-    font-size: 0.5rem;
+    font-size: var(--text-xs);
   }
   
   .coming-soon-title {
-    font-size: 1.25rem;
+    font-size: var(--text-xl);
   }
   
   .coming-soon-features {
@@ -2882,7 +2882,7 @@ table.bom-table tr.bom-category-header td:last-child {
 .stair-item-title {
   font-weight: 600;
   color: var(--gray-800);
-  font-size: 0.875rem;
+  font-size: var(--text-base);
   margin-right: 1rem;
 }
 
@@ -2892,13 +2892,13 @@ table.bom-table tr.bom-category-header td:last-child {
 }
 
 .stair-item-info {
-  font-size: 0.75rem;
+  font-size: var(--text-sm);
   color: var(--gray-500);
   line-height: 1.4;
 }
 
 .stair-tier-info {
-  font-size: 0.7rem;
+  font-size: var(--text-xs);
   color: var(--color-info);
   font-weight: 500;
   margin-bottom: 0.25rem;
@@ -2934,7 +2934,7 @@ table.bom-table tr.bom-category-header td:last-child {
 /* Button variations for stair management */
 .btn-small {
   padding: 0.375rem 0.75rem;
-  font-size: 0.75rem;
+  font-size: var(--text-sm);
   line-height: 1.25rem;
 }
 
@@ -3014,7 +3014,7 @@ table.bom-table tr.bom-category-header td:last-child {
   
   .btn-small {
     padding: 0.5rem 0.75rem;
-    font-size: 0.875rem;
+    font-size: var(--text-base);
   }
 }
 
@@ -3042,7 +3042,7 @@ table.bom-table tr.bom-category-header td:last-child {
   padding: 0.25rem 0.125rem;
   border: 1px solid var(--gray-300);
   border-radius: 0.25rem;
-  font-size: 0.875rem;
+  font-size: var(--text-base);
   font-feature-settings: "tnum";
   font-variant-numeric: tabular-nums;
   transition: all 0.2s ease;
@@ -3065,7 +3065,7 @@ table.bom-table tr.bom-category-header td:last-child {
 
 /* Original quantity display */
 .qty-original {
-  font-size: 0.625rem;
+  font-size: var(--text-xs);
   color: var(--gray-500);
   font-style: italic;
   margin-top: 0.125rem;
@@ -3108,12 +3108,12 @@ table.bom-table tr.bom-category-header td:last-child {
   
   .qty-input {
     width: 2.5rem;
-    font-size: 0.75rem;
+    font-size: var(--text-sm);
     padding: 0.25rem 0.125rem;
   }
   
   .qty-original {
-    font-size: 0.5rem;
+    font-size: var(--text-xs);
   }
 }
 
@@ -3250,7 +3250,7 @@ table.bom-table tr.bom-category-header td:last-child {
 }
 
 .draw-method-title {
-  font-size: 0.6875rem;
+  font-size: var(--text-xs);
   font-weight: 600;
   color: var(--gray-700);
   line-height: 1.2;
@@ -3258,7 +3258,7 @@ table.bom-table tr.bom-category-header td:last-child {
 }
 
 .draw-method-desc {
-  font-size: 0.5625rem;
+  font-size: var(--text-xs);
   color: var(--gray-500);
   line-height: 1.2;
   text-align: center;
@@ -3286,7 +3286,7 @@ table.bom-table tr.bom-category-header td:last-child {
 
 .dimension-field label {
   display: block;
-  font-size: 0.6875rem;
+  font-size: var(--text-xs);
   font-weight: 600;
   color: var(--tuds-navy);
   margin-bottom: 0.25rem;
@@ -3304,7 +3304,7 @@ table.bom-table tr.bom-category-header td:last-child {
   padding: 0.5rem;
   border: 1px solid var(--gray-300);
   border-radius: 0.375rem;
-  font-size: 1rem;
+  font-size: var(--text-md);
   font-weight: 500;
   text-align: center;
   background: #fff;
@@ -3317,13 +3317,13 @@ table.bom-table tr.bom-category-header td:last-child {
 }
 
 .dimension-unit {
-  font-size: 0.875rem;
+  font-size: var(--text-base);
   color: var(--gray-500);
   font-weight: 500;
 }
 
 .dimension-separator {
-  font-size: 1.25rem;
+  font-size: var(--text-xl);
   color: var(--gray-400);
   padding-bottom: 0.5rem;
 }
@@ -3338,7 +3338,7 @@ table.bom-table tr.bom-category-header td:last-child {
 }
 
 .freedraw-instruction {
-  font-size: 0.75rem;
+  font-size: var(--text-sm);
   color: var(--color-success);
   margin: 0;
   text-align: center;
@@ -3358,7 +3358,7 @@ table.bom-table tr.bom-category-header td:last-child {
 }
 
 .draw-instructions-text {
-  font-size: 0.8rem;
+  font-size: var(--text-sm);
   color: var(--color-success);
   margin: 0;
   text-align: center;
@@ -3375,7 +3375,7 @@ table.bom-table tr.bom-category-header td:last-child {
 }
 
 .section-label {
-  font-size: 0.7rem;
+  font-size: var(--text-xs);
   font-weight: 600;
   color: var(--gray-500);
   text-transform: uppercase;
@@ -3416,7 +3416,7 @@ table.bom-table tr.bom-category-header td:last-child {
 }
 
 .edit-shape-hint {
-  font-size: 0.7rem;
+  font-size: var(--text-xs);
   color: var(--gray-500);
   margin: 0.5rem 0 0 0;
   text-align: center;
@@ -3457,7 +3457,7 @@ table.bom-table tr.bom-category-header td:last-child {
 }
 
 .template-gallery-title {
-  font-size: 0.75rem;
+  font-size: var(--text-sm);
   font-weight: 600;
   color: var(--tuds-navy);
   text-transform: uppercase;
@@ -3551,14 +3551,14 @@ table.bom-table tr.bom-category-header td:last-child {
 }
 
 .template-label {
-  font-size: 0.625rem;
+  font-size: var(--text-xs);
   font-weight: 600;
   color: var(--gray-700);
   line-height: 1.2;
 }
 
 .template-size {
-  font-size: 0.5625rem;
+  font-size: var(--text-xs);
   color: var(--gray-500);
   line-height: 1.2;
 }
@@ -3580,7 +3580,7 @@ table.bom-table tr.bom-category-header td:last-child {
 
 .template-divider span {
   padding: 0 0.75rem;
-  font-size: 0.6875rem;
+  font-size: var(--text-xs);
   text-transform: lowercase;
 }
 
@@ -3599,11 +3599,11 @@ table.bom-table tr.bom-category-header td:last-child {
   }
 
   .template-label {
-    font-size: 0.6875rem;
+    font-size: var(--text-xs);
   }
 
   .template-size {
-    font-size: 0.625rem;
+    font-size: var(--text-xs);
   }
 }
 
@@ -3619,7 +3619,7 @@ table.bom-table tr.bom-category-header td:last-child {
   display: flex;
   align-items: center;
   gap: 0.5rem;
-  font-size: 0.875rem;
+  font-size: var(--text-base);
   font-weight: 500;
   color: var(--tuds-navy);
   margin-bottom: 0.5rem;
@@ -3681,7 +3681,7 @@ table.bom-table tr.bom-category-header td:last-child {
 }
 
 .visual-option-name {
-  font-size: 0.6875rem;
+  font-size: var(--text-xs);
   font-weight: 600;
   color: var(--tuds-navy);
   line-height: 1.2;
@@ -3689,7 +3689,7 @@ table.bom-table tr.bom-category-header td:last-child {
 }
 
 .visual-option-desc {
-  font-size: 0.5625rem;
+  font-size: var(--text-xs);
   color: var(--gray-500);
   line-height: 1.2;
 }
@@ -3706,11 +3706,11 @@ table.bom-table tr.bom-category-header td:last-child {
 }
 
 .visual-selector.compact .visual-option-name {
-  font-size: 0.625rem;
+  font-size: var(--text-xs);
 }
 
 .visual-selector.compact .visual-option-desc {
-  font-size: 0.5rem;
+  font-size: var(--text-xs);
   color: var(--gray-400);
 }
 
@@ -3772,7 +3772,7 @@ table.bom-table tr.bom-category-header td:last-child {
   flex: 1;
   border: none;
   background: transparent;
-  font-size: 1rem;
+  font-size: var(--text-md);
   font-weight: 600;
   color: var(--tuds-navy);
   cursor: pointer;
@@ -3787,7 +3787,7 @@ table.bom-table tr.bom-category-header td:last-child {
 }
 
 .height-unit {
-  font-size: 0.75rem;
+  font-size: var(--text-sm);
   font-weight: 500;
   color: var(--gray-500);
   text-transform: uppercase;
@@ -3824,19 +3824,19 @@ table.bom-table tr.bom-category-header td:last-child {
 }
 
 .tier-toggle-text {
-  font-size: 0.9375rem;
+  font-size: var(--text-base);
   font-weight: 600;
   color: var(--tuds-navy);
 }
 
 .tier-toggle-hint {
-  font-size: 0.8125rem;
+  font-size: var(--text-sm);
   color: var(--gray-500);
   font-weight: 400;
 }
 
 .tier-height-hint {
-  font-size: 0.8125rem;
+  font-size: var(--text-sm);
   color: var(--gray-500);
   margin: 0.5rem 0 0 0;
   text-align: center;
@@ -3871,7 +3871,7 @@ table.bom-table tr.bom-category-header td:last-child {
   background: #fff;
   border: 2px solid var(--gray-200);
   border-radius: 0.5rem;
-  font-size: 0.875rem;
+  font-size: var(--text-base);
   font-weight: 500;
   color: var(--gray-500);
   cursor: pointer;
@@ -3902,7 +3902,7 @@ table.bom-table tr.bom-category-header td:last-child {
 
 .tier-info {
   text-align: center;
-  font-size: 0.75rem;
+  font-size: var(--text-sm);
   color: var(--gray-500);
   padding-top: 0.25rem;
 }
@@ -3935,7 +3935,7 @@ table.bom-table tr.bom-category-header td:last-child {
   padding: 0.25rem 0.75rem;
   background: linear-gradient(135deg, var(--tuds-green-light) 0%, var(--tuds-green-dark) 100%);
   color: white;
-  font-size: 0.6875rem;
+  font-size: var(--text-xs);
   font-weight: 600;
   border-radius: 9999px;
   text-transform: uppercase;
@@ -3944,7 +3944,7 @@ table.bom-table tr.bom-category-header td:last-child {
 }
 
 .structural-specs-intro {
-  font-size: 0.8125rem;
+  font-size: var(--text-sm);
   color: var(--gray-500);
   margin-bottom: 1.25rem;
   line-height: 1.5;
@@ -3974,7 +3974,7 @@ table.bom-table tr.bom-category-header td:last-child {
 }
 
 .spec-card-header h3 {
-  font-size: 0.8125rem;
+  font-size: var(--text-sm);
   font-weight: 600;
   color: var(--tuds-navy);
   margin: 0;
@@ -4018,19 +4018,19 @@ table.bom-table tr.bom-category-header td:last-child {
 }
 
 .spec-label {
-  font-size: 0.75rem;
+  font-size: var(--text-sm);
   color: var(--gray-500);
 }
 
 .spec-value {
-  font-size: 0.8125rem;
+  font-size: var(--text-sm);
   font-weight: 600;
   color: var(--tuds-navy);
   text-align: right;
 }
 
 .spec-note {
-  font-size: 0.6875rem;
+  font-size: var(--text-xs);
   color: var(--gray-400);
   font-style: italic;
   margin-top: 0.5rem;
@@ -4046,7 +4046,7 @@ table.bom-table tr.bom-category-header td:last-child {
   margin-top: 0.625rem;
   padding: 0.5rem 0.75rem;
   border-radius: 0.375rem;
-  font-size: 0.75rem;
+  font-size: var(--text-sm);
   font-weight: 500;
 }
 
@@ -4067,7 +4067,7 @@ table.bom-table tr.bom-category-header td:last-child {
 
 .compliance-icon::before {
   display: inline-block;
-  font-size: 0.875rem;
+  font-size: var(--text-base);
 }
 
 .spec-compliance-status.compliant .compliance-icon::before {
@@ -4094,7 +4094,7 @@ table.bom-table tr.bom-category-header td:last-child {
 }
 
 .code-reference-list li {
-  font-size: 0.75rem;
+  font-size: var(--text-sm);
   color: var(--gray-600);
   padding: 0.25rem 0;
   display: flex;
@@ -4114,7 +4114,7 @@ table.bom-table tr.bom-category-header td:last-child {
 }
 
 .spec-disclaimer {
-  font-size: 0.6875rem;
+  font-size: var(--text-xs);
   color: var(--gray-400);
   margin-top: 0.75rem;
   padding: 0.625rem;
@@ -4258,7 +4258,7 @@ table.bom-table tr.bom-category-header td:last-child {
 }
 
 .specs-modal-title h2 {
-  font-size: var(--text-2xl);
+  font-size: var(--text-xl);
   font-weight: var(--font-bold);
   color: #ffffff;
   margin: 0;
@@ -4349,7 +4349,7 @@ table.bom-table tr.bom-category-header td:last-child {
   color: white;
   border: none;
   border-radius: 0.5rem;
-  font-size: 0.8125rem;
+  font-size: var(--text-sm);
   font-weight: 600;
   cursor: pointer;
   transition: all 0.2s ease;
@@ -4373,7 +4373,7 @@ table.bom-table tr.bom-category-header td:last-child {
 }
 
 .view-specs-btn .permit-badge-small {
-  font-size: 0.5625rem;
+  font-size: var(--text-xs);
   padding: 0.125rem 0.375rem;
   background: rgba(255, 255, 255, 0.2);
   border-radius: 9999px;
@@ -4399,7 +4399,7 @@ table.bom-table tr.bom-category-header td:last-child {
   }
 
   .specs-modal-title h2 {
-    font-size: 1rem;
+    font-size: var(--text-md);
   }
 
   .specs-modal-body {
@@ -4513,14 +4513,14 @@ table.bom-table tr.bom-category-header td:last-child {
 }
 
 .cut-list-modal-title h2 {
-  font-size: 1.25rem;
+  font-size: var(--text-xl);
   font-weight: 700;
   color: var(--tuds-navy);
   margin: 0;
 }
 
 .cut-list-badge {
-  font-size: 0.625rem;
+  font-size: var(--text-xs);
   padding: 0.25rem 0.5rem;
   background: linear-gradient(135deg, var(--color-warning) 0%, var(--color-warning) 100%);
   color: white;
@@ -4552,7 +4552,7 @@ table.bom-table tr.bom-category-header td:last-child {
 }
 
 .cut-list-intro {
-  font-size: 0.8125rem;
+  font-size: var(--text-sm);
   color: var(--gray-500);
   margin: 0;
   padding: 0.75rem 1.25rem;
@@ -4593,7 +4593,7 @@ table.bom-table tr.bom-category-header td:last-child {
 
 .cut-list-stat .stat-label {
   display: block;
-  font-size: 0.6875rem;
+  font-size: var(--text-xs);
   color: var(--gray-500);
   text-transform: uppercase;
   letter-spacing: 0.05em;
@@ -4611,7 +4611,7 @@ table.bom-table tr.bom-category-header td:last-child {
 .cut-list-table {
   width: 100%;
   border-collapse: collapse;
-  font-size: 0.8125rem;
+  font-size: var(--text-sm);
 }
 
 .cut-list-table thead {
@@ -4672,7 +4672,7 @@ table.bom-table tr.bom-category-header td:last-child {
   justify-content: center;
   min-width: 2.5rem;
   padding: 0.25rem 0.5rem;
-  font-size: 0.75rem;
+  font-size: var(--text-sm);
   font-weight: 700;
   border-radius: 0.25rem;
   font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
@@ -4715,7 +4715,7 @@ table.bom-table tr.bom-category-header td:last-child {
 }
 
 .cut-list-subtype {
-  font-size: 0.6875rem;
+  font-size: var(--text-xs);
   color: var(--gray-400);
   display: block;
   margin-top: 0.125rem;
@@ -4730,7 +4730,7 @@ table.bom-table tr.bom-category-header td:last-child {
 }
 
 .cut-list-grouped h3 {
-  font-size: 0.875rem;
+  font-size: var(--text-base);
   font-weight: 600;
   color: var(--tuds-navy);
   margin: 0 0 0.75rem 0;
@@ -4750,7 +4750,7 @@ table.bom-table tr.bom-category-header td:last-child {
   background: white;
   border-radius: 0.375rem;
   border: 1px solid var(--gray-200);
-  font-size: 0.8125rem;
+  font-size: var(--text-sm);
 }
 
 .cut-list-grouped-item .size-name {
@@ -4804,7 +4804,7 @@ table.bom-table tr.bom-category-header td:last-child {
   }
 
   .cut-list-modal-title h2 {
-    font-size: 1rem;
+    font-size: var(--text-md);
   }
 
   .cut-list-summary {
@@ -4820,7 +4820,7 @@ table.bom-table tr.bom-category-header td:last-child {
   }
 
   .cut-list-stat .stat-value {
-    font-size: 1.25rem;
+    font-size: var(--text-xl);
   }
 
   .cut-list-modal-body {
@@ -4909,7 +4909,7 @@ table.bom-table tr.bom-category-header td:last-child {
   border: 1px solid rgba(255, 255, 255, 0.3);
   border-radius: 0.5rem;
   color: white;
-  font-size: 0.875rem;
+  font-size: var(--text-base);
   font-weight: 500;
   cursor: pointer;
   transition: all 0.2s ease;
@@ -5049,7 +5049,7 @@ table.bom-table tr.bom-category-header td:last-child {
 }
 
 .wizard-step-indicator {
-  font-size: 0.75rem;
+  font-size: var(--text-sm);
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.05em;
@@ -5080,7 +5080,7 @@ table.bom-table tr.bom-category-header td:last-child {
 }
 
 .wizard-title {
-  font-size: 1.125rem;
+  font-size: var(--text-lg);
   font-weight: 700;
   color: var(--gray-900);
   margin: 0 0 0.5rem 0;
@@ -5088,7 +5088,7 @@ table.bom-table tr.bom-category-header td:last-child {
 }
 
 .wizard-description {
-  font-size: 0.875rem;
+  font-size: var(--text-base);
   color: var(--gray-600);
   margin: 0;
   line-height: 1.6;
@@ -5110,7 +5110,7 @@ table.bom-table tr.bom-category-header td:last-child {
   align-items: center;
   gap: 0.375rem;
   padding: 0.5rem 0.875rem;
-  font-size: 0.8125rem;
+  font-size: var(--text-sm);
   font-weight: 500;
   min-width: 80px;
   justify-content: center;
@@ -5169,7 +5169,7 @@ table.bom-table tr.bom-category-header td:last-child {
   background: none;
   border: none;
   color: var(--gray-400);
-  font-size: 0.75rem;
+  font-size: var(--text-sm);
   cursor: pointer;
   text-decoration: underline;
   transition: color 0.2s ease;
@@ -5198,11 +5198,11 @@ table.bom-table tr.bom-category-header td:last-child {
 }
 
 .wizard-tooltip.welcome-step .wizard-title {
-  font-size: 1.375rem;
+  font-size: var(--text-xl);
 }
 
 .wizard-tooltip.welcome-step .wizard-description {
-  font-size: 0.9375rem;
+  font-size: var(--text-base);
 }
 
 /* Responsive adjustments */
@@ -5227,7 +5227,7 @@ table.bom-table tr.bom-category-header td:last-child {
   .wizard-btn {
     min-width: 70px;
     padding: 0.5rem 0.625rem;
-    font-size: 0.75rem;
+    font-size: var(--text-sm);
   }
 
   .wizard-progress-dots {
@@ -5307,7 +5307,7 @@ table.bom-table tr.bom-category-header td:last-child {
 }
 
 .preview3d-modal-title h2 {
-  font-size: 1.25rem;
+  font-size: var(--text-xl);
   font-weight: 700;
   margin: 0;
 }
@@ -5316,7 +5316,7 @@ table.bom-table tr.bom-category-header td:last-child {
   background: rgba(255, 255, 255, 0.2);
   padding: 0.25rem 0.625rem;
   border-radius: 1rem;
-  font-size: 0.6875rem;
+  font-size: var(--text-xs);
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.05em;
@@ -5357,7 +5357,7 @@ table.bom-table tr.bom-category-header td:last-child {
 }
 
 .preview3d-control-group > label {
-  font-size: 0.75rem;
+  font-size: var(--text-sm);
   font-weight: 600;
   color: var(--gray-600);
   text-transform: uppercase;
@@ -5374,7 +5374,7 @@ table.bom-table tr.bom-category-header td:last-child {
   background: white;
   border: 1px solid var(--gray-300);
   border-radius: 0.375rem;
-  font-size: 0.75rem;
+  font-size: var(--text-sm);
   font-weight: 500;
   color: var(--gray-600);
   cursor: pointer;
@@ -5403,7 +5403,7 @@ table.bom-table tr.bom-category-header td:last-child {
   align-items: center;
   gap: 0.375rem;
   cursor: pointer;
-  font-size: 0.8125rem;
+  font-size: var(--text-sm);
   color: var(--gray-700);
 }
 
@@ -5443,7 +5443,7 @@ table.bom-table tr.bom-category-header td:last-child {
   color: white;
   padding: 0.375rem 0.75rem;
   border-radius: 0.375rem;
-  font-size: 0.75rem;
+  font-size: var(--text-sm);
   font-family: monospace;
 }
 
@@ -5480,7 +5480,7 @@ table.bom-table tr.bom-category-header td:last-child {
 
   .angle-btn {
     padding: 0.5rem 0.625rem;
-    font-size: 0.6875rem;
+    font-size: var(--text-xs);
   }
 
   .preview3d-modal-body {
@@ -5571,7 +5571,7 @@ table.bom-table tr.bom-category-header td:last-child {
 }
 
 .projects-modal-title h2 {
-  font-size: 1.25rem;
+  font-size: var(--text-xl);
   font-weight: 600;
   color: white;
   margin: 0;
@@ -5616,7 +5616,7 @@ table.bom-table tr.bom-category-header td:last-child {
   display: flex;
   align-items: center;
   gap: 0.5rem;
-  font-size: 0.9375rem;
+  font-size: var(--text-base);
   font-weight: 600;
   color: var(--tuds-navy, #133A52);
   margin: 0 0 1rem 0;
@@ -5639,7 +5639,7 @@ table.bom-table tr.bom-category-header td:last-child {
 }
 
 .save-project-form .form-row label {
-  font-size: 0.8125rem;
+  font-size: var(--text-sm);
   font-weight: 500;
   color: var(--gray-700, var(--gray-700));
 }
@@ -5648,7 +5648,7 @@ table.bom-table tr.bom-category-header td:last-child {
   padding: 0.625rem 0.875rem;
   border: 1px solid var(--gray-300, var(--gray-300));
   border-radius: var(--radius-md, 0.5rem);
-  font-size: 0.875rem;
+  font-size: var(--text-base);
   transition: all var(--transition-fast, 150ms ease);
 }
 
@@ -5671,7 +5671,7 @@ table.bom-table tr.bom-category-header td:last-child {
   align-items: center;
   gap: 0.5rem;
   cursor: pointer;
-  font-size: 0.8125rem;
+  font-size: var(--text-sm);
   color: var(--gray-600, var(--gray-600));
 }
 
@@ -5729,7 +5729,7 @@ table.bom-table tr.bom-category-header td:last-child {
   background: transparent;
   border: 1px solid var(--gray-300, var(--gray-300));
   border-radius: var(--radius-md, 0.5rem);
-  font-size: 0.875rem;
+  font-size: var(--text-base);
   font-weight: 500;
   color: var(--gray-600, var(--gray-600));
   cursor: pointer;
@@ -5756,7 +5756,7 @@ table.bom-table tr.bom-category-header td:last-child {
   background: rgba(255, 255, 255, 0.2);
   padding: 0.125rem 0.5rem;
   border-radius: var(--radius-full, 9999px);
-  font-size: 0.75rem;
+  font-size: var(--text-sm);
   font-weight: 600;
 }
 
@@ -5798,14 +5798,14 @@ table.bom-table tr.bom-category-header td:last-child {
 }
 
 .sign-in-section-text h3 {
-  font-size: 1rem;
+  font-size: var(--text-md);
   font-weight: 600;
   color: var(--tuds-navy, #133A52);
   margin: 0 0 0.25rem 0;
 }
 
 .sign-in-section-text p {
-  font-size: 0.875rem;
+  font-size: var(--text-base);
   color: var(--gray-600, var(--gray-600));
   margin: 0;
 }
@@ -5847,7 +5847,7 @@ table.bom-table tr.bom-category-header td:last-child {
   display: flex;
   align-items: center;
   gap: 0.5rem;
-  font-size: 0.9375rem;
+  font-size: var(--text-base);
   font-weight: 600;
   color: var(--tuds-navy, #133A52);
   margin: 0 0 1rem 0;
@@ -5884,7 +5884,7 @@ table.bom-table tr.bom-category-header td:last-child {
 }
 
 .no-projects p {
-  font-size: 0.8125rem;
+  font-size: var(--text-sm);
   font-weight: 500;
   margin: 0;
   color: var(--gray-600, var(--gray-600));
@@ -5922,7 +5922,7 @@ table.bom-table tr.bom-category-header td:last-child {
 }
 
 .project-card-name {
-  font-size: 0.9375rem;
+  font-size: var(--text-base);
   font-weight: 600;
   color: var(--tuds-navy, #133A52);
   margin: 0 0 0.25rem 0;
@@ -5932,7 +5932,7 @@ table.bom-table tr.bom-category-header td:last-child {
 }
 
 .project-card-date {
-  font-size: 0.75rem;
+  font-size: var(--text-sm);
   color: var(--gray-500, var(--gray-500));
 }
 
@@ -5945,7 +5945,7 @@ table.bom-table tr.bom-category-header td:last-child {
 
 .project-card-actions .btn {
   padding: 0.375rem 0.75rem;
-  font-size: 0.75rem;
+  font-size: var(--text-sm);
 }
 
 .project-card-actions .btn-delete {
@@ -5968,7 +5968,7 @@ table.bom-table tr.bom-category-header td:last-child {
   display: flex;
   flex-wrap: wrap;
   gap: 0.5rem 1rem;
-  font-size: 0.75rem;
+  font-size: var(--text-sm);
   color: var(--gray-600, var(--gray-600));
 }
 
@@ -5988,7 +5988,7 @@ table.bom-table tr.bom-category-header td:last-child {
   margin-top: 0.75rem;
   padding-top: 0.75rem;
   border-top: 1px solid var(--gray-100, var(--gray-100));
-  font-size: 0.75rem;
+  font-size: var(--text-sm);
   color: var(--gray-600, var(--gray-600));
 }
 
@@ -6010,7 +6010,7 @@ table.bom-table tr.bom-category-header td:last-child {
   display: flex;
   align-items: center;
   gap: 0.375rem;
-  font-size: 0.75rem;
+  font-size: var(--text-sm);
   color: var(--gray-500, var(--gray-500));
   margin: 0;
 }
@@ -6038,7 +6038,7 @@ table.bom-table tr.bom-category-header td:last-child {
   background: transparent;
   border: 2px solid var(--tuds-teal, #00A19A);
   color: var(--tuds-teal, #00A19A);
-  font-size: 0.9375rem;
+  font-size: var(--text-base);
   font-weight: 600;
   cursor: pointer;
   border-radius: var(--radius, 0.5rem);
@@ -6065,7 +6065,7 @@ table.bom-table tr.bom-category-header td:last-child {
   background: transparent;
   border: none;
   color: var(--gray-600, var(--gray-600));
-  font-size: 0.875rem;
+  font-size: var(--text-base);
   font-weight: 500;
   cursor: pointer;
   border-radius: var(--radius, 0.5rem);
@@ -6166,7 +6166,7 @@ table.bom-table tr.bom-category-header td:last-child {
   align-items: center;
   justify-content: center;
   color: white;
-  font-size: 0.75rem;
+  font-size: var(--text-sm);
   font-weight: 600;
   overflow: hidden;
 }
@@ -6213,7 +6213,7 @@ table.bom-table tr.bom-category-header td:last-child {
 }
 
 .user-email {
-  font-size: 0.8125rem;
+  font-size: var(--text-sm);
   color: var(--gray-600, var(--gray-600));
 }
 
@@ -6231,7 +6231,7 @@ table.bom-table tr.bom-category-header td:last-child {
   background: transparent;
   border: none;
   color: var(--gray-700, var(--gray-700));
-  font-size: 0.875rem;
+  font-size: var(--text-base);
   cursor: pointer;
   transition: background 0.15s ease;
   text-align: left;
@@ -6301,7 +6301,7 @@ table.bom-table tr.bom-category-header td:last-child {
 }
 
 .auth-modal-title h2 {
-  font-size: 1.25rem;
+  font-size: var(--text-xl);
   font-weight: 600;
   margin: 0;
 }
@@ -6333,7 +6333,7 @@ table.bom-table tr.bom-category-header td:last-child {
   border: 1px solid var(--red-200, #fecaca);
   border-radius: var(--radius, 0.5rem);
   color: var(--red-700, var(--color-error));
-  font-size: 0.875rem;
+  font-size: var(--text-base);
   margin-bottom: 1rem;
 }
 
@@ -6353,7 +6353,7 @@ table.bom-table tr.bom-category-header td:last-child {
   border: 1px solid var(--gray-300, var(--gray-300));
   border-radius: var(--radius, 0.5rem);
   color: var(--gray-700, var(--gray-700));
-  font-size: 0.9375rem;
+  font-size: var(--text-base);
   font-weight: 500;
   cursor: pointer;
   transition: all 0.15s ease;
@@ -6386,7 +6386,7 @@ table.bom-table tr.bom-category-header td:last-child {
 
 .auth-divider span {
   color: var(--gray-500, var(--gray-500));
-  font-size: 0.8125rem;
+  font-size: var(--text-sm);
 }
 
 .auth-form {
@@ -6404,7 +6404,7 @@ table.bom-table tr.bom-category-header td:last-child {
   background: transparent;
   border: none;
   color: var(--tuds-teal, #00A19A);
-  font-size: 0.875rem;
+  font-size: var(--text-base);
   font-weight: 500;
   cursor: pointer;
   text-decoration: none;
@@ -6422,7 +6422,7 @@ table.bom-table tr.bom-category-header td:last-child {
   margin-top: 1.5rem;
   padding-top: 1.5rem;
   border-top: 1px solid var(--gray-200, var(--gray-200));
-  font-size: 0.875rem;
+  font-size: var(--text-base);
   color: var(--gray-600, var(--gray-600));
 }
 
@@ -6433,7 +6433,7 @@ table.bom-table tr.bom-category-header td:last-child {
 
 .phone-modal-description {
   color: var(--gray-600, var(--gray-600));
-  font-size: 0.9375rem;
+  font-size: var(--text-base);
   margin-bottom: 1.25rem;
   text-align: center;
   line-height: 1.5;
@@ -6442,7 +6442,7 @@ table.bom-table tr.bom-category-header td:last-child {
 /* Form Hint Text */
 .form-hint {
   display: block;
-  font-size: 0.75rem;
+  font-size: var(--text-sm);
   color: var(--gray-500, var(--gray-500));
   margin-top: 0.25rem;
 }
@@ -6490,17 +6490,17 @@ table.bom-table tr.bom-category-header td:last-child {
 }
 
 .gating-estimate {
-  font-size: 1rem;
+  font-size: var(--text-md);
   color: var(--tuds-navy, #133A52);
 }
 
 .gating-estimate strong {
-  font-size: 1.125rem;
+  font-size: var(--text-lg);
   color: var(--tuds-teal, #00A19A);
 }
 
 .gating-cta {
-  font-size: 0.875rem;
+  font-size: var(--text-base);
   color: var(--gray-600, var(--gray-600));
 }
 
@@ -6549,7 +6549,7 @@ table.bom-table tr.bom-category-header td:last-child {
   text-align: center;
   color: var(--gray-600, var(--gray-600));
   margin-bottom: 1.5rem;
-  font-size: 0.95rem;
+  font-size: var(--text-base);
 }
 
 .cart-option-buttons {
@@ -6613,11 +6613,11 @@ table.bom-table tr.bom-category-header td:last-child {
 .cart-option-title {
   font-weight: 600;
   color: var(--tuds-navy, #133A52);
-  font-size: 1rem;
+  font-size: var(--text-md);
 }
 
 .cart-option-desc {
-  font-size: 0.8rem;
+  font-size: var(--text-sm);
   color: var(--gray-500, var(--gray-500));
 }
 
@@ -6694,7 +6694,7 @@ table.bom-table tr.bom-category-header td:last-child {
   border: none;
   background: white;
   color: var(--gray-600, var(--gray-600));
-  font-size: 0.75rem;
+  font-size: var(--text-sm);
   font-weight: 600;
   cursor: pointer;
   transition: all 0.15s ease;
@@ -6740,7 +6740,7 @@ table.bom-table tr.bom-category-header td:last-child {
   border-radius: var(--radius-sm, 0.375rem);
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
   color: var(--gray-600, var(--gray-600));
-  font-size: 0.7rem;
+  font-size: var(--text-xs);
   font-weight: 700;
   cursor: pointer;
   transition: all 0.15s ease;
@@ -6788,7 +6788,7 @@ table.bom-table tr.bom-category-header td:last-child {
   backdrop-filter: blur(4px);
   padding: 8px 12px;
   border-radius: var(--radius-sm, 0.375rem);
-  font-size: 0.7rem;
+  font-size: var(--text-xs);
   color: var(--gray-600, var(--gray-600));
   z-index: 100;
 }
@@ -6798,7 +6798,7 @@ table.bom-table tr.bom-category-header td:last-child {
   padding: 2px 6px;
   border-radius: 3px;
   font-family: inherit;
-  font-size: 0.65rem;
+  font-size: var(--text-xs);
 }
 
 /* ============================================
@@ -6842,7 +6842,7 @@ table.bom-table tr.bom-category-header td:last-child {
 }
 
 .settings-modal-title h2 {
-  font-size: 1.25rem;
+  font-size: var(--text-xl);
   font-weight: 700;
   color: var(--gray-900, var(--gray-900));
   margin: 0;
@@ -6883,7 +6883,7 @@ table.bom-table tr.bom-category-header td:last-child {
   display: flex;
   align-items: center;
   gap: 0.5rem;
-  font-size: 1rem;
+  font-size: var(--text-md);
   font-weight: 600;
   color: var(--gray-800, var(--gray-800));
   margin: 0 0 1rem 0;
@@ -6903,7 +6903,7 @@ table.bom-table tr.bom-category-header td:last-child {
   background: var(--amber-50, var(--color-warning-light));
   border: 1px solid var(--amber-200, var(--color-warning));
   border-radius: var(--radius-md, 0.5rem);
-  font-size: 0.8125rem;
+  font-size: var(--text-sm);
   color: var(--amber-800, var(--color-warning));
 }
 
@@ -6956,12 +6956,12 @@ table.bom-table tr.bom-category-header td:last-child {
   align-items: center;
   padding: 0.25rem 0.75rem;
   border-radius: 9999px;
-  font-size: 0.875rem;
+  font-size: var(--text-base);
   font-weight: 600;
 }
 
 .store-count {
-  font-size: 0.75rem;
+  font-size: var(--text-sm);
   color: var(--gray-500, var(--gray-500));
 }
 
@@ -6983,12 +6983,12 @@ table.bom-table tr.bom-category-header td:last-child {
 }
 
 .salesperson-name {
-  font-size: 0.875rem;
+  font-size: var(--text-base);
   color: var(--gray-700, var(--gray-700));
 }
 
 .no-salespeople {
-  font-size: 0.8125rem;
+  font-size: var(--text-sm);
   color: var(--gray-500, var(--gray-500));
   font-style: italic;
   padding: 0.5rem;
@@ -6996,7 +6996,7 @@ table.bom-table tr.bom-category-header td:last-child {
 }
 
 .no-stores {
-  font-size: 0.875rem;
+  font-size: var(--text-base);
   color: var(--gray-500, var(--gray-500));
   text-align: center;
   padding: 2rem;
@@ -7012,7 +7012,7 @@ table.bom-table tr.bom-category-header td:last-child {
   padding: 0.5rem 0.75rem;
   border: 1px solid var(--gray-300, var(--gray-300));
   border-radius: var(--radius-md, 0.5rem);
-  font-size: 0.8125rem;
+  font-size: var(--text-sm);
 }
 
 .add-salesperson-input:focus {
@@ -7032,7 +7032,7 @@ table.bom-table tr.bom-category-header td:last-child {
   padding: 0.625rem 0.75rem;
   border: 1px solid var(--gray-300, var(--gray-300));
   border-radius: var(--radius-md, 0.5rem);
-  font-size: 0.875rem;
+  font-size: var(--text-base);
 }
 
 .add-store-section input:focus {
@@ -7071,7 +7071,7 @@ table.bom-table tr.bom-category-header td:last-child {
 }
 
 .store-location-members {
-  font-size: 0.8125rem;
+  font-size: var(--text-sm);
   color: var(--gray-500, var(--gray-500));
 }
 
@@ -7081,7 +7081,7 @@ table.bom-table tr.bom-category-header td:last-child {
   padding: 1rem;
   text-align: center;
   color: var(--gray-500, var(--gray-500));
-  font-size: 0.875rem;
+  font-size: var(--text-base);
 }
 
 .error-message {
@@ -7121,7 +7121,7 @@ table.bom-table tr.bom-category-header td:last-child {
 }
 
 .settings-section-description {
-  font-size: 0.8125rem;
+  font-size: var(--text-sm);
   color: var(--gray-600, var(--gray-600));
   margin: -0.5rem 0 1rem 0;
 }
@@ -7134,7 +7134,7 @@ table.bom-table tr.bom-category-header td:last-child {
 }
 
 .membership-store-select label {
-  font-size: 0.875rem;
+  font-size: var(--text-base);
   font-weight: 500;
   color: var(--gray-700, var(--gray-700));
   white-space: nowrap;
@@ -7145,7 +7145,7 @@ table.bom-table tr.bom-category-header td:last-child {
   padding: 0.5rem 0.75rem;
   border: 1px solid var(--gray-300, var(--gray-300));
   border-radius: var(--radius-md, 0.5rem);
-  font-size: 0.875rem;
+  font-size: var(--text-base);
 }
 
 .store-members-list {
@@ -7160,7 +7160,7 @@ table.bom-table tr.bom-category-header td:last-child {
 
 .no-store-selected {
   color: var(--gray-500, var(--gray-500));
-  font-size: 0.875rem;
+  font-size: var(--text-base);
   text-align: center;
   margin: 0;
 }
@@ -7187,12 +7187,12 @@ table.bom-table tr.bom-category-header td:last-child {
 }
 
 .member-email {
-  font-size: 0.875rem;
+  font-size: var(--text-base);
   color: var(--gray-900, var(--gray-900));
 }
 
 .member-badge {
-  font-size: 0.6875rem;
+  font-size: var(--text-xs);
   padding: 0.125rem 0.375rem;
   border-radius: var(--radius-full, 9999px);
   font-weight: 500;
@@ -7239,7 +7239,7 @@ table.bom-table tr.bom-category-header td:last-child {
   padding: 0.5rem 0.75rem;
   border: 1px solid var(--gray-300, var(--gray-300));
   border-radius: var(--radius-md, 0.5rem);
-  font-size: 0.875rem;
+  font-size: var(--text-base);
 }
 
 .add-member-section input:focus {
@@ -7260,7 +7260,7 @@ table.bom-table tr.bom-category-header td:last-child {
 .members-empty {
   text-align: center;
   color: var(--gray-500, var(--gray-500));
-  font-size: 0.875rem;
+  font-size: var(--text-base);
   padding: 0.5rem;
 }
 
@@ -7280,7 +7280,7 @@ table.bom-table tr.bom-category-header td:last-child {
   padding: 0.625rem 0.75rem;
   border: 1px solid var(--gray-300, var(--gray-300));
   border-radius: var(--radius-md, 0.5rem);
-  font-size: 0.875rem;
+  font-size: var(--text-base);
 }
 
 .change-password-form input:focus {
@@ -7317,7 +7317,7 @@ table.bom-table tr.bom-category-header td:last-child {
 }
 
 .filter-group label {
-  font-size: 0.75rem;
+  font-size: var(--text-sm);
   font-weight: 500;
   color: var(--gray-600, var(--gray-600));
   white-space: nowrap;
@@ -7327,7 +7327,7 @@ table.bom-table tr.bom-category-header td:last-child {
   padding: 0.375rem 1.75rem 0.375rem 0.5rem;
   border: 1px solid var(--gray-300, var(--gray-300));
   border-radius: var(--radius-md, 0.5rem);
-  font-size: 0.75rem;
+  font-size: var(--text-sm);
   background-color: white;
   cursor: pointer;
   min-width: 100px;
@@ -7340,7 +7340,7 @@ table.bom-table tr.bom-category-header td:last-child {
 }
 
 .projects-count {
-  font-size: 0.875rem;
+  font-size: var(--text-base);
   font-weight: 400;
   color: var(--gray-500, var(--gray-500));
   margin-left: 0.25rem;
@@ -7354,7 +7354,7 @@ table.bom-table tr.bom-category-header td:last-child {
   align-items: center;
   padding: 0.125rem 0.5rem;
   border-radius: 9999px;
-  font-size: 0.6875rem;
+  font-size: var(--text-xs);
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.025em;
@@ -7369,12 +7369,12 @@ table.bom-table tr.bom-category-header td:last-child {
 }
 
 .project-salesperson {
-  font-size: 0.75rem;
+  font-size: var(--text-sm);
   color: var(--gray-600, var(--gray-600));
 }
 
 .project-date {
-  font-size: 0.75rem;
+  font-size: var(--text-sm);
   color: var(--gray-500, var(--gray-500));
 }
 
@@ -7409,7 +7409,7 @@ table.bom-table tr.bom-category-header td:last-child {
   padding: 0.625rem 0.75rem;
   border: 1px solid var(--gray-300, var(--gray-300));
   border-radius: var(--radius-md, 0.5rem);
-  font-size: 0.875rem;
+  font-size: var(--text-base);
   background-color: white;
 }
 
@@ -7421,7 +7421,7 @@ table.bom-table tr.bom-category-header td:last-child {
 
 .form-row-half label {
   display: block;
-  font-size: 0.8125rem;
+  font-size: var(--text-sm);
   font-weight: 500;
   color: var(--gray-700, var(--gray-700));
   margin-bottom: 0.375rem;
@@ -7568,7 +7568,7 @@ table.bom-table tr.bom-category-header td:last-child {
   border-radius: 50%;
   background: var(--gray-200);
   color: var(--gray-600);
-  font-size: 12px;
+  font-size: var(--text-sm);
   font-weight: var(--font-semibold);
   display: flex;
   align-items: center;
@@ -7583,7 +7583,7 @@ table.bom-table tr.bom-category-header td:last-child {
 
 /* Step name - abbreviated */
 .step-sidebar .step-name {
-  font-size: 11px;
+  font-size: var(--text-xs);
   font-weight: var(--font-semibold);
   color: var(--gray-600);
   text-align: center;
@@ -7685,7 +7685,7 @@ table.bom-table tr.bom-category-header td:last-child {
 
   /* Adjust wizard title sizing */
   .wizard-step-title {
-    font-size: var(--text-lg);
+    font-size: var(--text-md);
   }
 }
 
@@ -7763,7 +7763,7 @@ table.bom-table tr.bom-category-header td:last-child {
 }
 
 .mobile-nav-item .nav-label {
-  font-size: 10px;
+  font-size: var(--text-xs);
   font-weight: var(--font-semibold);
   text-transform: uppercase;
   letter-spacing: 0.02em;
@@ -7776,7 +7776,7 @@ table.bom-table tr.bom-category-header td:last-child {
   border-radius: 50%;
   background: var(--gray-200);
   color: var(--gray-600);
-  font-size: 11px;
+  font-size: var(--text-xs);
   font-weight: var(--font-bold);
   display: flex;
   align-items: center;
@@ -8068,7 +8068,7 @@ table.bom-table tr.bom-category-header td:last-child {
 
 /* Coming Soon Badge */
 .wizard-step-badge {
-  font-size: 9px;
+  font-size: var(--text-xs);
   padding: 2px 6px;
   background-color: var(--gray-200);
   color: var(--gray-500);
@@ -8114,7 +8114,7 @@ table.bom-table tr.bom-category-header td:last-child {
 
 /* Step Title */
 .wizard-step-title {
-  font-size: var(--text-lg);
+  font-size: var(--text-md);
   font-weight: var(--font-semibold);
   color: var(--gray-800);
   margin-bottom: var(--space-4);
@@ -8189,7 +8189,7 @@ table.bom-table tr.bom-category-header td:last-child {
   border-radius: 50%;
   background: var(--gray-300);
   color: var(--gray-600);
-  font-size: 12px;
+  font-size: var(--text-sm);
   font-weight: var(--font-semibold);
   display: flex;
   align-items: center;
@@ -8208,7 +8208,7 @@ table.bom-table tr.bom-category-header td:last-child {
 }
 
 .substep-label {
-  font-size: 11px;
+  font-size: var(--text-xs);
   font-weight: var(--font-medium);
   color: var(--gray-500);
   white-space: nowrap;
@@ -8306,7 +8306,7 @@ table.bom-table tr.bom-category-header td:last-child {
 }
 
 .coming-soon-title {
-  font-size: var(--text-xl);
+  font-size: var(--text-lg);
   font-weight: var(--font-semibold);
   color: var(--gray-600);
   margin-bottom: var(--space-2);
@@ -8739,7 +8739,7 @@ table.bom-table tr.bom-category-header td:last-child {
 }
 
 .decking-summary-value {
-  font-size: var(--text-lg);
+  font-size: var(--text-md);
   font-weight: var(--font-semibold);
 }
 
