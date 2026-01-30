@@ -754,27 +754,25 @@ canvas.mode-transition {
   background-color: rgba(74, 144, 226, 0.04);
 }
 
-/* Alternating row backgrounds for data rows - applies to ALL cells including the last (Total Price) column */
+/* Alternating row backgrounds for data rows */
 .bom-table tr.bom-data-row.bom-row-odd {
-  background-color: #ffffff !important;
+  background-color: var(--surface-primary);
 }
 
 .bom-table tr.bom-data-row.bom-row-odd td,
 .bom-table tr.bom-data-row.bom-row-odd td:last-child,
 .bom-table tr.bom-data-row.bom-row-odd td.total-price-cell {
-  background-color: #ffffff !important;
-  background: #ffffff !important;
+  background-color: var(--surface-primary);
 }
 
 .bom-table tr.bom-data-row.bom-row-even {
-  background-color: var(--gray-50) !important;
+  background-color: var(--gray-50);
 }
 
 .bom-table tr.bom-data-row.bom-row-even td,
 .bom-table tr.bom-data-row.bom-row-even td:last-child,
 .bom-table tr.bom-data-row.bom-row-even td.total-price-cell {
-  background-color: var(--gray-50) !important;
-  background: var(--gray-50) !important;
+  background-color: var(--gray-50);
 }
 
 .bom-table tr:last-child td {
@@ -801,55 +799,48 @@ canvas.mode-transition {
 
 /* Make the total row stand out */
 .bom-table tr.bom-total-row {
-  background-color: var(--tuds-teal-muted) !important;
+  background-color: var(--tuds-teal-muted);
 }
 
 .bom-table tr.bom-total-row td,
 .bom-table tr.bom-total-row td:last-child {
-  background: var(--tuds-teal-muted) !important;
-  background-color: var(--tuds-teal-muted) !important;
+  background-color: var(--tuds-teal-muted);
   color: var(--tuds-navy-dark);
   font-weight: 600;
-  border-top: 2px solid var(--tuds-navy-dark);
+  border-top: 2px solid var(--tuds-teal);
   padding-top: 0.75rem;
   padding-bottom: 0.75rem;
 }
 
 /* BOM Category Collapsible Sections */
 .bom-table tr.bom-category-header {
-  background-color: var(--tuds-navy);
+  background-color: var(--gray-100);
   cursor: pointer;
   user-select: none;
 }
 
 .bom-table tr.bom-category-header:hover {
-  background-color: var(--tuds-navy-light);
+  background-color: var(--gray-200);
 }
 
-/* Category header - apply dark blue to the row and all cells */
-.bom-table tr.bom-category-header {
-  background-color: var(--tuds-navy) !important;
-}
-
+/* Category header - apply light gray to the row and all cells */
 .bom-table tr.bom-category-header td,
 .bom-table tr.bom-category-header td.category-subtotal-cell {
   padding: 0.5rem 1rem;
-  border-bottom: 1px solid var(--tuds-navy-light);
-  background: var(--tuds-navy) !important;
-  background-color: var(--tuds-navy) !important;
+  border-bottom: 2px solid var(--gray-200);
+  background-color: var(--gray-100);
 }
 
-.bom-table tr.bom-category-header:hover,
 .bom-table tr.bom-category-header:hover td,
 .bom-table tr.bom-category-header:hover td.category-subtotal-cell {
-  background-color: var(--tuds-navy-light) !important;
+  background-color: var(--gray-200);
 }
 
 .category-header-content {
   display: flex;
   align-items: center;
   gap: 0.5rem;
-  color: #ffffff;
+  color: var(--gray-800);
   font-weight: 600;
 }
 
@@ -870,8 +861,9 @@ canvas.mode-transition {
 }
 
 .category-name {
-  font-size: var(--text-base);
-  letter-spacing: 0.05em;
+  font-size: var(--text-sm);
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
 }
 
 .category-count {
@@ -884,7 +876,7 @@ canvas.mode-transition {
   margin-left: auto;
   font-size: var(--text-base);
   font-weight: 600;
-  color: #a7d3ff;
+  color: var(--gray-700);
 }
 
 /* Subtotal cell in category header - aligns with Total Price column */
@@ -892,48 +884,38 @@ canvas.mode-transition {
   text-align: right;
   font-size: var(--text-base);
   font-weight: 600;
-  color: #a7d3ff !important;
+  color: var(--gray-700);
   white-space: nowrap;
   padding-right: 1rem;
-  background: var(--tuds-navy) !important;
-  background-color: var(--tuds-navy) !important;
+  background-color: var(--gray-100);
 }
 
-/* Ensure subtotal cell in category header always has dark blue background */
+/* Category header subtotal cell consistency */
 .bom-table tr.bom-category-header td.category-subtotal-cell,
-.bom-table tr.bom-category-header > td:last-child,
-.bom-table tbody tr.bom-category-header td.category-subtotal-cell,
-.bom-table tbody tr.bom-category-header td:last-child,
-table.bom-table tr.bom-category-header td.category-subtotal-cell,
-table.bom-table tr.bom-category-header td:last-child {
-  background-color: var(--tuds-navy) !important;
-  color: #a7d3ff !important;
-  background: var(--tuds-navy) !important;
+.bom-table tr.bom-category-header > td:last-child {
+  background-color: var(--gray-100);
+  color: var(--gray-700);
 }
 
-/* Force sixth column (Total Price) backgrounds - explicit overrides */
+/* Column background consistency — !important no longer needed with light headers */
 .bom-table tbody tr.bom-data-row.bom-row-odd td:nth-child(6),
 .bom-table tbody tr.bom-data-row.bom-row-odd td:last-child {
-  background: #ffffff !important;
-  background-color: #ffffff !important;
+  background-color: var(--surface-primary);
 }
 
 .bom-table tbody tr.bom-data-row.bom-row-even td:nth-child(6),
 .bom-table tbody tr.bom-data-row.bom-row-even td:last-child {
-  background: var(--gray-50) !important;
-  background-color: var(--gray-50) !important;
+  background-color: var(--gray-50);
 }
 
 .bom-table tbody tr.bom-total-row td:nth-child(2),
 .bom-table tbody tr.bom-total-row td:last-child {
-  background: var(--tuds-teal-muted) !important;
-  background-color: var(--tuds-teal-muted) !important;
+  background-color: var(--tuds-teal-muted);
 }
 
 .bom-table tbody tr.bom-category-header td:nth-child(2),
 .bom-table tbody tr.bom-category-header td:last-child {
-  background: var(--tuds-navy) !important;
-  background-color: var(--tuds-navy) !important;
+  background-color: var(--gray-100);
 }
 
 /* Collapsed rows */
@@ -943,11 +925,11 @@ table.bom-table tr.bom-category-header td:last-child {
 
 /* Override alternating row color for category rows */
 .bom-table tr.bom-category-header:nth-child(even) {
-  background-color: var(--tuds-navy);
+  background-color: var(--gray-100);
 }
 
 .bom-table tr.bom-category-header:nth-child(even):hover {
-  background-color: var(--tuds-navy-light);
+  background-color: var(--gray-200);
 }
 
 /* Print styles for BOM categories */
@@ -959,18 +941,18 @@ table.bom-table tr.bom-category-header td:last-child {
 
   /* Category headers for print */
   .bom-table tr.bom-category-header {
-    background-color: var(--tuds-navy) !important;
+    background-color: var(--gray-100) !important;
     -webkit-print-color-adjust: exact !important;
     print-color-adjust: exact !important;
   }
 
   .bom-table tr.bom-category-header td {
     padding: 0.4rem 0.75rem !important;
-    border-bottom: 1px solid var(--tuds-navy-light) !important;
+    border-bottom: 2px solid var(--gray-200) !important;
   }
 
   .category-header-content {
-    color: #ffffff !important;
+    color: var(--gray-800) !important;
     -webkit-print-color-adjust: exact !important;
     print-color-adjust: exact !important;
   }
@@ -990,7 +972,7 @@ table.bom-table tr.bom-category-header td:last-child {
   }
 
   .category-subtotal {
-    color: #a7d3ff !important;
+    color: var(--gray-700) !important;
     font-size: 9pt !important;
     -webkit-print-color-adjust: exact !important;
     print-color-adjust: exact !important;
