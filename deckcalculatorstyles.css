@@ -1178,11 +1178,11 @@ canvas.mode-transition {
 }
 
 #blueprintToggleBtn.btn-primary {
-  background-color: var(--color-info);
+  background-color: var(--tuds-teal);
 }
 
 #blueprintToggleBtn.btn-primary:hover {
-  background-color: var(--color-info);
+  background-color: var(--tuds-teal-light);
 }
 
 /* Blueprint toggle shimmer removed — Phase 2.2 cleanup */
@@ -1250,16 +1250,20 @@ canvas.mode-transition {
 
 /* Canvas control button group special treatment */
 #zoomInBtn, #zoomOutBtn, #centerFitBtn, #blueprintToggleBtn, #clearCanvasBtn {
-  transition: all 0.2s ease, margin 0s;
-  background-color: rgba(241, 245, 249, 0.95);
-  backdrop-filter: blur(4px);
-  border: 1px solid rgba(226, 232, 240, 0.8);
+  transition: background-color 0.15s ease;
+  background-color: transparent;
+  border: none;
 }
 
 #zoomInBtn:hover, #zoomOutBtn:hover, #centerFitBtn:hover, #blueprintToggleBtn:hover, #clearCanvasBtn:hover {
-  z-index: 2;
-  background-color: rgba(226, 232, 240, 0.95);
-  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.12);
+  background-color: var(--gray-200);
+}
+
+/* Active tool in floating toolbar */
+.floating-controls .btn.active,
+.floating-controls .btn-primary {
+  background-color: var(--tuds-teal);
+  color: var(--surface-primary);
 }
 
 /* Floating controls container */
@@ -1279,11 +1283,6 @@ canvas.mode-transition {
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
 }
 
-/* Enhanced shadow for floating buttons */
-.floating-controls .shadow-lg {
-  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
-}
-
 /* Disabled button style for undo/redo */
 .floating-controls .btn-disabled {
   opacity: 0.4;
@@ -1292,8 +1291,7 @@ canvas.mode-transition {
 }
 
 .floating-controls .btn-disabled:hover {
-  transform: none;
-  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+  background-color: transparent;
 }
 
 /* Divider between button groups */
