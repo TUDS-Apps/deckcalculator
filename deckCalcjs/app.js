@@ -2207,6 +2207,7 @@ function onStepComplete(stepId) {
 function updateBOMVisibility(stepId) {
   const bomSection = document.getElementById('bomSection');
   const bomPlaceholder = document.getElementById('bomPlaceholder');
+  const runningTotalBar = document.getElementById('runningTotalBar');
 
   if (stepId === 'draw' || stepId === 'mode') {
     // In Draw/Mode step: Hide BOM, show placeholder message
@@ -2218,6 +2219,9 @@ function updateBOMVisibility(stepId) {
       bomPlaceholder.style.display = 'block';
       bomPlaceholder.classList.remove('hidden');
     }
+    if (runningTotalBar) {
+      runningTotalBar.classList.add('hidden');
+    }
   } else {
     // Past Draw step: Show BOM, hide placeholder
     if (bomSection) {
@@ -2228,6 +2232,26 @@ function updateBOMVisibility(stepId) {
       bomPlaceholder.style.display = 'none';
       bomPlaceholder.classList.add('hidden');
     }
+    // Show running total during Structure/Stairs/Decking/Railing steps, hide on Review
+    if (runningTotalBar) {
+      const showTotal = ['structure', 'stairs', 'decking', 'railing'].includes(stepId);
+      runningTotalBar.classList.toggle('hidden', !showTotal);
+    }
+  }
+
+  // Update running total values
+  updateRunningTotal();
+}
+
+// Update the running total bar with current BOM totals
+function updateRunningTotal() {
+  const grandTotalEl = document.getElementById('runningTotalGrand');
+  if (!grandTotalEl) return;
+
+  // Try to read the grand total from the BOM table
+  const bomTotalEl = document.querySelector('.bom-total-row .bom-total-value, .bom-grand-total');
+  if (bomTotalEl) {
+    grandTotalEl.textContent = bomTotalEl.textContent;
   }
 }
 
