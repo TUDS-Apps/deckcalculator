@@ -11,7 +11,7 @@
 // Firebase configuration
 const firebaseConfig = {
   apiKey: "AIzaSyD3ZGbM_SWcnpeZTy9bTOJKtZiz-oDCuHU",
-  authDomain: "tuds-pro-deck-estimator.firebaseapp.com",
+  authDomain: "tuds.ca",
   projectId: "tuds-pro-deck-estimator",
   storageBucket: "tuds-pro-deck-estimator.firebasestorage.app",
   messagingSenderId: "762759711782",
