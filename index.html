@@ -32,7 +32,7 @@
     <script src="deckCalcjs/firebase.js"></script>
     <script src="deckCalcjs/app.js?v=10" type="module"></script>
   </head>
-  <body class="bg-gray-200 p-4 md:p-8">
+  <body>
     <!-- Development Warning Modal - dismissible once per day -->
     <div id="devWarningOverlay" style="position:fixed;inset:0;background:rgba(0,0,0,0.6);z-index:99999;display:none;align-items:center;justify-content:center;">
       <div style="background:#fff;border-radius:12px;max-width:480px;width:90%;padding:32px;text-align:center;box-shadow:0 20px 60px rgba(0,0,0,0.3);">
@@ -61,7 +61,7 @@
       })();
     </script>
 
-    <div class="container mx-auto max-w-7xl">
+    <div class="app-shell">
       <div class="deck-calculator-header">
         <div class="header-content">
           <img
@@ -142,16 +142,13 @@
       </div>
 
       <!-- Main App Container -->
-      <div id="main-layout-container" class="main-layout-with-sidebar">
-        <!-- Skinny Vertical Step Sidebar -->
-        <div class="step-sidebar">
-          <ul id="wizardStepList" class="step-sidebar-list">
-            <!-- Dynamically populated by JavaScript -->
-          </ul>
-        </div>
-
+      <div id="main-layout-container" class="main-layout">
         <!-- Input Panel -->
         <div id="input-panel">
+          <!-- Horizontal Progress Bar -->
+          <div class="progress-bar" id="progressBar">
+            <!-- Dynamically populated by JavaScript -->
+          </div>
           <div class="info-card wizard-panel">
 
             <!-- Wizard Step Content Container -->
@@ -1584,7 +1581,7 @@
           </div> <!-- End wizard-panel -->
             </div> <!-- End input-panel -->
 
-            <div id="main-content-panel" class="lg:w-3/4">
+            <div id="main-content-panel">
               <div class="info-card">
                 <div
                   id="canvasContainerWrapper"

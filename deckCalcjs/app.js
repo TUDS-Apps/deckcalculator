@@ -2475,15 +2475,15 @@ function updateWizardNextButton(stepId) {
   }
 }
 
-// Render the wizard step list navigation
+// Render the wizard step list navigation (horizontal progress bar)
 function renderWizardStepList() {
-  const stepList = document.getElementById('wizardStepList');
-  if (!stepList) return;
+  const progressBar = document.getElementById('progressBar');
+  if (!progressBar) return;
 
   const visibleSteps = getVisibleSteps();
   let visibleIndex = 0;
 
-  stepList.innerHTML = WIZARD_STEPS.map((step) => {
+  progressBar.innerHTML = WIZARD_STEPS.map((step) => {
     const isVisible = visibleSteps.includes(step.id);
     const isActive = appState.wizardStep === step.id;
     const isComplete = isStepComplete(step.id);
@@ -2494,22 +2494,24 @@ function renderWizardStepList() {
     else if (isComplete) statusClass = 'complete';
     else if (!isAvailable) statusClass = 'unavailable';
 
-    const comingSoonBadge = step.comingSoon ? '<span class="step-coming-soon">Soon</span>' : '';
     const displayStyle = isVisible ? '' : 'display:none;';
     const stepNumber = isVisible ? ++visibleIndex : 0;
 
+    const checkmarkSvg = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M16.704 4.153a.75.75 0 01.143 1.052l-8 10.5a.75.75 0 01-1.127.075l-4.5-4.5a.75.75 0 011.06-1.06l3.894 3.893 7.48-9.817a.75.75 0 011.05-.143z" clip-rule="evenodd" /></svg>';
+
     return `
-      <li class="wizard-step-item ${statusClass}"
-          data-step="${step.id}"
-          style="${displayStyle}"
-          onclick="handleWizardStepClick('${step.id}')"
-          ${!isAvailable ? 'title="Complete drawing first"' : ''}>
-        <span class="step-number">
-          ${isComplete ? '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-4 h-4"><path fill-rule="evenodd" d="M16.704 4.153a.75.75 0 01.143 1.052l-8 10.5a.75.75 0 01-1.127.075l-4.5-4.5a.75.75 0 011.06-1.06l3.894 3.893 7.48-9.817a.75.75 0 011.05-.143z" clip-rule="evenodd" /></svg>' : stepNumber}
-        </span>
-        <span class="step-name">${step.shortName}</span>
-        ${comingSoonBadge}
-      </li>
+      <div class="progress-step ${statusClass}"
+           data-step="${step.id}"
+           style="${displayStyle}"
+           onclick="handleWizardStepClick('${step.id}')"
+           ${!isAvailable ? 'title="Complete drawing first"' : ''}>
+        <div class="progress-step-inner">
+          <span class="progress-dot">
+            ${isComplete ? checkmarkSvg : stepNumber}
+          </span>
+          <span class="progress-label">${step.shortName}</span>
+        </div>
+      </div>
     `;
   }).join('');
 }
@@ -2794,8 +2796,8 @@ function getVisibleSteps() {
 function updateWizardVisibility() {
   const visibleSteps = getVisibleSteps();
 
-  // Update sidebar items
-  const stepListItems = document.querySelectorAll('#wizardStepList .wizard-step-item');
+  // Update progress bar items
+  const stepListItems = document.querySelectorAll('#progressBar .progress-step');
   let visibleIndex = 0;
   stepListItems.forEach(item => {
     const stepId = item.dataset.step;
@@ -2804,7 +2806,7 @@ function updateWizardVisibility() {
 
     if (isVisible) {
       // Update step number for visible items
-      const numEl = item.querySelector('.step-number');
+      const numEl = item.querySelector('.progress-dot');
       if (numEl && !item.classList.contains('complete')) {
         numEl.textContent = visibleIndex + 1;
       }
@@ -8047,10 +8049,10 @@ const wizardStepDefinitions = [
     position: 'left'
   },
   {
-    target: '#wizardStepList',
+    target: '#progressBar',
     title: "Workflow Steps",
     description: "Follow these steps from Draw to Materials. Each step guides you through the deck planning process, from shape design to final cost estimate.",
-    position: 'right'
+    position: 'bottom'
   },
   {
     target: '#floatingLegend',
