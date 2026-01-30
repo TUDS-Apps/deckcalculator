@@ -220,7 +220,6 @@ body {
 .header-action-btn:hover {
   background: rgba(255, 255, 255, 0.2);
   border-color: rgba(255, 255, 255, 0.3);
-  transform: translateY(-1px);
 }
 
 .header-action-btn svg {
@@ -247,7 +246,6 @@ body {
 .help-wizard-trigger:hover {
   background: rgba(255, 255, 255, 0.2);
   border-color: rgba(255, 255, 255, 0.3);
-  transform: translateY(-1px);
 }
 
 .help-wizard-trigger svg {
@@ -605,33 +603,7 @@ canvas.mode-transition {
   100% { filter: brightness(1); }
 }
 
-.ripple-effect {
-  position: relative;
-  overflow: hidden;
-}
-
-.ripple-effect::after {
-  content: "";
-  display: block;
-  position: absolute;
-  width: 100%;
-  height: 100%;
-  top: 0;
-  left: 0;
-  pointer-events: none;
-  background-image: radial-gradient(circle, rgba(255, 255, 255, 0.3) 10%, transparent 10.01%);
-  background-repeat: no-repeat;
-  background-position: 50%;
-  transform: scale(10, 10);
-  opacity: 0;
-  transition: transform 0.5s, opacity 1s;
-}
-
-.ripple-effect:active::after {
-  transform: scale(0, 0);
-  opacity: 0.5;
-  transition: 0s;
-}
+/* Ripple effect removed — Phase 1.3 cleanup */
 
 /* Blueprint mode styles - Modern CAD White */
 .blueprint-mode #canvasContainer {
@@ -1104,7 +1076,6 @@ table.bom-table tr.bom-category-header td:last-child {
 .legend-item:hover {
   background-color: rgba(0, 0, 0, 0.03);
   border-color: rgba(0, 0, 0, 0.05);
-  transform: translateY(-1px);
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
 }
 
@@ -1167,14 +1138,6 @@ table.bom-table tr.bom-category-header td:last-child {
   align-items: center;
   justify-content: center;
   gap: var(--space-2);
-}
-
-.btn:hover {
-  transform: translateY(-1px);
-}
-
-.btn:active {
-  transform: translateY(0);
 }
 
 .btn:focus {
@@ -1303,14 +1266,10 @@ table.bom-table tr.bom-category-header td:last-child {
 /* Add special icon glow in blueprint mode */
 .blueprint-mode #blueprintToggleBtn svg {
   filter: drop-shadow(0 0 3px rgba(59, 130, 246, 0.5));
-  animation: softPulse 2s infinite;
+
 }
 
-@keyframes softPulse {
-  0% { opacity: 0.9; }
-  50% { opacity: 1; }
-  100% { opacity: 0.9; }
-}
+/* softPulse keyframes removed — Phase 1.3 cleanup */
 
 .btn-secondary {
   background-color: var(--gray-100);
@@ -1391,7 +1350,6 @@ table.bom-table tr.bom-category-header td:last-child {
 #zoomInBtn:hover, #zoomOutBtn:hover, #centerFitBtn:hover, #blueprintToggleBtn:hover, #clearCanvasBtn:hover {
   z-index: 2;
   background-color: rgba(226, 232, 240, 0.95);
-  transform: translateY(-1px) scale(1.05);
   box-shadow: 0 4px 8px rgba(0, 0, 0, 0.12);
 }
 
@@ -1521,7 +1479,6 @@ table.bom-table tr.bom-category-header td:last-child {
   outline: none;
   border-color: var(--tuds-teal);
   box-shadow: 0 0 0 2px rgba(45, 106, 106, 0.2);
-  transform: translateY(-1px);
 }
 
 .form-select {
@@ -1672,7 +1629,6 @@ table.bom-table tr.bom-category-header td:last-child {
 }
 
 #dimensionFeetInput:focus, #dimensionInchesInput:focus {
-  transform: translateY(-1px);
   border-color: var(--tuds-teal);
   box-shadow: 0 0 0 2px rgba(45, 106, 106, 0.2);
 }
@@ -1691,12 +1647,10 @@ table.bom-table tr.bom-category-header td:last-child {
 
 #applyDimensionBtn:hover {
   background-color: var(--tuds-teal);
-  transform: translateY(-1px);
 }
 
 #cancelDimensionBtn:hover {
   background-color: var(--gray-200);
-  transform: translateY(-1px);
 }
 
 /* Blueprint mode dimension input styling */
@@ -2566,7 +2520,6 @@ table.bom-table tr.bom-category-header td:last-child {
 .tab-button:hover {
   background-color: var(--gray-100);
   color: var(--gray-700);
-  transform: translateY(-1px);
 }
 
 .tab-button.active {
@@ -2577,7 +2530,6 @@ table.bom-table tr.bom-category-header td:last-child {
 
 .tab-button.active:hover {
   background-color: var(--tuds-navy-dark);
-  transform: translateY(-1px);
 }
 
 .tab-icon {
@@ -2585,10 +2537,6 @@ table.bom-table tr.bom-category-header td:last-child {
   height: 1.25rem;
   stroke-width: 2;
   transition: all 0.2s ease;
-}
-
-.tab-button:hover .tab-icon {
-  transform: scale(1.05);
 }
 
 .tab-label {
@@ -3089,7 +3037,6 @@ table.bom-table tr.bom-category-header td:last-child {
 
 #resetAllBomBtn:hover {
   background-color: var(--gray-100);
-  transform: translateY(-1px);
 }
 
 #resetAllBomBtn svg {
@@ -3523,11 +3470,9 @@ table.bom-table tr.bom-category-header td:last-child {
   background: #fff;
   border-color: var(--tuds-teal);
   box-shadow: 0 2px 8px rgba(45, 106, 106, 0.15);
-  transform: translateY(-1px);
 }
 
 .template-card:active {
-  transform: translateY(0);
   box-shadow: 0 1px 4px rgba(45, 106, 106, 0.1);
 }
 
@@ -4357,12 +4302,10 @@ table.bom-table tr.bom-category-header td:last-child {
 }
 
 .view-specs-btn:hover {
-  transform: translateY(-1px);
   box-shadow: 0 4px 8px rgba(19, 58, 82, 0.3);
 }
 
 .view-specs-btn:active {
-  transform: translateY(0);
   box-shadow: 0 1px 2px rgba(19, 58, 82, 0.2);
 }
 
@@ -4918,7 +4861,6 @@ table.bom-table tr.bom-category-header td:last-child {
 .help-wizard-trigger:hover {
   background: rgba(255, 255, 255, 0.25);
   border-color: rgba(255, 255, 255, 0.5);
-  transform: translateY(-1px);
 }
 
 .help-wizard-trigger svg {
@@ -6749,7 +6691,6 @@ table.bom-table tr.bom-category-header td:last-child {
 .view-preset-btn:hover {
   background: var(--tuds-teal, #00A19A);
   color: white;
-  transform: scale(1.05);
 }
 
 .view-preset-btn svg {
@@ -8177,10 +8118,6 @@ table.bom-table tr.bom-category-header td:last-child {
   background: transparent;
   cursor: pointer;
   transition: all 0.15s ease;
-}
-
-.substep-dot:hover {
-  transform: translateY(-1px);
 }
 
 .substep-num {
