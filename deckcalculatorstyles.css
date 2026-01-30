@@ -3241,12 +3241,23 @@ canvas.mode-transition {
 }
 
 .section-label {
-  font-size: var(--text-xs);
+  font-size: 11px;
   font-weight: 600;
-  color: var(--gray-500);
+  color: var(--gray-400);
   text-transform: uppercase;
   letter-spacing: 0.05em;
   margin-bottom: 0.5rem;
+  margin-top: 1rem;
+  padding-top: 0.75rem;
+  border-top: 1px solid var(--gray-200);
+}
+
+/* Remove top border from first section label */
+.panel-content > .section-label:first-child,
+.wizard-step-content > .panel-content > .section-label:first-child {
+  border-top: none;
+  margin-top: 0;
+  padding-top: 0;
 }
 
 /* Template Gallery Panel (simplified) */
@@ -3507,13 +3518,14 @@ canvas.mode-transition {
   display: flex;
   flex-direction: column;
   align-items: center;
-  padding: 0.625rem 0.375rem;
+  padding: 0.75rem 0.5rem;
   border: 2px solid var(--gray-200);
   border-radius: 8px;
   background: var(--surface-primary);
   cursor: pointer;
   transition: border-color 150ms ease;
   text-align: center;
+  min-height: 90px;
 }
 
 .visual-option:hover {
@@ -3530,8 +3542,8 @@ canvas.mode-transition {
 }
 
 .visual-option-icon {
-  width: 36px;
-  height: 36px;
+  width: 48px;
+  height: 48px;
   margin-bottom: 0.375rem;
   color: var(--gray-500);
   transition: color 0.15s ease;
@@ -3543,7 +3555,7 @@ canvas.mode-transition {
 }
 
 .visual-option-name {
-  font-size: var(--text-xs);
+  font-size: 13px;
   font-weight: 600;
   color: var(--tuds-navy);
   line-height: 1.2;
@@ -3551,7 +3563,7 @@ canvas.mode-transition {
 }
 
 .visual-option-desc {
-  font-size: var(--text-xs);
+  font-size: 11px;
   color: var(--gray-500);
   line-height: 1.2;
 }
@@ -7373,11 +7385,30 @@ canvas.mode-transition {
    WIZARD STEP NAVIGATION
    ================================================ */
 
-/* Wizard Panel Container */
+/* Wizard Panel Container — flush sidebar, no card styling */
 .wizard-panel {
   display: flex;
   flex-direction: column;
-  height: 100%;
+  flex: 1;
+  overflow: hidden;
+  background: none;
+  border: none;
+  box-shadow: none;
+  padding: 0;
+  border-radius: 0;
+}
+
+/* Override info-card when used as wizard-panel in input panel */
+#input-panel .info-card.wizard-panel {
+  background: none;
+  border: none;
+  box-shadow: none;
+  padding: 0;
+  border-radius: 0;
+}
+
+#input-panel .info-card.wizard-panel:hover {
+  box-shadow: none;
 }
 
 /* ============================================
@@ -7798,17 +7829,18 @@ canvas.mode-transition {
   white-space: nowrap;
 }
 
-/* Wizard Content Container */
+/* Wizard Content Container — scrollable area */
 .wizard-content {
   flex: 1;
-  overflow: hidden;
+  overflow-y: auto;
   position: relative;
+  padding: 0;
 }
 
 /* Individual Step Content */
 .wizard-step-content {
   display: none;
-  padding: var(--space-4);
+  padding: 16px;
   height: 100%;
   overflow-y: auto;
   animation: fadeIn 0.2s ease;
@@ -7833,23 +7865,31 @@ canvas.mode-transition {
   }
 }
 
-/* Step Title */
+/* Step Title — sticky at top */
 .wizard-step-title {
-  font-size: var(--text-md);
-  font-weight: var(--font-semibold);
+  font-size: 18px;
+  font-weight: var(--font-bold);
   color: var(--gray-800);
-  margin-bottom: var(--space-4);
-  padding-bottom: var(--space-2);
-  border-bottom: 2px solid var(--tuds-navy);
+  margin: 0 -16px;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--gray-200);
+  position: sticky;
+  top: 0;
+  background: var(--surface-primary);
+  z-index: 10;
 }
 
-/* Wizard Step Actions (Next/Back buttons) */
+/* Wizard Step Actions — fixed at bottom of panel */
 .wizard-step-actions {
   display: flex;
   gap: var(--space-3);
-  padding-top: var(--space-4);
-  margin-top: var(--space-4);
+  padding: 12px 16px;
+  margin: auto -16px -16px -16px;
   border-top: 1px solid var(--gray-200);
+  background: var(--surface-primary);
+  position: sticky;
+  bottom: 0;
+  z-index: 10;
 }
 
 .wizard-step-actions .wizard-prev-btn {
@@ -8664,7 +8704,9 @@ canvas.mode-transition {
   display: flex;
   align-items: center;
   gap: var(--space-2);
-  min-height: 32px;
+  min-height: 36px;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--gray-100);
 }
 
 .config-section-label {
