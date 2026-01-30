@@ -2003,6 +2003,9 @@ window.selectBuildMode = selectBuildMode;
 window.toggleCustomComponent = toggleCustomComponent;
 window.confirmCustomCombo = confirmCustomCombo;
 
+// Collapsible config section functions
+window.toggleConfigSection = toggleConfigSection;
+
 // Layer toggle functions
 window.toggleLayer = toggleLayer;
 
@@ -2336,6 +2339,9 @@ function handleStepEntry(stepId, previousStep) {
         // Trigger calculation (will now run since we're past 'draw' step)
         triggerAutoCalculation();
       }
+
+      // Update collapsed section summary values
+      updateConfigSectionValues();
 
       // Ensure wall selection UI shows if needed
       if (appState.isShapeClosed && getAttachmentType() === 'house_rim' && appState.selectedWallIndices.length === 0) {
@@ -2883,6 +2889,83 @@ function toggleLayer(layerName) {
   }
 
   redrawApp();
+}
+
+// ================================================
+// COLLAPSIBLE CONFIG SECTIONS (Phase A.3)
+// ================================================
+
+/**
+ * Toggle a collapsible config section in the Structure step.
+ * @param {string} sectionName - The data-section attribute value
+ */
+function toggleConfigSection(sectionName) {
+  const section = document.querySelector(`.config-section[data-section="${sectionName}"]`);
+  if (!section) return;
+
+  const isExpanded = section.classList.contains('expanded');
+
+  if (isExpanded) {
+    // Collapse it
+    section.classList.remove('expanded');
+  } else {
+    // Expand it (optionally collapse others)
+    section.classList.add('expanded');
+  }
+}
+
+/**
+ * Update config section summary values based on current form selections.
+ * Called when visual selectors change.
+ */
+function updateConfigSectionValues() {
+  // Height
+  const heightFeet = document.getElementById('deckHeightFeet');
+  const heightInches = document.getElementById('deckHeightInchesInput');
+  const heightVal = document.getElementById('configHeightValue');
+  if (heightFeet && heightInches && heightVal) {
+    const ft = heightFeet.value || '4';
+    const inc = heightInches.value || '0';
+    heightVal.textContent = `${ft}' ${inc}"`;
+  }
+
+  // Foundation
+  const footingEl = document.getElementById('footingType');
+  const foundVal = document.getElementById('configFoundationValue');
+  if (footingEl && foundVal) {
+    const labels = { 'gh_levellers': 'GH Levellers', 'pylex': 'Pylex', 'helical': 'Helical' };
+    foundVal.textContent = labels[footingEl.value] || footingEl.value;
+  }
+
+  // Joists
+  const joistEl = document.getElementById('joistSpacing');
+  const joistVal = document.getElementById('configJoistsValue');
+  if (joistEl && joistVal) {
+    joistVal.textContent = joistEl.value === '16' ? '16" OC' : '12" OC';
+  }
+
+  // Attachment / Ledger
+  const attachEl = document.getElementById('attachmentType');
+  const ledgerVal = document.getElementById('configLedgerValue');
+  if (attachEl && ledgerVal) {
+    const labels = { 'house_rim': 'House Rim', 'concrete': 'Concrete', 'floating': 'Floating' };
+    ledgerVal.textContent = labels[attachEl.value] || attachEl.value;
+  }
+
+  // Beams
+  const beamEl = document.getElementById('beamType');
+  const beamsVal = document.getElementById('configBeamsValue');
+  if (beamEl && beamsVal) {
+    beamsVal.textContent = beamEl.value === 'drop' ? 'Drop Beam' : 'Flush Beam';
+  }
+
+  // Finishing
+  const pfEl = document.getElementById('pictureFrame');
+  const finishVal = document.getElementById('configFinishingValue');
+  if (pfEl && finishVal) {
+    const labels = { 'none': 'No Picture Frame', 'single': 'Single PF', 'double': 'Double PF' };
+    finishVal.textContent = labels[pfEl.value] || pfEl.value;
+  }
 }
 
 function initializeWizard() {
@@ -5905,6 +5988,11 @@ function initializeVisualSelectors() {
 
         console.log(`[Visual Selector] ${selectorName}: ${value}`);
 
+        // Update collapsed section summary values
+        if (typeof updateConfigSectionValues === 'function') {
+          updateConfigSectionValues();
+        }
+
         // Clear processing flag after a short delay
         setTimeout(() => {
           selector.dataset.processing = 'false';
@@ -6046,6 +6134,9 @@ document.addEventListener("DOMContentLoaded", () => {
 
     tier.heightFeet = feet;
     tier.heightInches = inches;
+
+    // Update collapsed section summary
+    updateConfigSectionValues();
 
     console.log(`[TIER] Updated ${tier.name} height to ${feet}' ${inches}"`);
   }

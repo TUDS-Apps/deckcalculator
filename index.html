@@ -464,8 +464,8 @@
                 <p class="tier-height-hint" id="activeTierHeightLabel">Configure height for the selected tier</p>
               </div>
 
-              <!-- Sub-step indicator -->
-              <div class="substep-indicator">
+              <!-- Sub-step indicator (legacy, hidden - replaced by collapsed sections) -->
+              <div class="substep-indicator" style="display:none;">
                 <button type="button" class="substep-dot active" data-substep="1" onclick="setStructureSubstep(1)">
                   <span class="substep-num">1</span>
                   <span class="substep-label">Foundation</span>
@@ -485,9 +485,16 @@
               <div class="panel-content">
                 <div class="deck-specifications">
                   <form id="deckSpecsForm" class="space-y-4">
+                  <div class="framing-config">
 
-                    <!-- Sub-step 1: Foundation -->
-                    <div id="structure-substep-1" class="structure-substep active" data-substep="1">
+                    <!-- Height Section (always expanded) -->
+                    <div class="config-section expanded" data-section="height">
+                      <div class="config-section-header">
+                        <span class="config-section-label">Deck Height</span>
+                        <span class="config-section-value" id="configHeightValue">4' 0"</span>
+                        <button type="button" class="config-change-btn" onclick="toggleConfigSection('height')">Change</button>
+                      </div>
+                      <div class="config-section-body">
 
                     <!-- Deck Height Input -->
                     <div class="deck-height-input">
@@ -541,6 +548,17 @@
                         </div>
                       </div>
                     </div>
+                      </div><!-- end config-section-body for height -->
+                    </div><!-- end config-section height -->
+
+                    <!-- Foundation Section -->
+                    <div class="config-section" data-section="foundation">
+                      <div class="config-section-header">
+                        <span class="config-section-label">Foundation</span>
+                        <span class="config-section-value" id="configFoundationValue">GH Levellers</span>
+                        <button type="button" class="config-change-btn" onclick="toggleConfigSection('foundation')">Change</button>
+                      </div>
+                      <div class="config-section-body">
                     <!-- Footing Type Visual Selector -->
                     <div class="visual-selector compact" data-selector="footingType">
                       <div class="visual-selector-label">
@@ -634,10 +652,24 @@
                         <option value="6x6">6x6 Posts (3-ply beams)</option>
                       </select>
                     </div>
-                    </div><!-- End Sub-step 1: Foundation -->
+                      </div><!-- end config-section-body for foundation -->
+                    </div><!-- end config-section foundation -->
 
-                    <!-- Sub-step 2: Framing -->
-                    <div id="structure-substep-2" class="structure-substep" data-substep="2">
+                    <!-- All sub-steps shown inline (collapsed sections replace sub-step navigation) -->
+                    <div id="structure-substep-1" class="structure-substep active" data-substep="1" style="display:none;">
+                      <!-- Foundation content moved to config-sections above -->
+                    </div>
+
+                    <div id="structure-substep-2" class="structure-substep active" data-substep="2">
+
+                    <!-- Joists Section (collapsible) -->
+                    <div class="config-section" data-section="joists">
+                      <div class="config-section-header">
+                        <span class="config-section-label">Joists</span>
+                        <span class="config-section-value" id="configJoistsValue">16" OC</span>
+                        <button type="button" class="config-change-btn" onclick="toggleConfigSection('joists')">Change</button>
+                      </div>
+                      <div class="config-section-body">
                     <!-- Joist Spacing Visual Selector -->
                     <div class="visual-selector compact" data-selector="joistSpacing">
                       <div class="visual-selector-label">
@@ -677,6 +709,17 @@
                         <option value="12">12" OC</option>
                       </select>
                     </div>
+                      </div><!-- end config-section-body for joists -->
+                    </div><!-- end config-section joists -->
+
+                    <!-- Attachment Section (collapsible) -->
+                    <div class="config-section" data-section="ledger">
+                      <div class="config-section-header">
+                        <span class="config-section-label">Attachment</span>
+                        <span class="config-section-value" id="configLedgerValue">House Rim</span>
+                        <button type="button" class="config-change-btn" onclick="toggleConfigSection('ledger')">Change</button>
+                      </div>
+                      <div class="config-section-body">
                     <!-- Attachment Type Visual Selector -->
                     <div class="visual-selector compact" data-selector="attachmentType">
                       <div class="visual-selector-label">
@@ -737,6 +780,17 @@
                         <option value="floating">Floating</option>
                       </select>
                     </div>
+                      </div><!-- end config-section-body for ledger -->
+                    </div><!-- end config-section ledger -->
+
+                    <!-- Beams Section (collapsible) -->
+                    <div class="config-section" data-section="beams">
+                      <div class="config-section-header">
+                        <span class="config-section-label">Beam Type</span>
+                        <span class="config-section-value" id="configBeamsValue">Drop Beam</span>
+                        <button type="button" class="config-change-btn" onclick="toggleConfigSection('beams')">Change</button>
+                      </div>
+                      <div class="config-section-body">
                     <!-- Beam Type Visual Selector -->
                     <div class="visual-selector compact" data-selector="beamType">
                       <div class="visual-selector-label">
@@ -784,10 +838,22 @@
                         <option value="flush">Flush Beam</option>
                       </select>
                     </div>
+                      </div><!-- end config-section-body for beams -->
+                    </div><!-- end config-section beams -->
+
                     </div><!-- End Sub-step 2: Framing -->
 
                     <!-- Sub-step 3: Finishing -->
-                    <div id="structure-substep-3" class="structure-substep" data-substep="3">
+                    <div id="structure-substep-3" class="structure-substep active" data-substep="3">
+
+                    <!-- Finishing Section (collapsible) -->
+                    <div class="config-section" data-section="finishing">
+                      <div class="config-section-header">
+                        <span class="config-section-label">Finishing</span>
+                        <span class="config-section-value" id="configFinishingValue">No Picture Frame</span>
+                        <button type="button" class="config-change-btn" onclick="toggleConfigSection('finishing')">Change</button>
+                      </div>
+                      <div class="config-section-body">
                     <!-- Picture Frame Visual Selector -->
                     <div class="visual-selector compact" data-selector="pictureFrame">
                       <div class="visual-selector-label">
@@ -945,13 +1011,17 @@
                         <option value="paslode_3_14">Paslode 3-1/4"</option>
                       </select>
                     </div>
+                      </div><!-- end config-section-body for finishing -->
+                    </div><!-- end config-section finishing -->
+
+                    </div><!-- end framing-config -->
                     </div><!-- End Sub-step 3: Finishing -->
 
                   </form>
                 </div>
 
-                <!-- Sub-step Navigation buttons -->
-                <div class="substep-actions">
+                <!-- Sub-step Navigation buttons (hidden - replaced by collapsed sections) -->
+                <div class="substep-actions" style="display:none;">
                   <button type="button" class="btn btn-secondary substep-prev-btn" onclick="prevStructureSubstep()">
                     <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-4 h-4">
                       <path fill-rule="evenodd" d="M17 10a.75.75 0 01-.75.75H5.612l4.158 3.96a.75.75 0 11-1.04 1.08l-5.5-5.25a.75.75 0 010-1.08l5.5-5.25a.75.75 0 111.04 1.08L5.612 9.25H16.25A.75.75 0 0117 10z" clip-rule="evenodd" />
