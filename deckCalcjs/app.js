@@ -20,13 +20,25 @@ import * as drawingStateMachine from "./drawingStateMachine.js";
 import {
   appState,
   WIZARD_STEPS,
-  syncActiveTierToLegacy,
-  syncLegacyToActiveTier,
   getActiveTier,
   clearEditModes,
   unlockStructureLayers,
   unlockStairsLayer,
-  unlockDeckingLayer
+  unlockDeckingLayer,
+  getActivePoints,
+  setActivePoints,
+  isActiveShapeClosed,
+  setActiveShapeClosed,
+  isActiveDrawing,
+  setActiveDrawing,
+  getActiveSelectedWallIndices,
+  setActiveSelectedWallIndices,
+  getActiveRectangularSections,
+  setActiveRectangularSections,
+  getActiveStructuralComponents,
+  setActiveStructuralComponents,
+  getActiveDeckDimensions,
+  setActiveDeckDimensions
 } from "./stateManager.js";
 
 // --- DOM Helpers (cached element access) ---
@@ -58,7 +70,8 @@ import {
 } from "./structuralValidator.js";
 
 // NOTE: Application state (appState) is now imported from stateManager.js
-// The sync functions (syncActiveTierToLegacy, syncLegacyToActiveTier) are also imported
+// Tier-specific fields (points, isShapeClosed, etc.) are accessed via accessor functions
+// or through Object.defineProperty aliases on appState for backwards compatibility
 
 /**
  * Switches the active tier and syncs data.
@@ -70,14 +83,9 @@ function switchActiveTier(tierId) {
     return;
   }
 
-  // Save current tier's state before switching
-  syncLegacyToActiveTier();
-
-  // Switch to new tier
+  // Switch to new tier — Object.defineProperty aliases on appState automatically
+  // read/write from the active tier, so no sync is needed
   appState.activeTierId = tierId;
-
-  // Load new tier's state into legacy fields
-  syncActiveTierToLegacy();
 
   // Reset edit modes when switching tiers
   clearEditModes();
@@ -113,14 +121,8 @@ function switchActiveTier(tierId) {
 function enableMultiTierMode() {
   if (appState.tiersEnabled) return;
 
-  // Copy current deck data to upper tier
-  appState.tiers.upper.points = [...appState.points];
-  appState.tiers.upper.selectedWallIndices = [...appState.selectedWallIndices];
-  appState.tiers.upper.structuralComponents = appState.structuralComponents;
-  appState.tiers.upper.rectangularSections = [...appState.rectangularSections];
-  appState.tiers.upper.deckDimensions = appState.deckDimensions ? { ...appState.deckDimensions } : null;
-  appState.tiers.upper.isShapeClosed = appState.isShapeClosed;
-  appState.tiers.upper.isDrawing = appState.isDrawing;
+  // Current state already lives in tiers via Object.defineProperty aliases.
+  // No need to copy — the active tier IS the source of truth.
 
   // Get current deck height from form inputs
   const inputs = uiController.getFormInputs();
@@ -153,19 +155,13 @@ function enableMultiTierMode() {
 function disableMultiTierMode() {
   if (!appState.tiersEnabled) return;
 
-  // Ensure upper tier has the latest data
+  // Ensure we're on upper tier
   if (appState.activeTierId !== 'upper') {
     switchActiveTier('upper');
   }
-  syncLegacyToActiveTier();
 
-  // Copy upper tier data to legacy fields
-  const upperTier = appState.tiers.upper;
-  appState.points = upperTier.points;
-  appState.selectedWallIndices = upperTier.selectedWallIndices;
-  appState.structuralComponents = upperTier.structuralComponents;
-  appState.rectangularSections = upperTier.rectangularSections;
-  appState.deckDimensions = upperTier.deckDimensions;
+  // No sync needed — Object.defineProperty aliases mean appState.points etc.
+  // already read/write from the active tier (upper).
 
   appState.tiersEnabled = false;
   appState.activeTierId = 'upper';
@@ -181,13 +177,10 @@ function disableMultiTierMode() {
  * Called when user clicks "Add Another Tier" button.
  */
 function addAnotherTier() {
-  // Save current tier state
-  syncLegacyToActiveTier();
-
-  // Switch to lower tier
+  // Switch to lower tier — no sync needed, Object.defineProperty aliases handle it
   appState.activeTierId = 'lower';
 
-  // Initialize lower tier for fresh drawing
+  // Initialize lower tier for fresh drawing (now the active tier, so aliases also work)
   appState.tiers.lower.points = [];
   appState.tiers.lower.selectedWallIndices = [];
   appState.tiers.lower.structuralComponents = null;
@@ -195,15 +188,6 @@ function addAnotherTier() {
   appState.tiers.lower.deckDimensions = null;
   appState.tiers.lower.isShapeClosed = false;
   appState.tiers.lower.isDrawing = false;
-
-  // Reset legacy fields for new drawing
-  appState.points = [];
-  appState.selectedWallIndices = [];
-  appState.structuralComponents = null;
-  appState.rectangularSections = [];
-  appState.deckDimensions = null;
-  appState.isShapeClosed = false;
-  appState.isDrawing = false;
 
   // Reset edit modes
   appState.shapeEditMode = false;
@@ -2513,7 +2497,8 @@ function triggerAutoCalculation() {
     const originalActiveTierId = appState.activeTierId;
     let anyCalculated = false;
 
-    // Calculate for each tier
+    // Calculate for each tier by temporarily switching activeTierId
+    // so that Object.defineProperty aliases resolve to the correct tier
     Object.keys(appState.tiers).forEach(tierId => {
       const tier = appState.tiers[tierId];
 
@@ -2525,23 +2510,17 @@ function triggerAutoCalculation() {
 
       console.log(`[triggerAutoCalculation] Calculating structure for tier '${tier.name}'...`);
 
-      // Temporarily sync this tier to legacy state for calculation
-      appState.points = tier.points || [];
-      appState.selectedWallIndices = tier.selectedWallIndices || [];
-      appState.rectangularSections = tier.rectangularSections || [];
-      appState.deckDimensions = tier.deckDimensions;
-      appState.isShapeClosed = tier.isShapeClosed;
+      // Temporarily switch active tier so aliases resolve correctly
+      appState.activeTierId = tierId;
 
       // Calculate deck dimensions for this tier if needed
       if (!appState.deckDimensions) {
         calculateAndUpdateDeckDimensions();
-        tier.deckDimensions = appState.deckDimensions;
       }
 
       // Auto-select first edge as default ledger wall if needed
       if (formInputs.attachmentType === 'house_rim' && appState.selectedWallIndices.length === 0) {
         appState.selectedWallIndices = [0];
-        tier.selectedWallIndices = [0];
         console.log(`[triggerAutoCalculation] Auto-selected edge 0 as default ledger for tier '${tier.name}'`);
       }
 
@@ -2560,8 +2539,8 @@ function triggerAutoCalculation() {
       }
     });
 
-    // Restore active tier's state to legacy fields
-    syncActiveTierToLegacy();
+    // Restore the original active tier
+    appState.activeTierId = originalActiveTierId;
 
     if (anyCalculated) {
       recalculateAndUpdateBOM();
@@ -3288,16 +3267,13 @@ function handleDimensionInputApply() {
       calculateAndUpdateDeckDimensions();
       appState.wallSelectionMode = true;
       saveHistoryState('Close shape');
-      syncLegacyToActiveTier(); // Sync closed shape to tier
       updateTierUI(); // Update tier UI to show "Add Another Tier" button
       updateWizardNextButton('draw'); // Update Next button state (disabled until wall selected)
       uiController.updateCanvasStatus("Shape closed. Select the wall attached to structure.");
     } else {
-      syncLegacyToActiveTier(); // Sync point addition to tier
       uiController.updateCanvasStatus("Next point or click near start to close.");
     }
   } else {
-    syncLegacyToActiveTier(); // Sync point addition to tier
     uiController.updateCanvasStatus("Next point or click near start to close.");
   }
   
@@ -3529,9 +3505,6 @@ function handleGeneratePlan() {
         }
       }
     }
-
-    // Sync structural components back to active tier
-    syncLegacyToActiveTier();
 
     if (appState.structuralComponents && !appState.structuralComponents.error) {
       recalculateAndUpdateBOM();
@@ -3880,7 +3853,6 @@ function applyDrawingAction(action, modelMouse) {
       appState.points.push(action.point);
       appState.isDrawing = true;
       saveHistoryState('Add point');
-      syncLegacyToActiveTier();
       updateContextualPanel();
       break;
 
@@ -3912,7 +3884,6 @@ function applyDrawingAction(action, modelMouse) {
 
       updateWizardNextButton(appState.wizardStep);
       saveHistoryState('Close shape');
-      syncLegacyToActiveTier();
       updateTierUI();
       updateContextualPanel();
       break;
@@ -4711,9 +4682,8 @@ function handleCanvasMouseUp(event) {
     appState.shapeDragInitialPoints = [];
     if (deckCanvas) deckCanvas.style.cursor = 'default';
 
-    // Recalculate dimensions and sync to tier
+    // Recalculate dimensions
     calculateAndUpdateDeckDimensions();
-    syncLegacyToActiveTier();
 
     // Save to history
     saveHistoryState('Move shape');
@@ -6523,9 +6493,6 @@ window.createRectangleFromDimensions = function() {
   // Update the wizard Next button state
   updateWizardNextButton(appState.wizardStep);
 
-  // Sync changes to active tier in multi-tier mode
-  syncLegacyToActiveTier();
-
   // Save initial state for undo
   saveHistoryState('Create deck from dimensions');
 
@@ -6729,8 +6696,6 @@ function recalculateShapeAfterEdit() {
   // Keep wall selection mode active if it was before
   // (user still needs to select walls for ledger attachment)
 
-  // Sync changes back to active tier in multi-tier mode
-  syncLegacyToActiveTier();
 }
 
 // Reset vertex editing state
@@ -7084,8 +7049,6 @@ window.loadTemplate = function(templateId) {
   // Update the wizard Next button state
   updateWizardNextButton(appState.wizardStep);
 
-  // Sync changes to active tier in multi-tier mode
-  syncLegacyToActiveTier();
   updateTierUI(); // Update tier UI to show "Add Another Tier" button
 
   // Save initial state for undo

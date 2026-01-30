@@ -98,17 +98,13 @@ export function createUnlockedLayers() {
  * @returns {Object} Application state object
  */
 export function createInitialState() {
-  return {
-    // Drawing state
-    points: [],
-    isDrawing: false,
-    isShapeClosed: false,
+  const state = {
+    // Drawing state — tier-specific fields are accessed via Object.defineProperty aliases below
     currentMousePos: null,
     currentModelMousePos: null,
 
     // Wall selection
     wallSelectionMode: false,
-    selectedWallIndices: [],
 
     // Stair state
     stairPlacementMode: false,
@@ -127,14 +123,11 @@ export function createInitialState() {
     shapeDragInitialPoints: [],
 
     // Calculation results
-    deckDimensions: null,
-    structuralComponents: null,
     stairs: [],
     bom: [],
     isPrinting: false,
 
     // Complex shape decomposition
-    rectangularSections: [],
     showDecompositionShading: false,
 
     // Viewport state
@@ -203,6 +196,47 @@ export function createInitialState() {
       })
     }
   };
+
+  // Legacy property aliases — read/write from active tier for backwards compatibility
+  // This allows canvasLogic.js, drawingStateMachine.js, and HTML onclick handlers
+  // to keep using appState.points etc. and it automatically resolves to the active tier.
+  Object.defineProperty(state, 'points', {
+    get() { return state.tiers[state.activeTierId].points; },
+    set(v) { state.tiers[state.activeTierId].points = v; },
+    configurable: true
+  });
+  Object.defineProperty(state, 'isShapeClosed', {
+    get() { return state.tiers[state.activeTierId].isShapeClosed; },
+    set(v) { state.tiers[state.activeTierId].isShapeClosed = v; },
+    configurable: true
+  });
+  Object.defineProperty(state, 'isDrawing', {
+    get() { return state.tiers[state.activeTierId].isDrawing; },
+    set(v) { state.tiers[state.activeTierId].isDrawing = v; },
+    configurable: true
+  });
+  Object.defineProperty(state, 'selectedWallIndices', {
+    get() { return state.tiers[state.activeTierId].selectedWallIndices; },
+    set(v) { state.tiers[state.activeTierId].selectedWallIndices = v; },
+    configurable: true
+  });
+  Object.defineProperty(state, 'rectangularSections', {
+    get() { return state.tiers[state.activeTierId].rectangularSections; },
+    set(v) { state.tiers[state.activeTierId].rectangularSections = v; },
+    configurable: true
+  });
+  Object.defineProperty(state, 'structuralComponents', {
+    get() { return state.tiers[state.activeTierId].structuralComponents; },
+    set(v) { state.tiers[state.activeTierId].structuralComponents = v; },
+    configurable: true
+  });
+  Object.defineProperty(state, 'deckDimensions', {
+    get() { return state.tiers[state.activeTierId].deckDimensions; },
+    set(v) { state.tiers[state.activeTierId].deckDimensions = v; },
+    configurable: true
+  });
+
+  return state;
 }
 
 // ================================================
@@ -271,45 +305,77 @@ export function getTierHeightInches(tierId) {
 }
 
 // ================================================
-// TIER SYNC FUNCTIONS (moved from app.js)
+// ACTIVE TIER ACCESSOR FUNCTIONS
 // ================================================
 
-/**
- * Syncs the active tier's data to legacy appState fields.
- * This allows existing calculation code to work unchanged.
- */
-export function syncActiveTierToLegacy() {
-  const tier = appState.tiers[appState.activeTierId];
-  if (!tier) return;
-
-  appState.points = tier.points || [];
-  appState.selectedWallIndices = tier.selectedWallIndices || [];
-  appState.structuralComponents = tier.structuralComponents;
-  appState.rectangularSections = tier.rectangularSections || [];
-  appState.deckDimensions = tier.deckDimensions;
-  appState.isShapeClosed = tier.isShapeClosed || false;
-  appState.isDrawing = tier.isDrawing || false;
-
-  console.log(`[STATE] Synced tier '${tier.name}' to legacy state (closed: ${appState.isShapeClosed}, points: ${appState.points.length})`);
+/** Gets the points array for the active tier */
+export function getActivePoints(state) {
+  return state.tiers[state.activeTierId].points;
 }
 
-/**
- * Syncs legacy appState fields back to the active tier.
- * Called after calculations or edits modify the legacy fields.
- */
-export function syncLegacyToActiveTier() {
-  const tier = appState.tiers[appState.activeTierId];
-  if (!tier) return;
+/** Sets the points array for the active tier */
+export function setActivePoints(state, points) {
+  state.tiers[state.activeTierId].points = points;
+}
 
-  tier.points = appState.points;
-  tier.selectedWallIndices = appState.selectedWallIndices;
-  tier.structuralComponents = appState.structuralComponents;
-  tier.rectangularSections = appState.rectangularSections;
-  tier.deckDimensions = appState.deckDimensions;
-  tier.isShapeClosed = appState.isShapeClosed;
-  tier.isDrawing = appState.isDrawing;
+/** Gets isShapeClosed for the active tier */
+export function isActiveShapeClosed(state) {
+  return state.tiers[state.activeTierId].isShapeClosed;
+}
 
-  console.log(`[STATE] Synced legacy state back to tier '${tier.name}' (closed: ${tier.isShapeClosed}, points: ${tier.points.length})`);
+/** Sets isShapeClosed for the active tier */
+export function setActiveShapeClosed(state, closed) {
+  state.tiers[state.activeTierId].isShapeClosed = closed;
+}
+
+/** Gets isDrawing for the active tier */
+export function isActiveDrawing(state) {
+  return state.tiers[state.activeTierId].isDrawing;
+}
+
+/** Sets isDrawing for the active tier */
+export function setActiveDrawing(state, drawing) {
+  state.tiers[state.activeTierId].isDrawing = drawing;
+}
+
+/** Gets selectedWallIndices for the active tier */
+export function getActiveSelectedWallIndices(state) {
+  return state.tiers[state.activeTierId].selectedWallIndices;
+}
+
+/** Sets selectedWallIndices for the active tier */
+export function setActiveSelectedWallIndices(state, indices) {
+  state.tiers[state.activeTierId].selectedWallIndices = indices;
+}
+
+/** Gets rectangularSections for the active tier */
+export function getActiveRectangularSections(state) {
+  return state.tiers[state.activeTierId].rectangularSections;
+}
+
+/** Sets rectangularSections for the active tier */
+export function setActiveRectangularSections(state, sections) {
+  state.tiers[state.activeTierId].rectangularSections = sections;
+}
+
+/** Gets structuralComponents for the active tier */
+export function getActiveStructuralComponents(state) {
+  return state.tiers[state.activeTierId].structuralComponents;
+}
+
+/** Sets structuralComponents for the active tier */
+export function setActiveStructuralComponents(state, components) {
+  state.tiers[state.activeTierId].structuralComponents = components;
+}
+
+/** Gets deckDimensions for the active tier */
+export function getActiveDeckDimensions(state) {
+  return state.tiers[state.activeTierId].deckDimensions;
+}
+
+/** Sets deckDimensions for the active tier */
+export function setActiveDeckDimensions(state, dimensions) {
+  state.tiers[state.activeTierId].deckDimensions = dimensions;
 }
 
 // ================================================
