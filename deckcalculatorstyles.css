@@ -1015,6 +1015,157 @@ canvas.mode-transition {
   background-color: var(--gray-200);
 }
 
+/* ============================================
+   QUOTE VIEW — Professional estimator output
+   ============================================ */
+
+.quote-view {
+  background: var(--surface-primary);
+  overflow-y: auto;
+  flex: 1;
+}
+
+.quote-view.hidden {
+  display: none;
+}
+
+.quote-header {
+  padding: 24px 24px 16px;
+  border-bottom: 1px solid var(--gray-200);
+}
+
+.quote-header-brand {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+}
+
+.quote-title {
+  font-size: var(--text-lg);
+  font-weight: var(--font-bold);
+  color: var(--tuds-navy);
+  margin: 0;
+}
+
+.quote-date {
+  font-size: var(--text-sm);
+  color: var(--gray-500);
+}
+
+.quote-project-name {
+  font-size: var(--text-sm);
+  color: var(--gray-600);
+  margin-top: 4px;
+}
+
+.quote-body {
+  padding: 16px 24px;
+}
+
+/* Quote line items table */
+.quote-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-bottom: 16px;
+}
+
+.quote-table th {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--gray-500);
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  padding: 8px 12px;
+  text-align: left;
+  border-bottom: 2px solid var(--gray-200);
+}
+
+.quote-table th:last-child {
+  text-align: right;
+}
+
+.quote-table td {
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--gray-100);
+  font-size: var(--text-base);
+}
+
+.quote-table td:last-child {
+  text-align: right;
+  font-feature-settings: "tnum";
+}
+
+.quote-category-header td {
+  padding: 10px 12px 6px;
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: var(--gray-600);
+  border-bottom: 1px solid var(--gray-200);
+  background: none;
+}
+
+.quote-subtotal td {
+  font-weight: 600;
+  color: var(--gray-700);
+  border-bottom: 2px solid var(--gray-200);
+}
+
+.quote-grand-total td {
+  font-weight: var(--font-bold);
+  font-size: var(--text-lg);
+  color: var(--tuds-navy);
+  border-top: 2px solid var(--tuds-navy);
+  padding-top: 12px;
+}
+
+/* Quote action buttons */
+.quote-actions {
+  display: flex;
+  gap: 8px;
+  padding: 16px 24px;
+  border-top: 1px solid var(--gray-200);
+  background: var(--gray-50);
+  flex-shrink: 0;
+}
+
+.quote-actions .btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.quote-actions .btn svg {
+  width: 16px;
+  height: 16px;
+}
+
+/* Print styles for quote view */
+@media print {
+  .quote-view {
+    overflow: visible;
+    box-shadow: none;
+    border: none;
+  }
+
+  .quote-actions {
+    display: none;
+  }
+
+  .quote-header {
+    padding: 0 0 12px;
+  }
+
+  .quote-body {
+    padding: 12px 0;
+  }
+
+  .quote-table {
+    font-size: 10pt;
+  }
+}
+
 /* Print styles for BOM categories */
 @media print {
   /* Show all rows in print (expand collapsed sections) */

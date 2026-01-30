@@ -2208,6 +2208,7 @@ function updateBOMVisibility(stepId) {
   const bomSection = document.getElementById('bomSection');
   const bomPlaceholder = document.getElementById('bomPlaceholder');
   const runningTotalBar = document.getElementById('runningTotalBar');
+  const quoteView = document.getElementById('quoteView');
 
   if (stepId === 'draw' || stepId === 'mode') {
     // In Draw/Mode step: Hide BOM, show placeholder message
@@ -2222,8 +2223,28 @@ function updateBOMVisibility(stepId) {
     if (runningTotalBar) {
       runningTotalBar.classList.add('hidden');
     }
+    if (quoteView) {
+      quoteView.classList.add('hidden');
+    }
+  } else if (stepId === 'review') {
+    // Review step: Show quote view, hide regular BOM
+    if (bomSection) {
+      bomSection.style.display = 'none';
+      bomSection.classList.add('hidden');
+    }
+    if (bomPlaceholder) {
+      bomPlaceholder.style.display = 'none';
+      bomPlaceholder.classList.add('hidden');
+    }
+    if (runningTotalBar) {
+      runningTotalBar.classList.add('hidden');
+    }
+    if (quoteView) {
+      quoteView.classList.remove('hidden');
+      populateQuoteView();
+    }
   } else {
-    // Past Draw step: Show BOM, hide placeholder
+    // Structure/Stairs/Decking/Railing steps: Show BOM, hide placeholder and quote
     if (bomSection) {
       bomSection.style.display = 'block';
       bomSection.classList.remove('hidden');
@@ -2232,7 +2253,10 @@ function updateBOMVisibility(stepId) {
       bomPlaceholder.style.display = 'none';
       bomPlaceholder.classList.add('hidden');
     }
-    // Show running total during Structure/Stairs/Decking/Railing steps, hide on Review
+    if (quoteView) {
+      quoteView.classList.add('hidden');
+    }
+    // Show running total during active config steps
     if (runningTotalBar) {
       const showTotal = ['structure', 'stairs', 'decking', 'railing'].includes(stepId);
       runningTotalBar.classList.toggle('hidden', !showTotal);
@@ -2253,6 +2277,63 @@ function updateRunningTotal() {
   if (bomTotalEl) {
     grandTotalEl.textContent = bomTotalEl.textContent;
   }
+}
+
+// Populate the quote view from existing BOM data
+function populateQuoteView() {
+  const quoteBody = document.getElementById('quoteBody');
+  const quoteDateEl = document.getElementById('quoteDate');
+  const quoteProjectNameEl = document.getElementById('quoteProjectName');
+  if (!quoteBody) return;
+
+  // Set date
+  if (quoteDateEl) {
+    quoteDateEl.textContent = new Date().toLocaleDateString('en-US', {
+      year: 'numeric', month: 'long', day: 'numeric'
+    });
+  }
+
+  // Set project name if available
+  if (quoteProjectNameEl && appState.projectName) {
+    quoteProjectNameEl.textContent = `Project: ${appState.projectName}`;
+  }
+
+  // Read BOM table data and rebuild as quote
+  const bomTableBody = document.getElementById('bomTableBody');
+  if (!bomTableBody) {
+    quoteBody.innerHTML = '<p style="color: var(--gray-500); text-align: center; padding: 2rem;">No materials calculated yet.</p>';
+    return;
+  }
+
+  let html = '<table class="quote-table"><thead><tr><th>Qty</th><th>Item</th><th>Description</th><th>Total</th></tr></thead><tbody>';
+
+  const rows = bomTableBody.querySelectorAll('tr');
+  rows.forEach(row => {
+    if (row.classList.contains('collapsed')) return; // Skip collapsed rows
+
+    if (row.classList.contains('bom-category-header')) {
+      const headerContent = row.querySelector('.category-header-content');
+      const categoryName = headerContent ? headerContent.textContent.trim() : '';
+      const subtotal = row.querySelector('.category-subtotal');
+      const subtotalText = subtotal ? subtotal.textContent.trim() : '';
+      html += `<tr class="quote-category-header"><td colspan="3">${categoryName}</td><td style="text-align:right">${subtotalText}</td></tr>`;
+    } else if (row.classList.contains('bom-total-row')) {
+      const cells = row.querySelectorAll('td');
+      const lastCell = cells[cells.length - 1];
+      const totalText = lastCell ? lastCell.textContent.trim() : '$0';
+      html += `<tr class="quote-grand-total"><td colspan="3" style="text-align:right">Grand Total</td><td style="text-align:right">${totalText}</td></tr>`;
+    } else if (row.classList.contains('bom-data-row')) {
+      const cells = row.querySelectorAll('td');
+      const qty = cells[1] ? cells[1].textContent.trim() : '';
+      const item = cells[2] ? cells[2].textContent.trim() : '';
+      const desc = cells[3] ? cells[3].textContent.trim() : '';
+      const totalPrice = cells[5] ? cells[5].textContent.trim() : '';
+      html += `<tr><td>${qty}</td><td>${item}</td><td>${desc}</td><td>${totalPrice}</td></tr>`;
+    }
+  });
+
+  html += '</tbody></table>';
+  quoteBody.innerHTML = html;
 }
 
 // Check if a step is available (can be navigated to)

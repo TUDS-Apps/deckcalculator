@@ -1866,6 +1866,41 @@
                   </div>
                 </div>
 
+                <!-- Quote View (shown during Review step) -->
+                <div id="quoteView" class="quote-view hidden">
+                  <div class="quote-header">
+                    <div class="quote-header-brand">
+                      <h2 class="quote-title">TUDS Pro Deck Estimator</h2>
+                      <span class="quote-date" id="quoteDate"></span>
+                    </div>
+                    <div class="quote-project-name" id="quoteProjectName"></div>
+                  </div>
+                  <div class="quote-body" id="quoteBody">
+                    <!-- Populated by JavaScript from BOM data -->
+                  </div>
+                  <div class="quote-actions">
+                    <button type="button" class="btn btn-primary" onclick="openCartOptionsModal()" id="quoteAddToCartBtn">
+                      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-4 h-4">
+                        <path d="M1 1.75A.75.75 0 0 1 1.75 1h1.628a1.75 1.75 0 0 1 1.734 1.51L5.18 3a65.25 65.25 0 0 1 13.36 1.412.75.75 0 0 1 .58.875 48.645 48.645 0 0 1-1.618 6.2.75.75 0 0 1-.712.513H6a2.503 2.503 0 0 0-2.292 1.5H17.25a.75.75 0 0 1 0 1.5H2.76a.75.75 0 0 1-.748-.807 4.002 4.002 0 0 1 2.716-3.486L3.626 2.716a.25.25 0 0 0-.248-.216H1.75A.75.75 0 0 1 1 1.75ZM6 17.5a1.5 1.5 0 1 1-3 0 1.5 1.5 0 0 1 3 0ZM15.5 19a1.5 1.5 0 1 0 0-3 1.5 1.5 0 0 0 0 3Z" />
+                      </svg>
+                      Add to Cart
+                    </button>
+                    <button type="button" class="btn btn-secondary" onclick="window.print()">
+                      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-4 h-4">
+                        <path fill-rule="evenodd" d="M5 2.75C5 1.784 5.784 1 6.75 1h6.5c.966 0 1.75.784 1.75 1.75v3.552c.377.046.752.11 1.126.192A2.978 2.978 0 0 1 18 8.25v4.5A2.978 2.978 0 0 1 15.75 15.5H15v.75c0 .966-.784 1.75-1.75 1.75h-6.5A1.75 1.75 0 0 1 5 16.25V15.5h-.75A2.978 2.978 0 0 1 2 12.75v-4.5A2.978 2.978 0 0 1 4.25 5.5h.624c.374-.082.749-.146 1.126-.192V2.75ZM6.5 5.25V2.75a.25.25 0 0 1 .25-.25h6.5a.25.25 0 0 1 .25.25v2.5h-7Zm0 10.25v.75c0 .138.112.25.25.25h6.5a.25.25 0 0 0 .25-.25v-.75h-7Z" clip-rule="evenodd" />
+                      </svg>
+                      Print / PDF
+                    </button>
+                    <button type="button" class="btn btn-secondary" onclick="exportToPDF()">
+                      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-4 h-4">
+                        <path d="M10.75 2.75a.75.75 0 0 0-1.5 0v8.614L6.295 8.235a.75.75 0 1 0-1.09 1.03l4.25 4.5a.75.75 0 0 0 1.09 0l4.25-4.5a.75.75 0 0 0-1.09-1.03l-2.955 3.129V2.75Z" />
+                        <path d="M3.5 12.75a.75.75 0 0 0-1.5 0v2.5A2.75 2.75 0 0 0 4.75 18h10.5A2.75 2.75 0 0 0 18 15.25v-2.5a.75.75 0 0 0-1.5 0v2.5c0 .69-.56 1.25-1.25 1.25H4.75c-.69 0-1.25-.56-1.25-1.25v-2.5Z" />
+                      </svg>
+                      Export
+                    </button>
+                  </div>
+                </div>
+
                 <div id="bomSection" class="info-card hidden">
                   <!-- Gating Notice for Non-Authenticated Users -->
                   <div id="bomGatingNotice" class="bom-gating-notice hidden">
