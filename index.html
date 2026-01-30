@@ -157,8 +157,107 @@
             <!-- Wizard Step Content Container -->
             <div class="wizard-content">
 
+            <!-- Step 0: Build Mode Selection -->
+            <div id="wizard-step-mode" class="wizard-step-content active">
+              <h2 class="wizard-step-title">What are you building today?</h2>
+              <div class="panel-content">
+                <div class="mode-selection-grid">
+                  <button type="button" class="mode-card" data-mode="full_build" onclick="selectBuildMode('full_build')">
+                    <div class="mode-card-icon">
+                      <svg viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2">
+                        <rect x="4" y="20" width="40" height="4" rx="1"/>
+                        <rect x="8" y="24" width="4" height="16"/>
+                        <rect x="36" y="24" width="4" height="16"/>
+                        <rect x="6" y="14" width="36" height="6" rx="1" opacity="0.5"/>
+                        <line x1="4" y1="18" x2="44" y2="18" stroke-width="1" opacity="0.3"/>
+                        <rect x="4" y="40" width="40" height="2" rx="1" opacity="0.3"/>
+                        <line x1="0" y1="44" x2="8" y2="44" stroke-width="1.5"/>
+                        <line x1="40" y1="44" x2="48" y2="44" stroke-width="1.5"/>
+                      </svg>
+                    </div>
+                    <div class="mode-card-label">Full Deck Build</div>
+                    <div class="mode-card-desc">Complete deck with framing, decking, and railing</div>
+                  </button>
+                  <button type="button" class="mode-card" data-mode="framing_only" onclick="selectBuildMode('framing_only')">
+                    <div class="mode-card-icon">
+                      <svg viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2">
+                        <rect x="4" y="10" width="40" height="4" rx="1"/>
+                        <rect x="4" y="28" width="40" height="4" rx="1"/>
+                        <rect x="8" y="14" width="4" height="14"/>
+                        <rect x="22" y="14" width="4" height="14"/>
+                        <rect x="36" y="14" width="4" height="14"/>
+                        <rect x="8" y="32" width="4" height="10"/>
+                        <rect x="36" y="32" width="4" height="10"/>
+                        <ellipse cx="10" cy="44" rx="4" ry="2" opacity="0.4"/>
+                        <ellipse cx="38" cy="44" rx="4" ry="2" opacity="0.4"/>
+                      </svg>
+                    </div>
+                    <div class="mode-card-label">Framing Only</div>
+                    <div class="mode-card-desc">Structural takeoff &mdash; joists, beams, posts, footings</div>
+                  </button>
+                  <button type="button" class="mode-card" data-mode="decking_only" onclick="selectBuildMode('decking_only')">
+                    <div class="mode-card-icon">
+                      <svg viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2">
+                        <rect x="4" y="8" width="40" height="32" rx="2" stroke-dasharray="3 3" opacity="0.3"/>
+                        <line x1="6" y1="12" x2="42" y2="12"/>
+                        <line x1="6" y1="18" x2="42" y2="18"/>
+                        <line x1="6" y1="24" x2="42" y2="24"/>
+                        <line x1="6" y1="30" x2="42" y2="30"/>
+                        <line x1="6" y1="36" x2="42" y2="36"/>
+                      </svg>
+                    </div>
+                    <div class="mode-card-label">Decking Only</div>
+                    <div class="mode-card-desc">Deck board layout and materials</div>
+                  </button>
+                  <button type="button" class="mode-card" data-mode="railing_only" onclick="selectBuildMode('railing_only')">
+                    <div class="mode-card-icon">
+                      <svg viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2">
+                        <line x1="4" y1="12" x2="44" y2="12"/>
+                        <line x1="4" y1="36" x2="44" y2="36" opacity="0.3"/>
+                        <rect x="4" y="12" width="4" height="24"/>
+                        <rect x="14" y="12" width="2" height="24"/>
+                        <rect x="23" y="12" width="2" height="24"/>
+                        <rect x="32" y="12" width="2" height="24"/>
+                        <rect x="40" y="12" width="4" height="24"/>
+                      </svg>
+                    </div>
+                    <div class="mode-card-label">Railing Only</div>
+                    <div class="mode-card-desc">Railing components and hardware</div>
+                  </button>
+                  <button type="button" class="mode-card" data-mode="custom" onclick="selectBuildMode('custom')">
+                    <div class="mode-card-icon">
+                      <svg viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2">
+                        <circle cx="24" cy="24" r="18" stroke-dasharray="4 2"/>
+                        <path d="M24 14 L24 34 M14 24 L34 24" stroke-width="2.5"/>
+                        <circle cx="24" cy="24" r="6" opacity="0.3"/>
+                      </svg>
+                    </div>
+                    <div class="mode-card-label">Custom Combo</div>
+                    <div class="mode-card-desc">Pick which components you need</div>
+                  </button>
+                </div>
+
+                <!-- Custom Combo Checkboxes (hidden by default) -->
+                <div id="customComboOptions" class="custom-combo-options hidden">
+                  <div class="custom-combo-label">Select components:</div>
+                  <label class="custom-combo-checkbox">
+                    <input type="checkbox" checked onchange="toggleCustomComponent('framing')"> Framing
+                  </label>
+                  <label class="custom-combo-checkbox">
+                    <input type="checkbox" checked onchange="toggleCustomComponent('decking')"> Decking
+                  </label>
+                  <label class="custom-combo-checkbox">
+                    <input type="checkbox" checked onchange="toggleCustomComponent('railing')"> Railing
+                  </label>
+                  <button type="button" class="btn btn-primary btn-full-width mt-3" onclick="confirmCustomCombo()">
+                    Continue
+                  </button>
+                </div>
+              </div>
+            </div>
+
             <!-- Step 1: Draw Shape -->
-            <div id="wizard-step-draw" class="wizard-step-content active">
+            <div id="wizard-step-draw" class="wizard-step-content hidden">
               <h2 class="wizard-step-title">Draw Your Deck</h2>
               <div class="panel-content">
 
@@ -1339,6 +1438,26 @@
                   <div id="reviewStairList" class="stair-list space-y-1 text-sm">
                     <p class="text-gray-500">No stairs added</p>
                   </div>
+                </div>
+
+                <!-- Layer Toggle Legend -->
+                <div id="layerTogglesPanel" class="layer-toggles">
+                  <h4 class="layer-toggles-title">Visible Layers</h4>
+                  <label class="layer-toggle" data-layer-toggle="outline">
+                    <input type="checkbox" checked data-layer="outline" onchange="toggleLayer('outline')"> Outline &amp; Dimensions
+                  </label>
+                  <label class="layer-toggle" data-layer-toggle="framing">
+                    <input type="checkbox" checked data-layer="framing" onchange="toggleLayer('framing')"> Framing
+                  </label>
+                  <label class="layer-toggle" data-layer-toggle="decking">
+                    <input type="checkbox" checked data-layer="decking" onchange="toggleLayer('decking')"> Decking
+                  </label>
+                  <label class="layer-toggle" data-layer-toggle="railing">
+                    <input type="checkbox" checked data-layer="railing" onchange="toggleLayer('railing')"> Railing
+                  </label>
+                  <label class="layer-toggle" data-layer-toggle="stairs">
+                    <input type="checkbox" checked data-layer="stairs" onchange="toggleLayer('stairs')"> Stairs
+                  </label>
                 </div>
 
                 <!-- Edit buttons to jump to steps -->

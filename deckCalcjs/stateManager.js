@@ -5,6 +5,7 @@
 // WIZARD STEP CONFIGURATION
 // ================================================
 export const WIZARD_STEPS = [
+  { id: 'mode', name: 'Build Mode', shortName: 'Mode', icon: 'mode' },
   { id: 'draw', name: 'Draw Shape', shortName: 'Draw', icon: 'pencil' },
   { id: 'structure', name: 'Structure', shortName: 'Structure', icon: 'grid' },
   { id: 'stairs', name: 'Stairs', shortName: 'Stairs', icon: 'stairs' },
@@ -160,9 +161,16 @@ export function createInitialState() {
     layerVisibility: createLayerVisibility(),
     unlockedLayers: createUnlockedLayers(),
 
+    // Build mode selection
+    buildMode: 'full_build', // 'full_build' | 'framing_only' | 'decking_only' | 'railing_only' | 'custom'
+    customComponents: { framing: true, decking: true, railing: true },
+
+    // Layer toggle visibility (for Review step legend)
+    visibleLayers: { outline: true, framing: true, decking: true, railing: true, stairs: true },
+
     // Panel/wizard state
     currentPanelMode: 'drawing',
-    wizardStep: 'draw',
+    wizardStep: 'mode',
     completedSteps: [],
 
     // Undo/Redo

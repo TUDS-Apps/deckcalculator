@@ -1998,6 +1998,14 @@ window.initializeWizard = initializeWizard;
 window.renderWizardStepList = renderWizardStepList;
 window.triggerAutoCalculation = triggerAutoCalculation;
 
+// Build mode selection functions
+window.selectBuildMode = selectBuildMode;
+window.toggleCustomComponent = toggleCustomComponent;
+window.confirmCustomCombo = confirmCustomCombo;
+
+// Layer toggle functions
+window.toggleLayer = toggleLayer;
+
 // Structure sub-step navigation
 let currentStructureSubstep = 1;
 
@@ -2197,8 +2205,8 @@ function updateBOMVisibility(stepId) {
   const bomSection = document.getElementById('bomSection');
   const bomPlaceholder = document.getElementById('bomPlaceholder');
 
-  if (stepId === 'draw') {
-    // In Draw step: Hide BOM, show placeholder message
+  if (stepId === 'draw' || stepId === 'mode') {
+    // In Draw/Mode step: Hide BOM, show placeholder message
     if (bomSection) {
       bomSection.style.display = 'none';
       bomSection.classList.add('hidden');
@@ -2222,8 +2230,15 @@ function updateBOMVisibility(stepId) {
 
 // Check if a step is available (can be navigated to)
 function isStepAvailable(stepId) {
-  // Step 1 (draw) is always available
+  // Mode selection is always available
+  if (stepId === 'mode') return true;
+
+  // Draw is always available
   if (stepId === 'draw') return true;
+
+  // Check if step is visible for current build mode
+  const visibleSteps = getVisibleSteps();
+  if (!visibleSteps.includes(stepId)) return false;
 
   // All other steps require Step 1 to be complete (shape closed)
   return appState.isShapeClosed;
@@ -2304,6 +2319,9 @@ function handleStepEntry(stepId, previousStep) {
   }
 
   switch(stepId) {
+    case 'mode':
+      // Mode selection step - no special actions needed
+      break;
     case 'draw':
       // Ensure edit shape panel visibility is updated when returning to draw step
       // This fixes the edit button not appearing after navigating away and back
@@ -2346,6 +2364,8 @@ function handleStepEntry(stepId, previousStep) {
     case 'review':
       // Trigger auto-calculation if not already done
       triggerAutoCalculation();
+      // Update layer toggle visibility for current mode
+      updateLayerTogglesForMode();
       break;
   }
 }
@@ -2356,25 +2376,29 @@ function getAttachmentType() {
   return select ? select.value : 'house_rim';
 }
 
-// Go to the next step
+// Go to the next visible step
 function goToNextStep() {
-  const currentIndex = getStepIndex(appState.wizardStep);
-  if (currentIndex < WIZARD_STEPS.length - 1) {
-    const nextStep = WIZARD_STEPS[currentIndex + 1];
+  const visibleSteps = getVisibleSteps();
+  const currentVisibleIndex = visibleSteps.indexOf(appState.wizardStep);
+
+  if (currentVisibleIndex >= 0 && currentVisibleIndex < visibleSteps.length - 1) {
+    const nextStepId = visibleSteps[currentVisibleIndex + 1];
 
     // Mark current step as complete before advancing
     markStepComplete(appState.wizardStep);
 
-    setWizardStep(nextStep.id);
+    setWizardStep(nextStepId);
   }
 }
 
-// Go to the previous step
+// Go to the previous visible step
 function goToPreviousStep() {
-  const currentIndex = getStepIndex(appState.wizardStep);
-  if (currentIndex > 0) {
-    const prevStep = WIZARD_STEPS[currentIndex - 1];
-    setWizardStep(prevStep.id);
+  const visibleSteps = getVisibleSteps();
+  const currentVisibleIndex = visibleSteps.indexOf(appState.wizardStep);
+
+  if (currentVisibleIndex > 0) {
+    const prevStepId = visibleSteps[currentVisibleIndex - 1];
+    setWizardStep(prevStepId);
   }
 }
 
@@ -2405,16 +2429,19 @@ function updateWizardNextButton(stepId) {
   const nextBtn = document.getElementById('wizardNextBtn');
   if (!nextBtn) return;
 
-  const currentIndex = getStepIndex(stepId);
-  const isLastStep = currentIndex === WIZARD_STEPS.length - 1;
+  const visibleSteps = getVisibleSteps();
+  const currentVisibleIndex = visibleSteps.indexOf(stepId);
+  const isLastStep = currentVisibleIndex === visibleSteps.length - 1;
 
-  if (isLastStep) {
+  if (isLastStep || stepId === 'mode') {
+    // Mode step has its own navigation (auto-advance on card click)
     nextBtn.style.display = 'none';
   } else {
     nextBtn.style.display = '';
-    const nextStep = WIZARD_STEPS[currentIndex + 1];
+    const nextStepId = visibleSteps[currentVisibleIndex + 1];
+    const nextStep = WIZARD_STEPS.find(s => s.id === nextStepId);
     nextBtn.innerHTML = `
-      <span>Next: ${nextStep.shortName}</span>
+      <span>Next: ${nextStep ? nextStep.shortName : ''}</span>
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-4 h-4">
         <path fill-rule="evenodd" d="M3 10a.75.75 0 01.75-.75h10.638L10.23 5.29a.75.75 0 111.04-1.08l5.5 5.25a.75.75 0 010 1.08l-5.5 5.25a.75.75 0 11-1.04-1.08l4.158-3.96H3.75A.75.75 0 013 10z" clip-rule="evenodd" />
       </svg>
@@ -2446,7 +2473,11 @@ function renderWizardStepList() {
   const stepList = document.getElementById('wizardStepList');
   if (!stepList) return;
 
-  stepList.innerHTML = WIZARD_STEPS.map((step, index) => {
+  const visibleSteps = getVisibleSteps();
+  let visibleIndex = 0;
+
+  stepList.innerHTML = WIZARD_STEPS.map((step) => {
+    const isVisible = visibleSteps.includes(step.id);
     const isActive = appState.wizardStep === step.id;
     const isComplete = isStepComplete(step.id);
     const isAvailable = isStepAvailable(step.id);
@@ -2457,14 +2488,17 @@ function renderWizardStepList() {
     else if (!isAvailable) statusClass = 'unavailable';
 
     const comingSoonBadge = step.comingSoon ? '<span class="step-coming-soon">Soon</span>' : '';
+    const displayStyle = isVisible ? '' : 'display:none;';
+    const stepNumber = isVisible ? ++visibleIndex : 0;
 
     return `
       <li class="wizard-step-item ${statusClass}"
           data-step="${step.id}"
+          style="${displayStyle}"
           onclick="handleWizardStepClick('${step.id}')"
           ${!isAvailable ? 'title="Complete drawing first"' : ''}>
         <span class="step-number">
-          ${isComplete ? '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-4 h-4"><path fill-rule="evenodd" d="M16.704 4.153a.75.75 0 01.143 1.052l-8 10.5a.75.75 0 01-1.127.075l-4.5-4.5a.75.75 0 011.06-1.06l3.894 3.893 7.48-9.817a.75.75 0 011.05-.143z" clip-rule="evenodd" /></svg>' : (index + 1)}
+          ${isComplete ? '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-4 h-4"><path fill-rule="evenodd" d="M16.704 4.153a.75.75 0 01.143 1.052l-8 10.5a.75.75 0 01-1.127.075l-4.5-4.5a.75.75 0 011.06-1.06l3.894 3.893 7.48-9.817a.75.75 0 011.05-.143z" clip-rule="evenodd" /></svg>' : stepNumber}
         </span>
         <span class="step-name">${step.shortName}</span>
         ${comingSoonBadge}
@@ -2482,10 +2516,10 @@ function handleWizardStepClick(stepId) {
 
 // Trigger auto-calculation of structural components and BOM
 function triggerAutoCalculation() {
-  // PROGRESSIVE RENDERING: Don't calculate if still in Draw step
+  // PROGRESSIVE RENDERING: Don't calculate if still in Mode or Draw step
   // Framing should only be calculated once user advances to Structure step
-  if (appState.wizardStep === 'draw') {
-    console.log('[triggerAutoCalculation] Skipping - still in Draw step');
+  if (appState.wizardStep === 'draw' || appState.wizardStep === 'mode') {
+    console.log('[triggerAutoCalculation] Skipping - still in Mode/Draw step');
     return;
   }
 
@@ -2609,10 +2643,252 @@ function calculateStructuralComponents(formInputs) {
 }
 
 // Initialize wizard on page load
+// ================================================
+// BUILD MODE SELECTION (Phase A)
+// ================================================
+
+/**
+ * Select a build mode. For non-custom modes, auto-advance to Draw step.
+ * @param {string} mode - 'full_build' | 'framing_only' | 'decking_only' | 'railing_only' | 'custom'
+ */
+function selectBuildMode(mode) {
+  appState.buildMode = mode;
+
+  // Update card visual selection
+  document.querySelectorAll('.mode-card').forEach(card => {
+    card.classList.toggle('selected', card.dataset.mode === mode);
+  });
+
+  const customOptions = document.getElementById('customComboOptions');
+
+  if (mode === 'custom') {
+    // Show custom combo checkboxes, do NOT auto-advance
+    if (customOptions) customOptions.classList.remove('hidden');
+    return;
+  }
+
+  // Hide custom combo if visible
+  if (customOptions) customOptions.classList.add('hidden');
+
+  // Set custom components based on mode
+  switch (mode) {
+    case 'full_build':
+      appState.customComponents = { framing: true, decking: true, railing: true };
+      break;
+    case 'framing_only':
+      appState.customComponents = { framing: true, decking: false, railing: false };
+      break;
+    case 'decking_only':
+      appState.customComponents = { framing: false, decking: true, railing: false };
+      break;
+    case 'railing_only':
+      appState.customComponents = { framing: false, decking: false, railing: true };
+      break;
+  }
+
+  // Mark mode step complete and advance
+  markStepComplete('mode');
+  updateWizardVisibility();
+  setWizardStep('draw');
+}
+
+/**
+ * Toggle a custom component checkbox
+ * @param {string} component - 'framing' | 'decking' | 'railing'
+ */
+function toggleCustomComponent(component) {
+  appState.customComponents[component] = !appState.customComponents[component];
+}
+
+/**
+ * Confirm custom combo selection and advance to Draw step
+ */
+function confirmCustomCombo() {
+  // Ensure at least one component is selected
+  const { framing, decking, railing } = appState.customComponents;
+  if (!framing && !decking && !railing) {
+    alert('Please select at least one component.');
+    return;
+  }
+
+  // Sync checkboxes to state (in case toggled)
+  const checkboxes = document.querySelectorAll('#customComboOptions input[type="checkbox"]');
+  const components = ['framing', 'decking', 'railing'];
+  checkboxes.forEach((cb, i) => {
+    appState.customComponents[components[i]] = cb.checked;
+  });
+
+  markStepComplete('mode');
+  updateWizardVisibility();
+  setWizardStep('draw');
+}
+
+// ================================================
+// DYNAMIC WIZARD STEP VISIBILITY (Phase A.2)
+// ================================================
+
+/**
+ * Returns array of step IDs that should be visible for the current build mode.
+ * @returns {string[]} Array of visible step IDs
+ */
+function getVisibleSteps() {
+  const mode = appState.buildMode;
+  const components = appState.customComponents;
+
+  // Mode and Draw are always visible
+  const visible = ['mode', 'draw'];
+
+  // Height & Stairs (structure step) is always visible
+  // (for decking_only we still need height; for railing_only we need height+stairs)
+  visible.push('stairs');
+
+  // Determine component visibility
+  let showFraming = false;
+  let showDecking = false;
+  let showRailing = false;
+
+  switch (mode) {
+    case 'full_build':
+      showFraming = true;
+      showDecking = true;
+      showRailing = true;
+      break;
+    case 'framing_only':
+      showFraming = true;
+      break;
+    case 'decking_only':
+      showDecking = true;
+      break;
+    case 'railing_only':
+      showRailing = true;
+      break;
+    case 'custom':
+      showFraming = components.framing;
+      showDecking = components.decking;
+      showRailing = components.railing;
+      break;
+  }
+
+  if (showFraming) visible.push('structure');
+  if (showDecking) visible.push('decking');
+  if (showRailing) visible.push('railing');
+
+  // Review is always visible
+  visible.push('review');
+
+  // Return in the order defined by WIZARD_STEPS
+  return WIZARD_STEPS.filter(s => visible.includes(s.id)).map(s => s.id);
+}
+
+/**
+ * Update wizard sidebar and step panels visibility based on build mode.
+ * Re-numbers visible steps in the sidebar.
+ */
+function updateWizardVisibility() {
+  const visibleSteps = getVisibleSteps();
+
+  // Update sidebar items
+  const stepListItems = document.querySelectorAll('#wizardStepList .wizard-step-item');
+  let visibleIndex = 0;
+  stepListItems.forEach(item => {
+    const stepId = item.dataset.step;
+    const isVisible = visibleSteps.includes(stepId);
+    item.style.display = isVisible ? '' : 'none';
+
+    if (isVisible) {
+      // Update step number for visible items
+      const numEl = item.querySelector('.step-number');
+      if (numEl && !item.classList.contains('complete')) {
+        numEl.textContent = visibleIndex + 1;
+      }
+      visibleIndex++;
+    }
+  });
+
+  // Update step panels visibility (hidden steps should not be shown)
+  WIZARD_STEPS.forEach(step => {
+    const panel = document.getElementById(`wizard-step-${step.id}`);
+    if (panel) {
+      if (!visibleSteps.includes(step.id)) {
+        panel.classList.add('hidden');
+        panel.classList.remove('active');
+      }
+    }
+  });
+
+  // Update layer toggles in review step to match build mode
+  updateLayerTogglesForMode();
+
+  // Re-render the wizard step list
+  renderWizardStepList();
+}
+
+/**
+ * Update layer toggle visibility in Review step based on build mode.
+ */
+function updateLayerTogglesForMode() {
+  const visibleSteps = getVisibleSteps();
+
+  const layerMap = {
+    framing: visibleSteps.includes('structure'),
+    decking: visibleSteps.includes('decking'),
+    railing: visibleSteps.includes('railing'),
+    stairs: visibleSteps.includes('stairs'),
+    outline: true  // always visible
+  };
+
+  document.querySelectorAll('.layer-toggle').forEach(label => {
+    const layerName = label.dataset.layerToggle;
+    if (layerName && layerMap.hasOwnProperty(layerName)) {
+      label.style.display = layerMap[layerName] ? '' : 'none';
+    }
+  });
+}
+
+// ================================================
+// LAYER TOGGLE (Phase A.4)
+// ================================================
+
+/**
+ * Toggle a canvas layer's visibility from the Review step legend.
+ * @param {string} layerName - 'outline' | 'framing' | 'decking' | 'railing' | 'stairs'
+ */
+function toggleLayer(layerName) {
+  if (appState.visibleLayers.hasOwnProperty(layerName)) {
+    appState.visibleLayers[layerName] = !appState.visibleLayers[layerName];
+  }
+
+  // Map high-level layer names to the detailed layerVisibility keys
+  switch (layerName) {
+    case 'outline':
+      appState.layerVisibility.outline = appState.visibleLayers.outline;
+      appState.layerVisibility.dimensions = appState.visibleLayers.outline;
+      break;
+    case 'framing':
+      appState.layerVisibility.ledger = appState.visibleLayers.framing;
+      appState.layerVisibility.joists = appState.visibleLayers.framing;
+      appState.layerVisibility.beams = appState.visibleLayers.framing;
+      appState.layerVisibility.posts = appState.visibleLayers.framing;
+      appState.layerVisibility.blocking = appState.visibleLayers.framing;
+      break;
+    case 'decking':
+      appState.layerVisibility.decking = appState.visibleLayers.decking;
+      break;
+    case 'stairs':
+      appState.layerVisibility.stairs = appState.visibleLayers.stairs;
+      break;
+    case 'railing':
+      // Railing layer not yet in layerVisibility — future-proof
+      break;
+  }
+
+  redrawApp();
+}
+
 function initializeWizard() {
   renderWizardStepList();
-  showWizardStepContent('draw');
-  updateWizardNextButton('draw');
+  showWizardStepContent('mode');
+  updateWizardNextButton('mode');
 }
 
 // --- Contextual Panel Management Functions (Legacy) ---
