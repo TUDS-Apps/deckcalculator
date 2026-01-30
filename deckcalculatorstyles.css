@@ -4083,8 +4083,8 @@ table.bom-table tr.bom-category-header td:last-child {
 
 .specs-modal-content {
   background: var(--surface-primary);
-  border-radius: var(--radius-xl);
-  box-shadow: var(--shadow-xl);
+  border-radius: 12px;
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
   max-width: 900px;
   width: 100%;
   max-height: calc(100vh - 4rem);
@@ -4111,9 +4111,9 @@ table.bom-table tr.bom-category-header td:last-child {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: var(--space-4) var(--space-5);
+  padding: 1rem 1.25rem;
   border-bottom: 1px solid var(--gray-200);
-  background: linear-gradient(135deg, var(--tuds-navy) 0%, var(--tuds-teal) 100%);
+  background: var(--surface-primary);
 }
 
 .specs-modal-title {
@@ -4125,14 +4125,14 @@ table.bom-table tr.bom-category-header td:last-child {
 .specs-modal-title svg {
   width: 1.5rem;
   height: 1.5rem;
-  color: var(--tuds-green);
+  color: var(--tuds-navy);
   flex-shrink: 0;
 }
 
 .specs-modal-title h2 {
   font-size: var(--text-xl);
-  font-weight: var(--font-bold);
-  color: #ffffff;
+  font-weight: 700;
+  color: var(--gray-900);
   margin: 0;
 }
 
@@ -4155,21 +4155,21 @@ table.bom-table tr.bom-category-header td:last-child {
   width: 2rem;
   height: 2rem;
   padding: 0;
-  background: rgba(255, 255, 255, 0.1);
+  background: transparent;
   border: none;
   border-radius: var(--radius-md);
-  color: rgba(255, 255, 255, 0.8);
+  color: var(--gray-500);
   cursor: pointer;
   transition: all var(--transition-fast);
 }
 
 .specs-modal-close:hover {
-  background-color: rgba(255, 255, 255, 0.2);
-  color: #ffffff;
+  background-color: var(--gray-100);
+  color: var(--gray-700);
 }
 
 .specs-modal-close:active {
-  background-color: rgba(255, 255, 255, 0.15);
+  background-color: var(--gray-200);
 }
 
 .specs-modal-close svg {
@@ -4180,7 +4180,7 @@ table.bom-table tr.bom-category-header td:last-child {
 .specs-modal-body {
   flex: 1;
   overflow-y: auto;
-  padding: var(--space-5);
+  padding: 1.25rem;
 }
 
 .specs-modal-body .structural-specs-intro {
@@ -4202,8 +4202,8 @@ table.bom-table tr.bom-category-header td:last-child {
 .specs-modal-footer {
   display: flex;
   justify-content: flex-end;
-  gap: var(--space-3);
-  padding: var(--space-4) var(--space-5);
+  gap: 0.75rem;
+  padding: 1rem 1.25rem;
   border-top: 1px solid var(--gray-200);
   background: var(--gray-50);
 }
@@ -4346,7 +4346,7 @@ table.bom-table tr.bom-category-header td:last-child {
 
 .cut-list-modal-content {
   background: var(--surface-primary);
-  border-radius: 0.75rem;
+  border-radius: 12px;
   box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
   max-width: 800px;
   width: 100%;
@@ -4365,7 +4365,7 @@ table.bom-table tr.bom-category-header td:last-child {
   justify-content: space-between;
   padding: 1rem 1.25rem;
   border-bottom: 1px solid var(--gray-200);
-  background: linear-gradient(135deg, var(--color-warning-light) 0%, var(--color-warning) 100%);
+  background: var(--surface-primary);
 }
 
 .cut-list-modal-title {
@@ -4384,14 +4384,14 @@ table.bom-table tr.bom-category-header td:last-child {
 .cut-list-modal-title h2 {
   font-size: var(--text-xl);
   font-weight: 700;
-  color: var(--tuds-navy);
+  color: var(--gray-900);
   margin: 0;
 }
 
 .cut-list-badge {
   font-size: var(--text-xs);
   padding: 0.25rem 0.5rem;
-  background: linear-gradient(135deg, var(--color-warning) 0%, var(--color-warning) 100%);
+  background: var(--color-warning);
   color: white;
   border-radius: 9999px;
   font-weight: 600;
@@ -4441,7 +4441,7 @@ table.bom-table tr.bom-category-header td:last-child {
   gap: 1rem;
   margin-bottom: 1.25rem;
   padding: 1rem;
-  background: linear-gradient(135deg, var(--gray-50) 0%, var(--gray-100) 100%);
+  background: var(--gray-50);
   border-radius: 0.5rem;
   border: 1px solid var(--gray-200);
 }
@@ -5132,9 +5132,9 @@ table.bom-table tr.bom-category-header td:last-child {
 }
 
 .preview3d-modal-content {
-  background: white;
-  border-radius: 1rem;
-  box-shadow: 0 25px 50px rgba(0, 0, 0, 0.25);
+  background: var(--surface-primary);
+  border-radius: 12px;
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
   max-width: 900px;
   width: 100%;
   max-height: 90vh;
@@ -5160,8 +5160,8 @@ table.bom-table tr.bom-category-header td:last-child {
   justify-content: space-between;
   align-items: center;
   padding: 1rem 1.25rem;
-  background: linear-gradient(135deg, var(--tuds-green-dark) 0%, var(--tuds-green) 100%);
-  color: white;
+  background: var(--surface-primary);
+  border-bottom: 1px solid var(--gray-200);
 }
 
 .preview3d-modal-title {
@@ -5171,17 +5171,19 @@ table.bom-table tr.bom-category-header td:last-child {
 }
 
 .preview3d-modal-title svg {
-  color: white;
+  color: var(--tuds-green);
 }
 
 .preview3d-modal-title h2 {
   font-size: var(--text-xl);
   font-weight: 700;
+  color: var(--gray-900);
   margin: 0;
 }
 
 .preview3d-badge {
-  background: rgba(255, 255, 255, 0.2);
+  background: var(--tuds-green-muted);
+  color: var(--tuds-green);
   padding: 0.25rem 0.625rem;
   border-radius: 1rem;
   font-size: var(--text-xs);
@@ -5194,18 +5196,19 @@ table.bom-table tr.bom-category-header td:last-child {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 36px;
-  height: 36px;
-  background: rgba(255, 255, 255, 0.15);
+  width: 2rem;
+  height: 2rem;
+  background: transparent;
   border: none;
-  border-radius: 0.5rem;
-  color: white;
+  border-radius: var(--radius-md);
+  color: var(--gray-500);
   cursor: pointer;
-  transition: background 0.2s ease;
+  transition: all var(--transition-fast);
 }
 
 .preview3d-modal-close:hover {
-  background: rgba(255, 255, 255, 0.25);
+  background-color: var(--gray-100);
+  color: var(--gray-700);
 }
 
 /* 3D Preview Controls */
@@ -5392,9 +5395,9 @@ table.bom-table tr.bom-category-header td:last-child {
 }
 
 .projects-modal-content {
-  background: white;
-  border-radius: var(--radius-xl, 1rem);
-  box-shadow: var(--shadow-xl, 0 25px 50px -12px rgba(0, 0, 0, 0.25));
+  background: var(--surface-primary);
+  border-radius: 12px;
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
   width: 100%;
   max-width: 600px;
   max-height: calc(100vh - 4rem);
@@ -5421,9 +5424,9 @@ table.bom-table tr.bom-category-header td:last-child {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 1.25rem 1.5rem;
-  background: linear-gradient(135deg, var(--tuds-navy, #133A52) 0%, var(--tuds-teal, #2D6A6A) 100%);
-  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  padding: 1rem 1.25rem;
+  background: var(--surface-primary);
+  border-bottom: 1px solid var(--gray-200);
 }
 
 .projects-modal-title {
@@ -5435,29 +5438,29 @@ table.bom-table tr.bom-category-header td:last-child {
 .projects-modal-title svg {
   width: 1.5rem;
   height: 1.5rem;
-  color: var(--tuds-green, #9DBE78);
+  color: var(--tuds-navy);
 }
 
 .projects-modal-title h2 {
   font-size: var(--text-xl);
-  font-weight: 600;
-  color: white;
+  font-weight: 700;
+  color: var(--gray-900);
   margin: 0;
 }
 
 .projects-modal-close {
-  background: rgba(255, 255, 255, 0.1);
+  background: transparent;
   border: none;
-  border-radius: var(--radius-md, 0.5rem);
+  border-radius: var(--radius-md);
   padding: 0.5rem;
   cursor: pointer;
-  color: rgba(255, 255, 255, 0.8);
-  transition: all var(--transition-fast, 150ms ease);
+  color: var(--gray-500);
+  transition: all var(--transition-fast);
 }
 
 .projects-modal-close:hover {
-  background: rgba(255, 255, 255, 0.2);
-  color: white;
+  background: var(--gray-100);
+  color: var(--gray-700);
 }
 
 .projects-modal-close svg {
@@ -5466,7 +5469,7 @@ table.bom-table tr.bom-category-header td:last-child {
 }
 
 .projects-modal-body {
-  padding: 1.5rem;
+  padding: 1.25rem;
   overflow-y: auto;
   flex: 1;
 }
@@ -6136,8 +6139,8 @@ table.bom-table tr.bom-category-header td:last-child {
 }
 
 .auth-modal-content {
-  background: white;
-  border-radius: var(--radius-xl, 1rem);
+  background: var(--surface-primary);
+  border-radius: 12px;
   max-width: 400px;
   width: 100%;
   max-height: calc(100vh - 4rem);
@@ -6151,45 +6154,48 @@ table.bom-table tr.bom-category-header td:last-child {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 1.25rem 1.5rem;
-  border-bottom: 1px solid var(--gray-200, var(--gray-200));
-  background: linear-gradient(135deg, var(--tuds-navy, #133A52), var(--tuds-teal, #00A19A));
+  padding: 1rem 1.25rem;
+  border-bottom: 1px solid var(--gray-200);
+  background: var(--surface-primary);
 }
 
 .auth-modal-title {
   display: flex;
   align-items: center;
   gap: 0.75rem;
-  color: white;
+  color: var(--gray-900);
 }
 
 .auth-modal-title svg {
   width: 1.5rem;
   height: 1.5rem;
+  color: var(--tuds-teal);
 }
 
 .auth-modal-title h2 {
   font-size: var(--text-xl);
-  font-weight: 600;
+  font-weight: 700;
+  color: var(--gray-900);
   margin: 0;
 }
 
 .auth-modal-close {
-  background: rgba(255, 255, 255, 0.2);
+  background: transparent;
   border: none;
-  border-radius: var(--radius, 0.5rem);
+  border-radius: var(--radius-md);
   padding: 0.5rem;
-  color: white;
+  color: var(--gray-500);
   cursor: pointer;
-  transition: background 0.15s ease;
+  transition: all var(--transition-fast);
 }
 
 .auth-modal-close:hover {
-  background: rgba(255, 255, 255, 0.3);
+  background: var(--gray-100);
+  color: var(--gray-700);
 }
 
 .auth-modal-body {
-  padding: 1.5rem;
+  padding: 1.25rem;
 }
 
 .auth-error {
