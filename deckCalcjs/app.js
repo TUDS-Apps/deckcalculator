@@ -2370,8 +2370,9 @@ function handleStepEntry(stepId, previousStep) {
     case 'review':
       // Trigger auto-calculation if not already done
       triggerAutoCalculation();
-      // Update layer toggle visibility for current mode
+      // Update layer toggle visibility and sync checkbox states for current mode
       updateLayerTogglesForMode();
+      syncLayerToggleCheckboxes();
       break;
   }
 }
@@ -2854,6 +2855,19 @@ function updateLayerTogglesForMode() {
 // ================================================
 // LAYER TOGGLE (Phase A.4)
 // ================================================
+
+/**
+ * Sync layer toggle checkbox states with appState.visibleLayers.
+ * Called when entering Review step.
+ */
+function syncLayerToggleCheckboxes() {
+  document.querySelectorAll('.layer-toggle input[data-layer]').forEach(cb => {
+    const layerName = cb.dataset.layer;
+    if (appState.visibleLayers.hasOwnProperty(layerName)) {
+      cb.checked = appState.visibleLayers[layerName];
+    }
+  });
+}
 
 /**
  * Toggle a canvas layer's visibility from the Review step legend.
