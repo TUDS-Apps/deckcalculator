@@ -43,6 +43,7 @@
   --color-warning-light: rgba(245, 158, 11, 0.1);
   --color-error:      #DC2626;
   --color-error-light: rgba(239, 68, 68, 0.1);
+  --color-purple:     #8b5cf6;
 
   /* Surfaces */
   --surface-primary:   #FFFFFF;
@@ -436,7 +437,7 @@ canvas {
 }
 
 .floating-legend-toggle:hover {
-  background-color: #fff;
+  background-color: var(--surface-primary);
   box-shadow: 0 3px 8px rgba(0, 0, 0, 0.15);
 }
 
@@ -595,7 +596,6 @@ canvas.mode-transition {
   100% { filter: brightness(1); }
 }
 
-/* Ripple effect removed — Phase 1.3 cleanup */
 
 /* Blueprint mode styles - Modern CAD White */
 .blueprint-mode #canvasContainer {
@@ -1070,7 +1070,7 @@ canvas.mode-transition {
 .legend-icon-post {
   width: 0.75rem;
   height: 0.75rem;
-  border: 1px solid #000000;
+  border: 1px solid var(--gray-900);
   border-radius: 0;
   background-color: transparent;
   transition: all 0.2s ease;
@@ -1080,7 +1080,7 @@ canvas.mode-transition {
 .blueprint-mode .legend-icon-post {
   width: 0.75rem;
   height: 0.75rem;
-  border: 1px solid #000000;
+  border: 1px solid var(--gray-900);
   border-radius: 0;
   background-color: transparent;
 }
@@ -1135,7 +1135,7 @@ canvas.mode-transition {
 
 .btn-primary {
   background: var(--tuds-navy);
-  color: #ffffff;
+  color: var(--surface-primary);
   border: 1px solid var(--tuds-navy);
 }
 
@@ -1168,7 +1168,7 @@ canvas.mode-transition {
 
 .btn-success {
   background: var(--tuds-green);
-  color: #ffffff;
+  color: var(--surface-primary);
   border: 1px solid var(--tuds-green);
 }
 
@@ -1176,7 +1176,6 @@ canvas.mode-transition {
   background: var(--tuds-green-light);
 }
 
-/* Ripple effect removed — Phase 2.2 cleanup */
 
 /* Special styling for blueprint toggle button */
 #blueprintToggleBtn {
@@ -1192,7 +1191,6 @@ canvas.mode-transition {
   background-color: var(--tuds-teal-light);
 }
 
-/* Blueprint toggle shimmer removed — Phase 2.2 cleanup */
 
 /* Add special icon glow in blueprint mode */
 .blueprint-mode #blueprintToggleBtn svg {
@@ -1200,8 +1198,6 @@ canvas.mode-transition {
 
 }
 
-/* softPulse keyframes removed — Phase 1.3 cleanup */
-/* Duplicate .btn-secondary block removed — Phase 2.2 (consolidated above) */
 
 /* Toolbar button tooltips */
 .btn[data-tooltip] {
@@ -1684,10 +1680,6 @@ canvas.mode-transition {
     overflow: visible !important;
   }
   
-  /* Remove the CSS-generated title since it's already in the HTML */
-  
-  /* Remove duplicate rules */
-
   /* Hide elements not needed for the specified print layout */
   #generatePlanBtn,
   #addStairsBtn,
@@ -1714,10 +1706,6 @@ canvas.mode-transition {
     display: none !important;
   }
 
-  /* Remove duplicate input panel rules */
-  
-  /* Remove duplicate main content panel rules */
-  
   /* Canvas wrapper parent (info-card) */
   #structure-content.active #main-content-panel > .info-card:first-child {
     display: block !important;
@@ -1729,8 +1717,6 @@ canvas.mode-transition {
     display: block !important;
     margin: 0 !important;
   }
-  
-  /* Remove duplicate BOM positioning */
   
   /* Remove grid-specific rules */
   
@@ -2402,7 +2388,7 @@ canvas.mode-transition {
 
 /* Tab Navigation Styles */
 .tab-navigation {
-  background: linear-gradient(135deg, #ffffff 0%, var(--gray-50) 100%);
+  background: linear-gradient(135deg, var(--surface-primary) 0%, var(--gray-50) 100%);
   border-radius: 0.75rem 0.75rem 0 0;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08), 0 1px 3px rgba(0, 0, 0, 0.1);
   margin-bottom: 0;
@@ -2444,7 +2430,7 @@ canvas.mode-transition {
 
 .tab-button.active {
   background-color: var(--tuds-navy);
-  color: #ffffff;
+  color: var(--surface-primary);
   box-shadow: 0 2px 4px rgba(19, 58, 82, 0.3);
 }
 
@@ -2478,7 +2464,7 @@ canvas.mode-transition {
 
 .tab-button.active .coming-soon-badge {
   background-color: rgba(255, 255, 255, 0.2);
-  color: #ffffff;
+  color: var(--surface-primary);
 }
 
 /* Tab Content Styles */
@@ -2713,7 +2699,7 @@ canvas.mode-transition {
 }
 
 .stair-item {
-  background: #ffffff;
+  background: var(--surface-primary);
   border: 1px solid var(--gray-200);
   border-radius: 0.5rem;
   padding: 0.75rem;
@@ -3085,13 +3071,13 @@ canvas.mode-transition {
 }
 
 .draw-method-card:hover {
-  background: #fff;
+  background: var(--surface-primary);
   border-color: var(--tuds-teal);
   box-shadow: 0 2px 8px rgba(45, 106, 106, 0.15);
 }
 
 .draw-method-card.active {
-  background: #fff;
+  background: var(--surface-primary);
   border-color: var(--tuds-teal);
   box-shadow: 0 0 0 3px rgba(45, 106, 106, 0.2);
 }
@@ -3171,7 +3157,7 @@ canvas.mode-transition {
   font-size: var(--text-md);
   font-weight: 500;
   text-align: center;
-  background: #fff;
+  background: var(--surface-primary);
 }
 
 .dimension-input-group input:focus {
@@ -3389,7 +3375,7 @@ canvas.mode-transition {
 }
 
 .template-card:hover {
-  background: #fff;
+  background: var(--surface-primary);
   border-color: var(--tuds-teal);
   box-shadow: 0 2px 8px rgba(45, 106, 106, 0.15);
 }
@@ -3617,7 +3603,7 @@ canvas.mode-transition {
   flex: 1;
   display: flex;
   align-items: center;
-  background: #fff;
+  background: var(--surface-primary);
   border: 2px solid var(--gray-200);
   border-radius: 0.5rem;
   padding: 0.5rem 0.75rem;
@@ -3738,7 +3724,7 @@ canvas.mode-transition {
   justify-content: center;
   gap: 0.5rem;
   padding: 0.625rem 1rem;
-  background: #fff;
+  background: var(--surface-primary);
   border: 2px solid var(--gray-200);
   border-radius: 0.5rem;
   font-size: var(--text-base);
@@ -3756,7 +3742,7 @@ canvas.mode-transition {
 .tier-tab.active {
   background: var(--tuds-navy);
   border-color: var(--tuds-navy);
-  color: #fff;
+  color: var(--surface-primary);
 }
 
 .tier-tab-dot {
@@ -4566,8 +4552,8 @@ canvas.mode-transition {
 }
 
 .cut-list-label.label-blocking {
-  background-color: #8b5cf6;
-  color: white;
+  background-color: var(--color-purple, #8b5cf6);
+  color: var(--surface-primary);
 }
 
 .cut-list-label.label-post {
