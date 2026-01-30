@@ -25,7 +25,6 @@ function findLedgerEdgeInSection(section) {
     
     // Check if this edge overlaps with the ledger wall
     if (edgesOverlap(edgeStart, edgeEnd, ledgerWall.p1, ledgerWall.p2)) {
-      console.log(`Found ledger on edge ${i} of section rectangle`);
       return i;
     }
   }
@@ -124,7 +123,6 @@ function reorientSectionForGlobalJoistDirection(section, sectionPoints, original
   
   if (orientationMatches) {
     // Orientation already matches, no reorientation needed
-    console.log(`Section orientation matches global direction - no reorientation needed`);
     return {
       points: sectionPoints,
       ledgerIndex: originalLedgerIndex
@@ -132,9 +130,6 @@ function reorientSectionForGlobalJoistDirection(section, sectionPoints, original
   }
   
   // Orientation doesn't match - we need to reorient the section
-  console.log(`Section orientation differs from global - reorienting section`);
-  console.log(`Section ledger is ${isSectionLedgerHorizontal ? 'horizontal' : 'vertical'}, global is ${globalJoistDirection.isMainLedgerHorizontal ? 'horizontal' : 'vertical'}`);
-  
   // For sections that don't have the main ledger, we need to choose the edge that would
   // result in the correct joist direction. Find an edge that matches the global orientation.
   let targetLedgerIndex = originalLedgerIndex;
@@ -146,7 +141,6 @@ function reorientSectionForGlobalJoistDirection(section, sectionPoints, original
     
     if (isEdgeHorizontal === globalJoistDirection.isMainLedgerHorizontal) {
       targetLedgerIndex = i;
-      console.log(`Found matching edge orientation at index ${i}`);
       break;
     }
   }
@@ -173,8 +167,7 @@ export function calculateMultiSectionStructure(rectangularSections, inputs, sele
   try {
     // Determine the global joist direction based on the main ledger orientation
     const globalJoistDirection = determineGlobalJoistDirection(rectangularSections, selectedWallIndices, originalPoints);
-    console.log(`Global joist direction determined:`, globalJoistDirection);
-    
+
     // Calculate structure for each section using consistent joist direction
     const sectionResults = [];
     
@@ -200,10 +193,6 @@ export function calculateMultiSectionStructure(rectangularSections, inputs, sele
           section, sectionPoints, sectionLedgerIndex, globalJoistDirection
         );
         
-        console.log(`Calculating ledger-attached structure for section ${i + 1}/${rectangularSections.length}`);
-        console.log(`Section dimensions:`, sectionDimensions);
-        console.log(`Original ledger edge: ${sectionLedgerIndex}, Reoriented ledger edge: ${orientedSectionData.ledgerIndex}`);
-        
         sectionStructure = deckCalculations.calculateStructure(
           orientedSectionData.points,
           orientedSectionData.ledgerIndex,
@@ -214,9 +203,6 @@ export function calculateMultiSectionStructure(rectangularSections, inputs, sele
         // This section is identified as part of the ledger structure but has no explicit ledger walls
         // This can happen in L-shaped decks where the section is collinear with the main ledger
         // Treat it as a ledger-attached section using the appropriate edge
-        console.log(`Section ${i + 1} is identified as ledger rectangle but no explicit ledger walls found`);
-        console.log(`Treating as ledger-attached section with appropriate edge selection`);
-        
         // Find an edge that matches the global ledger orientation
         let ledgerOrientedEdgeIndex = 0;
         for (let j = 0; j < sectionPoints.length; j++) {
@@ -226,7 +212,6 @@ export function calculateMultiSectionStructure(rectangularSections, inputs, sele
           
           if (isEdgeHorizontal === globalJoistDirection.isMainLedgerHorizontal) {
             ledgerOrientedEdgeIndex = j;
-            console.log(`Using edge ${j} that matches global ledger orientation`);
             break;
           }
         }
@@ -235,10 +220,6 @@ export function calculateMultiSectionStructure(rectangularSections, inputs, sele
         const orientedSectionData = reorientSectionForGlobalJoistDirection(
           section, sectionPoints, ledgerOrientedEdgeIndex, globalJoistDirection
         );
-        
-        console.log(`Calculating ledger-attached structure for collinear section ${i + 1}/${rectangularSections.length}`);
-        console.log(`Section dimensions:`, sectionDimensions);
-        console.log(`Using ledger-oriented edge: ${orientedSectionData.ledgerIndex}`);
         
         sectionStructure = deckCalculations.calculateStructure(
           orientedSectionData.points,
@@ -249,10 +230,6 @@ export function calculateMultiSectionStructure(rectangularSections, inputs, sele
       } else {
         // This section has no ledger - treat as floating deck with beams on both ends
         isFloatingSection = true;
-        
-        console.log(`Calculating floating deck structure for section ${i + 1}/${rectangularSections.length} (no ledger selected)`);
-        console.log(`Section dimensions:`, sectionDimensions);
-        console.log(`This section will have beams on both ends instead of a ledger attachment`);
         
         // For floating sections, also ensure consistent joist direction with the global orientation
         // Find an edge that matches the global joist direction for structural consistency
@@ -265,7 +242,6 @@ export function calculateMultiSectionStructure(rectangularSections, inputs, sele
           
           if (isEdgeHorizontal === globalJoistDirection.isMainLedgerHorizontal) {
             floatingLedgerIndex = j;
-            console.log(`Floating section using edge ${j} to match global joist direction`);
             break;
           }
         }
@@ -303,8 +279,6 @@ export function calculateMultiSectionStructure(rectangularSections, inputs, sele
       return { error: "All section calculations failed" };
     }
     
-    console.log(`Successfully calculated ${sectionResults.length} sections`);
-
     // Merge results from all sections, passing originalPoints for boundary clipping
     const mergedStructure = mergeSectionResults(sectionResults, originalPoints);
 
@@ -314,7 +288,6 @@ export function calculateMultiSectionStructure(rectangularSections, inputs, sele
     // ============================================================================
     if (originalPoints && originalPoints.length >= 3) {
       const diagonalEdges = deckCalculations.getDiagonalEdges(originalPoints);
-      console.log(`[MULTI-SECTION DIAGONAL] Found ${diagonalEdges.length} diagonal edges in original shape`);
 
       if (diagonalEdges.length > 0) {
         // Calculate deck dimensions from original points
@@ -332,15 +305,11 @@ export function calculateMultiSectionStructure(rectangularSections, inputs, sele
           ? (overallDimensions.maxY - globalJoistDirection.mainLedgerP1.y) > (globalJoistDirection.mainLedgerP1.y - overallDimensions.minY)
           : (overallDimensions.maxX - globalJoistDirection.mainLedgerP1.x) > (globalJoistDirection.mainLedgerP1.x - overallDimensions.minX);
 
-        console.log(`[MULTI-SECTION DIAGONAL] Deck extends positive dir: ${deckExtendsPositiveDir}`);
-        console.log(`[MULTI-SECTION DIAGONAL] isMainLedgerHorizontal: ${globalJoistDirection.isMainLedgerHorizontal}`);
-
         // Filter out diagonal edges that are the ledger wall
         const nonLedgerDiagonalEdges = diagonalEdges.filter(edge => {
           // Check if this edge is the ledger
           for (const wallIdx of selectedWallIndices) {
             if (edge.index === wallIdx) {
-              console.log(`[MULTI-SECTION DIAGONAL] Skipping diagonal edge ${edge.index} - it's the ledger`);
               return false;
             }
           }
@@ -349,7 +318,6 @@ export function calculateMultiSectionStructure(rectangularSections, inputs, sele
 
         if (nonLedgerDiagonalEdges.length > 0) {
           // Extend joists to diagonal edges
-          console.log(`[MULTI-SECTION DIAGONAL] Extending ${mergedStructure.joists.length} joists to ${nonLedgerDiagonalEdges.length} diagonal edges`);
           mergedStructure.joists = deckCalculations.extendJoistsToDiagonalEdges(
             mergedStructure.joists,
             nonLedgerDiagonalEdges,
@@ -360,8 +328,6 @@ export function calculateMultiSectionStructure(rectangularSections, inputs, sele
 
           // Create diagonal beams parallel to diagonal edges
           for (const diagEdge of nonLedgerDiagonalEdges) {
-            console.log(`[MULTI-SECTION DIAGONAL] Creating beam for diagonal edge from (${diagEdge.p1.x.toFixed(1)}, ${diagEdge.p1.y.toFixed(1)}) to (${diagEdge.p2.x.toFixed(1)}, ${diagEdge.p2.y.toFixed(1)})`);
-
             // Calculate setback based on beam type and joist size cantilever
             const joistSize = inputs.joistSize || '2x8';
             const cantileverFeet = deckCalculations.getCantileverForJoistSize(joistSize);
@@ -411,16 +377,12 @@ export function calculateMultiSectionStructure(rectangularSections, inputs, sele
             );
 
             if (diagBeamRes.beam && diagBeamRes.beam.lengthFeet > EPSILON) {
-              console.log(`[MULTI-SECTION DIAGONAL] Added diagonal beam: ${diagBeamRes.beam.lengthFeet.toFixed(2)} ft`);
-
               // Find the outer beam that this diagonal beam should intersect with
               // The outer beam is typically the one that runs perpendicular to the ledger
               // and is closest to the diagonal edge
               const outerBeam = findOuterBeamForDiagonalTrim(mergedStructure.beams, diagEdge, globalJoistDirection.isMainLedgerHorizontal);
 
               if (outerBeam) {
-                console.log(`[MULTI-SECTION DIAGONAL] Found outer beam to trim against`);
-
                 // Get the index of the outer beam so we can replace it
                 const outerBeamIndex = mergedStructure.beams.indexOf(outerBeam);
 
@@ -510,7 +472,6 @@ export function calculateMultiSectionStructure(rectangularSections, inputs, sele
               isDiagonal: true
             };
             mergedStructure.rimJoists.push(diagRimJoist);
-            console.log(`[DIAGONAL RIM] Added diagonal rim joist: ${diagRimJoist.lengthFeet.toFixed(2)} ft`);
 
             // 2. Trim existing rim joists at this diagonal edge
             mergedStructure.rimJoists = trimRimJoistsAtDiagonalEdge(
@@ -583,8 +544,6 @@ export function mergeSectionResults(sectionResults, originalPoints = null) {
     return sectionResults[0].structure;
   }
   
-  console.log(`Merging results from ${sectionResults.length} sections`);
-  
   // Initialize combined arrays
   let combinedLedger = null;
   const combinedBeams = [];
@@ -600,21 +559,14 @@ export function mergeSectionResults(sectionResults, originalPoints = null) {
     const structure = result.structure;
     const sectionId = index + 1; // R1, R2, R3, etc.
     
-    console.log(`Processing section ${index + 1} components`);
-    console.log(`Section ${index + 1} - isFloatingSection: ${result.isFloatingSection}, has ledger: ${!!structure.ledger}, ledger length: ${structure.ledger?.lengthFeet || 'N/A'}`);
-    console.log(`Section ${index + 1} - section.isLedgerRectangle: ${result.section.isLedgerRectangle}`);
-    
     // Enhanced ledger handling - combine from sections that have ledgers OR are identified as ledger rectangles
     // This ensures that L-shaped decks properly combine all ledger segments
     if (structure.ledger && (!result.isFloatingSection || result.section.isLedgerRectangle)) {
       if (!combinedLedger) {
         combinedLedger = { ...structure.ledger, sectionId: sectionId };
-        console.log(`First ledger section ${sectionId}: ${combinedLedger.lengthFeet} feet`);
       } else {
         // Extend ledger if they're connected
-        console.log(`Extending ledger: existing ${combinedLedger.lengthFeet} feet + section ${sectionId} ${structure.ledger.lengthFeet} feet`);
         combinedLedger = extendLedger(combinedLedger, structure.ledger);
-        console.log(`After extending: ${combinedLedger.lengthFeet} feet total`);
       }
     }
     // Note: Only purely floating sections (not marked as ledger rectangles) don't contribute to the combined ledger
@@ -673,8 +625,6 @@ export function mergeSectionResults(sectionResults, originalPoints = null) {
   const mergedJoists = mergeCollinearJoists(combinedJoists, originalPoints);
   const mergedRimJoists = mergeCollinearRimJoists(combinedRimJoists, originalPoints);
   
-  console.log(`Merged components: ${mergedBeams.length} beams, ${mergedPosts.length} posts, ${mergedFootings.length} footings`);
-
   // Return combined structure
   return {
     ledger: combinedLedger,
@@ -697,14 +647,6 @@ export function mergeSectionResults(sectionResults, originalPoints = null) {
 export function handleBeamMerging(allBeams, originalPoints = null) {
   if (!allBeams || allBeams.length === 0) return [];
   
-  console.log(`\n=== Starting beam merging process with ${allBeams.length} beams ===`);
-  
-  // Log all input beams for debugging
-  allBeams.forEach((beam, idx) => {
-    console.log(`Beam ${idx}: Section ${beam.sectionId}, ${beam.lengthFt}'`, 
-      `${beam.usage}, size: ${beam.size}, from (${beam.p1.x},${beam.p1.y}) to (${beam.p2.x},${beam.p2.y})`);
-  });
-  
   const mergedBeams = [];
   const processed = new Set();
   
@@ -714,8 +656,6 @@ export function handleBeamMerging(allBeams, originalPoints = null) {
     const beam1 = allBeams[i];
     const mergeGroup = [beam1];
     processed.add(i);
-    
-    console.log(`\nChecking beam ${i} for potential merges...`);
     
     // Find all beams that should be merged with this group
     // We need to check against all beams in the merge group, not just beam1
@@ -738,7 +678,6 @@ export function handleBeamMerging(allBeams, originalPoints = null) {
         }
         
         if (canMergeWithGroup) {
-          console.log(`  ✓ Beam ${j} can merge with group`);
           mergeGroup.push(beam2);
           processed.add(j);
           foundNewMerge = true; // Continue searching for more beams to merge
@@ -772,8 +711,6 @@ export function handleBeamMerging(allBeams, originalPoints = null) {
   // Filter out beams that were marked for removal (outside boundary)
   const validBeams = mergedBeams.filter(beam => !beam.removed && beam.lengthFt > 0.1);
 
-  console.log(`\n=== Beam merging complete: ${allBeams.length} beams → ${validBeams.length} valid beams (${mergedBeams.length - validBeams.length} removed) ===\n`);
-
   return validBeams;
 }
 
@@ -784,13 +721,8 @@ export function handleBeamMerging(allBeams, originalPoints = null) {
  * @returns {boolean} True if beams should be merged
  */
 function shouldMergeBeams(beam1, beam2) {
-  console.log(`\n  Checking if beams can merge:`);
-  console.log(`    Beam 1: ${beam1.usage}, size: ${beam1.size}, from (${beam1.p1.x.toFixed(0)},${beam1.p1.y.toFixed(0)}) to (${beam1.p2.x.toFixed(0)},${beam1.p2.y.toFixed(0)})`);
-  console.log(`    Beam 2: ${beam2.usage}, size: ${beam2.size}, from (${beam2.p1.x.toFixed(0)},${beam2.p1.y.toFixed(0)}) to (${beam2.p2.x.toFixed(0)},${beam2.p2.y.toFixed(0)})`);
-  
   // Must be same size
   if (beam1.size !== beam2.size) {
-    console.log(`    ✗ Different sizes: ${beam1.size} vs ${beam2.size}`);
     return false;
   }
   
@@ -803,15 +735,12 @@ function shouldMergeBeams(beam1, beam2) {
     (beam1.usage === "Wall-Side Beam" && beam2.usage === "Outer Beam");
   
   if (!areCompatible) {
-    console.log(`    ✗ Incompatible types: ${beam1.usage} vs ${beam2.usage}`);
     return false;
   }
   
   const collinear = areBeamsCollinear(beam1, beam2);
   const adjacent = areBeamsAdjacent(beam1, beam2);
-  
-  console.log(`    Collinear: ${collinear}, Adjacent: ${adjacent}`);
-  
+
   // Check if beams are collinear and adjacent
   return collinear && adjacent;
 }
@@ -834,8 +763,7 @@ function areBeamsAdjacent(beam1, beam2) {
   ];
   
   const minDistance = Math.min(...distances);
-  console.log(`    Min distance between endpoints: ${(minDistance / PIXELS_PER_FOOT).toFixed(2)} feet`);
-  
+
   // Beams are adjacent if any endpoint pair is within tolerance
   return minDistance <= TOLERANCE;
 }
@@ -864,7 +792,6 @@ function areBeamsCollinear(beam1, beam2) {
   
   // Both must have same orientation
   if (beam1IsHorizontal !== beam2IsHorizontal || beam1IsVertical !== beam2IsVertical) {
-    console.log(`    Different orientations - Beam1: H=${beam1IsHorizontal} V=${beam1IsVertical}, Beam2: H=${beam2IsHorizontal} V=${beam2IsVertical}`);
     return false;
   }
   
@@ -874,7 +801,6 @@ function areBeamsCollinear(beam1, beam2) {
     const avgY2 = (p3.y + p4.y) / 2;
     const yDiff = Math.abs(avgY1 - avgY2);
     const collinear = yDiff < PIXELS_PER_FOOT; // Within 1 foot
-    console.log(`    Horizontal beams - Y difference: ${(yDiff / PIXELS_PER_FOOT).toFixed(2)} feet`);
     return collinear;
   }
   
@@ -884,15 +810,12 @@ function areBeamsCollinear(beam1, beam2) {
     const avgX2 = (p3.x + p4.x) / 2;
     const xDiff = Math.abs(avgX1 - avgX2);
     const collinear = xDiff < PIXELS_PER_FOOT; // Within 1 foot
-    console.log(`    Vertical beams - X difference: ${(xDiff / PIXELS_PER_FOOT).toFixed(2)} feet`);
     return collinear;
   }
   
   // Neither horizontal nor vertical - use cross product method
   const crossProduct1 = (p3.x - p1.x) * (p2.y - p1.y) - (p3.y - p1.y) * (p2.x - p1.x);
   const crossProduct2 = (p4.x - p1.x) * (p2.y - p1.y) - (p4.y - p1.y) * (p2.x - p1.x);
-  
-  console.log(`    Cross products: ${crossProduct1.toFixed(2)}, ${crossProduct2.toFixed(2)}`);
   
   // If both cross products are close to zero, the beams are collinear
   return Math.abs(crossProduct1) < PIXELS_PER_FOOT * PIXELS_PER_FOOT && 
@@ -908,8 +831,6 @@ function areBeamsCollinear(beam1, beam2) {
 function mergeBeamGroup(beamGroup, originalPoints = null) {
   if (beamGroup.length === 1) return beamGroup[0];
 
-  console.log(`Merging ${beamGroup.length} collinear beams`);
-
   // Find the extent of all beams
   let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
 
@@ -918,7 +839,6 @@ function mergeBeamGroup(beamGroup, originalPoints = null) {
     maxX = Math.max(maxX, beam.p1.x, beam.p2.x);
     minY = Math.min(minY, beam.p1.y, beam.p2.y);
     maxY = Math.max(maxY, beam.p1.y, beam.p2.y);
-    console.log(`  Beam from section ${beam.sectionId}: ${beam.lengthFt}' (${beam.usage})`);
   });
 
   // Use the first beam as template for properties
@@ -964,7 +884,6 @@ function mergeBeamGroup(beamGroup, originalPoints = null) {
     if (clippedBeam) {
       // Check if beam was marked for removal (entirely outside polygon)
       if (clippedBeam.removed) {
-        console.log(`[BEAM_CLIP] Beam marked for removal - entirely outside deck boundary`);
         mergedBeam.removed = true;
         mergedBeam.lengthFt = 0;
         return mergedBeam;
@@ -974,7 +893,6 @@ function mergeBeamGroup(beamGroup, originalPoints = null) {
       mergedBeam.centerlineP1 = clippedBeam.p1;
       mergedBeam.centerlineP2 = clippedBeam.p2;
       mergedBeam.lengthFt = clippedBeam.lengthFt;
-      console.log(`[BEAM_CLIP] Beam clipped to deck boundary`);
     }
   }
 
@@ -988,10 +906,6 @@ function mergeBeamGroup(beamGroup, originalPoints = null) {
   const feet = Math.floor(totalInches / 12);
   const inches = totalInches % 12;
   mergedBeam.lengthDisplay = inches > 0 ? `${feet}'${inches}"` : `${feet}'`;
-
-  console.log(`✓ Merged beam total length: ${mergedBeam.lengthDisplay} (${mergedBeam.lengthFt.toFixed(2)} feet)`);
-  console.log(`  Merged beam endpoints: (${mergedBeam.p1.x.toFixed(0)}, ${mergedBeam.p1.y.toFixed(0)}) to (${mergedBeam.p2.x.toFixed(0)}, ${mergedBeam.p2.y.toFixed(0)})`);
-  console.log(`  Centerline: (${mergedBeam.centerlineP1.x.toFixed(0)}, ${mergedBeam.centerlineP1.y.toFixed(0)}) to (${mergedBeam.centerlineP2.x.toFixed(0)}, ${mergedBeam.centerlineP2.y.toFixed(0)})`);
 
   // IMPORTANT NOTE: When beams are merged, the posts and footings need to be recalculated
   // based on the new merged beam length. The merged beam should have posts at:
@@ -1021,12 +935,8 @@ function clipBeamToDeckBoundary(beam, shapePoints, isHorizontal) {
 
   // If both endpoints are inside, no clipping needed
   if (p1Inside && p2Inside) {
-    console.log(`[BEAM_CLIP] Both endpoints inside polygon - no clipping needed`);
     return null;
   }
-
-  console.log(`[BEAM_CLIP] Endpoints inside: p1=${p1Inside}, p2=${p2Inside}`);
-  console.log(`[BEAM_CLIP] Beam: (${beam.p1.x.toFixed(1)}, ${beam.p1.y.toFixed(1)}) to (${beam.p2.x.toFixed(1)}, ${beam.p2.y.toFixed(1)})`);
 
   // Find ALL intersections of beam line (extended infinitely) with polygon edges
   const intersections = [];
@@ -1040,13 +950,11 @@ function clipBeamToDeckBoundary(beam, shapePoints, isHorizontal) {
       // Check if intersection is on the polygon edge segment
       if (isPointOnSegment(intersection, edgeP1, edgeP2, TOLERANCE)) {
         intersections.push({ ...intersection, edgeIndex: i });
-        console.log(`[BEAM_CLIP] Found intersection with edge ${i} at (${intersection.x.toFixed(1)}, ${intersection.y.toFixed(1)})`);
       }
     }
   }
 
   if (intersections.length === 0) {
-    console.log(`[BEAM_CLIP] No intersections found - beam may be entirely outside polygon`);
     // If both endpoints are outside and no intersections, the beam is entirely outside
     if (!p1Inside && !p2Inside) {
       return { p1: beam.p1, p2: beam.p1, lengthFt: 0, removed: true }; // Return zero-length to indicate removal
@@ -1080,10 +988,7 @@ function clipBeamToDeckBoundary(beam, shapePoints, isHorizontal) {
       // The beam enters and exits the polygon
       newP1 = { x: intersections[0].x, y: intersections[0].y };
       newP2 = { x: intersections[intersections.length - 1].x, y: intersections[intersections.length - 1].y };
-      console.log(`[BEAM_CLIP] Both endpoints outside - using intersection segment`);
     } else {
-      // Only one intersection - beam barely touches polygon, effectively outside
-      console.log(`[BEAM_CLIP] Both endpoints outside with <2 intersections - beam is outside`);
       return { p1: beam.p1, p2: beam.p1, lengthFt: 0, removed: true };
     }
   } else if (!p1Inside) {
@@ -1093,7 +998,6 @@ function clipBeamToDeckBoundary(beam, shapePoints, isHorizontal) {
     if (validIntersections.length > 0) {
       const closest = validIntersections[0]; // First one (closest to p1)
       newP1 = { x: closest.x, y: closest.y };
-      console.log(`[BEAM_CLIP] Clipped p1 to (${newP1.x.toFixed(1)}, ${newP1.y.toFixed(1)})`);
     }
   } else if (!p2Inside) {
     // p2 is outside, p1 is inside - clip p2 to the closest intersection
@@ -1102,7 +1006,6 @@ function clipBeamToDeckBoundary(beam, shapePoints, isHorizontal) {
     if (validIntersections.length > 0) {
       const closest = validIntersections[validIntersections.length - 1]; // Last one (closest to p2)
       newP2 = { x: closest.x, y: closest.y };
-      console.log(`[BEAM_CLIP] Clipped p2 to (${newP2.x.toFixed(1)}, ${newP2.y.toFixed(1)})`);
     }
   }
 
@@ -1111,7 +1014,6 @@ function clipBeamToDeckBoundary(beam, shapePoints, isHorizontal) {
 
   // If the clipped beam is too short, mark for removal
   if (newLength < 0.1) {
-    console.log(`[BEAM_CLIP] Clipped beam too short (${newLength.toFixed(2)} ft) - marking for removal`);
     return { p1: newP1, p2: newP2, lengthFt: 0, removed: true };
   }
 
@@ -1163,26 +1065,16 @@ function extendLedger(ledger1, ledger2) {
     return ledger1 || ledger2;
   }
   
-  console.log('Extending ledger:', { 
-    ledger1Length: ledger1.lengthFeet, 
-    ledger2Length: ledger2.lengthFeet,
-    ledger1Points: ledger1.p1 && ledger1.p2 ? `(${ledger1.p1.x},${ledger1.p1.y}) to (${ledger1.p2.x},${ledger1.p2.y})` : 'N/A',
-    ledger2Points: ledger2.p1 && ledger2.p2 ? `(${ledger2.p1.x},${ledger2.p1.y}) to (${ledger2.p2.x},${ledger2.p2.y})` : 'N/A'
-  });
-  
   // Check if ledgers are collinear and connected
   const areCollinear = areLedgersCollinear(ledger1, ledger2);
-  console.log(`Ledgers are ${areCollinear ? 'collinear' : 'not collinear'}`);
-  
+
   if (areCollinear) {
     // Combine the ledgers by extending the length and updating endpoints
     const combinedLedger = combineLedgers(ledger1, ledger2);
-    console.log('✓ Combined collinear ledger length:', combinedLedger.lengthFeet, 'feet');
     return combinedLedger;
   } else {
     // For non-collinear ledgers (like in L-shaped decks), add the lengths together
     // This ensures the total ledger length is used for fastener calculations
-    console.log('✓ Ledgers not collinear, combining lengths for L-shaped deck');
     const combinedLength = ledger1.lengthFeet + ledger2.lengthFeet;
     
     // Create a virtual combined ledger that preserves the total length for BOM calculations
@@ -1197,8 +1089,6 @@ function extendLedger(ledger1, ledger2) {
       originalLengths: [ledger1.lengthFeet, ledger2.lengthFeet]
     };
     
-    console.log('✓ Combined L-shaped ledger total length:', combinedLedger.lengthFeet, 'feet');
-    console.log(`   This should result in ${Math.max(4, Math.ceil(combinedLedger.lengthFeet * 12 / 16) * 2)} GRK fasteners`);
     return combinedLedger;
   }
 }
@@ -1287,7 +1177,7 @@ function removeDuplicatePosts(posts) {
     }
   });
   
-  console.log(`Removed ${posts.length - uniquePosts.length} duplicate posts`);
+
   return uniquePosts;
 }
 
@@ -1310,7 +1200,7 @@ function removeDuplicateFootings(footings) {
     }
   });
   
-  console.log(`Removed ${footings.length - uniqueFootings.length} duplicate footings`);
+
   return uniqueFootings;
 }
 
@@ -1337,7 +1227,7 @@ function mergeCollinearJoists(joists, originalPoints = null) {
         clippedJoists.push(clipped);
       }
     }
-    console.log(`[JOIST_CLIP] Clipped ${joists.length} joists to ${clippedJoists.length} joists`);
+
     return clippedJoists;
   }
 
@@ -1447,7 +1337,7 @@ function clipJoistToBoundary(joist, shapePoints) {
 function mergeCollinearRimJoists(rimJoists, originalPoints = null) {
   if (!rimJoists || rimJoists.length === 0) return [];
 
-  console.log(`[RIM_MERGE] Processing ${rimJoists.length} rim joists`);
+
 
   // Group rim joists by their approximate line (collinear rim joists)
   const processed = new Set();
@@ -1483,7 +1373,7 @@ function mergeCollinearRimJoists(rimJoists, originalPoints = null) {
     if (mergeGroup.length > 1) {
       const merged = mergeRimJoistGroup(mergeGroup);
       mergedRimJoists.push(merged);
-      console.log(`[RIM_MERGE] Merged ${mergeGroup.length} rim joists into one`);
+
     } else {
       mergedRimJoists.push(rim1);
     }
@@ -1498,7 +1388,7 @@ function mergeCollinearRimJoists(rimJoists, originalPoints = null) {
         clippedRimJoists.push(clipped);
       }
     }
-    console.log(`[RIM_MERGE] After clipping: ${clippedRimJoists.length} rim joists`);
+
     return clippedRimJoists;
   }
 
@@ -1677,8 +1567,6 @@ function clipRimJoistToBoundary(rim, shapePoints) {
   // FIRST: Check if rim lies on an actual perimeter edge (critical for U-shapes)
   // This prevents rim joists from spanning across concave areas
   if (!isRimOnPerimeterEdge(rim, shapePoints)) {
-    console.log(`[RIM_CLIP] Rejecting rim joist not on perimeter edge: ` +
-      `(${rim.p1.x.toFixed(0)}, ${rim.p1.y.toFixed(0)}) to (${rim.p2.x.toFixed(0)}, ${rim.p2.y.toFixed(0)})`);
     return null;
   }
 
@@ -1935,7 +1823,6 @@ function findOuterBeamForDiagonalTrim(beams, diagEdge, isMainLedgerHorizontal) {
   });
 
   if (outerBeams.length === 0) {
-    console.log(`[findOuterBeamForDiagonalTrim] No perpendicular beams found`);
     return null;
   }
 
@@ -1960,7 +1847,6 @@ function findOuterBeamForDiagonalTrim(beams, diagEdge, isMainLedgerHorizontal) {
     }
   }
 
-  console.log(`[findOuterBeamForDiagonalTrim] Found closest beam at distance ${(closestDistance / PIXELS_PER_FOOT).toFixed(2)} feet`);
   return closestBeam;
 }
 
@@ -2064,7 +1950,7 @@ function removePostsForBeam(posts, beam) {
     }
   }
 
-  console.log(`[removePostsForBeam] Removed ${beamPosts.length} posts for beam`);
+
 }
 
 /**
@@ -2085,7 +1971,7 @@ function removeFootingsForBeam(footings, beam) {
     }
   }
 
-  console.log(`[removeFootingsForBeam] Removed ${beamFootings.length} footings for beam`);
+
 }
 
 /**
@@ -2111,8 +1997,6 @@ function trimRimJoistsAtDiagonalEdge(rimJoists, diagEdge, deckCenter) {
   // Determine which side of the diagonal line is "inside" the deck (toward deck center)
   const centerSignedDist = getSignedDistanceFromLine(deckCenter, diagEdge.p1, diagEdge.p2);
   const insideSign = centerSignedDist >= 0 ? 1 : -1;
-
-  console.log(`[TRIM RIM] Deck center at (${deckCenter.x.toFixed(1)}, ${deckCenter.y.toFixed(1)}), insideSign: ${insideSign}`);
 
   return rimJoists.map(rimJoist => {
     // Skip diagonal rim joists (don't trim them)
@@ -2149,22 +2033,16 @@ function trimRimJoistsAtDiagonalEdge(rimJoists, diagEdge, deckCenter) {
     // If both are outside, this rim joist is entirely outside - should be removed
     // (but we'll return it unchanged for safety)
     if (!p1Inside && !p2Inside) {
-      console.log(`[TRIM RIM] Warning: rim joist entirely outside diagonal edge`);
       return rimJoist;
     }
-
-    console.log(`[TRIM RIM] Trimming rim joist at intersection (${intersection.x.toFixed(1)}, ${intersection.y.toFixed(1)})`);
-    console.log(`[TRIM RIM] p1 inside: ${p1Inside}, p2 inside: ${p2Inside}`);
 
     const newRimJoist = { ...rimJoist };
 
     // Trim the endpoint that's outside (replace with intersection point)
     if (!p1Inside) {
       newRimJoist.p1 = { ...intersection };
-      console.log(`[TRIM RIM] Trimmed p1`);
     } else if (!p2Inside) {
       newRimJoist.p2 = { ...intersection };
-      console.log(`[TRIM RIM] Trimmed p2`);
     }
 
     // Recalculate length
@@ -2172,8 +2050,6 @@ function trimRimJoistsAtDiagonalEdge(rimJoists, diagEdge, deckCenter) {
       Math.pow(newRimJoist.p2.x - newRimJoist.p1.x, 2) +
       Math.pow(newRimJoist.p2.y - newRimJoist.p1.y, 2)
     ) / PIXELS_PER_FOOT;
-
-    console.log(`[TRIM RIM] New rim joist length: ${newRimJoist.lengthFeet.toFixed(2)} ft`);
 
     return newRimJoist;
   });
@@ -2265,9 +2141,6 @@ function extendDiagonalBeamToEdge(beam, dimensions, diagEdge, deckCenter) {
 
   const extendP1 = distP1ToCenter > distP2ToCenter;
 
-  console.log(`[EXTEND BEAM] Extending ${extendP1 ? 'p1' : 'p2'} (farther from center)`);
-  console.log(`[EXTEND BEAM] Current beam: (${beam.p1.x.toFixed(1)}, ${beam.p1.y.toFixed(1)}) to (${beam.p2.x.toFixed(1)}, ${beam.p2.y.toFixed(1)})`);
-
   // Find intersection of beam line (extended) with each deck edge
   let bestIntersection = null;
   let bestDistance = Infinity;
@@ -2309,11 +2182,8 @@ function extendDiagonalBeamToEdge(beam, dimensions, diagEdge, deckCenter) {
   }
 
   if (!bestIntersection) {
-    console.log(`[EXTEND BEAM] No valid intersection found, returning unchanged`);
     return beam;
   }
-
-  console.log(`[EXTEND BEAM] Found intersection with ${bestIntersection.edgeName} edge at (${bestIntersection.x.toFixed(1)}, ${bestIntersection.y.toFixed(1)})`);
 
   // Create extended beam
   const extendedBeam = { ...beam };
@@ -2329,8 +2199,6 @@ function extendDiagonalBeamToEdge(beam, dimensions, diagEdge, deckCenter) {
     Math.pow(extendedBeam.p2.x - extendedBeam.p1.x, 2) +
     Math.pow(extendedBeam.p2.y - extendedBeam.p1.y, 2)
   ) / PIXELS_PER_FOOT;
-
-  console.log(`[EXTEND BEAM] Extended beam length: ${extendedBeam.lengthFeet.toFixed(2)} ft`);
 
   return extendedBeam;
 }

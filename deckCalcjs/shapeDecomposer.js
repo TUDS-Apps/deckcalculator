@@ -54,6 +54,122 @@ export function decomposeShape(points, ledgerWallIndex) {
 }
 
 /**
+ * General greedy rectangle merging algorithm.
+ * Phase 1: Create strips by merging contiguous cells along the primary axis.
+ * Phase 2: Merge adjacent strips with identical secondary-axis spans.
+ */
+function greedyMerge(insideCells, xCoords, yCoords, mergeVerticalFirst) {
+  if (insideCells.length === 0) return [];
+  if (insideCells.length === 1) return [insideCells[0]];
+
+  // Build a lookup: grid[col][row] = cell or null
+  const maxCol = xCoords.length - 1;
+  const maxRow = yCoords.length - 1;
+  const grid = Array.from({ length: maxCol }, () => Array(maxRow).fill(null));
+  for (const cell of insideCells) {
+    grid[cell.col][cell.row] = cell;
+  }
+
+  const strips = [];
+
+  if (mergeVerticalFirst) {
+    // Phase 1: For each column, merge contiguous vertical runs
+    for (let col = 0; col < maxCol; col++) {
+      let runStart = null;
+      for (let row = 0; row <= maxRow; row++) {
+        if (row < maxRow && grid[col][row]) {
+          if (runStart === null) runStart = row;
+        } else {
+          if (runStart !== null) {
+            strips.push({
+              x: xCoords[col],
+              y: yCoords[runStart],
+              width: xCoords[col + 1] - xCoords[col],
+              height: yCoords[row] - yCoords[runStart],
+              colStart: col, colEnd: col,
+              rowStart: runStart, rowEnd: row - 1
+            });
+            runStart = null;
+          }
+        }
+      }
+    }
+
+    // Phase 2: Merge horizontally adjacent strips with identical rowStart and rowEnd
+    return mergeStrips(strips, 'horizontal');
+  } else {
+    // Phase 1: For each row, merge contiguous horizontal runs
+    for (let row = 0; row < maxRow; row++) {
+      let runStart = null;
+      for (let col = 0; col <= maxCol; col++) {
+        if (col < maxCol && grid[col][row]) {
+          if (runStart === null) runStart = col;
+        } else {
+          if (runStart !== null) {
+            strips.push({
+              x: xCoords[runStart],
+              y: yCoords[row],
+              width: xCoords[col] - xCoords[runStart],
+              height: yCoords[row + 1] - yCoords[row],
+              colStart: runStart, colEnd: col - 1,
+              rowStart: row, rowEnd: row
+            });
+            runStart = null;
+          }
+        }
+      }
+    }
+
+    // Phase 2: Merge vertically adjacent strips with identical colStart and colEnd
+    return mergeStrips(strips, 'vertical');
+  }
+}
+
+/**
+ * Merges adjacent strips that share the same span on the secondary axis.
+ */
+function mergeStrips(strips, direction) {
+  if (strips.length <= 1) return strips;
+
+  // Sort strips for merge order
+  if (direction === 'horizontal') {
+    strips.sort((a, b) => a.rowStart - b.rowStart || a.colStart - b.colStart);
+  } else {
+    strips.sort((a, b) => a.colStart - b.colStart || a.rowStart - b.rowStart);
+  }
+
+  const merged = [strips[0]];
+
+  for (let i = 1; i < strips.length; i++) {
+    const prev = merged[merged.length - 1];
+    const curr = strips[i];
+
+    if (direction === 'horizontal') {
+      // Merge if same row span and horizontally adjacent
+      if (curr.rowStart === prev.rowStart && curr.rowEnd === prev.rowEnd &&
+          Math.abs(curr.x - (prev.x + prev.width)) < EPSILON) {
+        prev.width = (curr.x + curr.width) - prev.x;
+        prev.colEnd = curr.colEnd;
+        continue;
+      }
+    } else {
+      // Merge if same column span and vertically adjacent
+      if (curr.colStart === prev.colStart && curr.colEnd === prev.colEnd &&
+          Math.abs(curr.y - (prev.y + prev.height)) < EPSILON) {
+        prev.height = (curr.y + curr.height) - prev.y;
+        prev.rowEnd = curr.rowEnd;
+        continue;
+      }
+    }
+
+    merged.push(curr);
+  }
+
+  // Clean up: remove grid metadata, keep only x, y, width, height
+  return merged.map(r => ({ x: r.x, y: r.y, width: r.width, height: r.height }));
+}
+
+/**
  * Decomposes a polygon into non-overlapping rectangles using grid-based sweep line algorithm
  * @param {Array<{x: number, y: number}>} points - Array of polygon corner points
  * @param {number} wallIndex - Index of which edge is the ledger (0-based)
@@ -76,16 +192,11 @@ function decomposePolygonIntoRectangles(points, wallIndex) {
   // handle diagonal edge trimming for joists, rim joists, and beams.
   // This allows proper L-shape decomposition even when diagonal corners exist.
   const hasDiagonal = hasDiagonalEdge(workingPoints);
-  if (hasDiagonal) {
-    console.log("Shape has diagonal edges - will decompose using grid method and handle diagonal trimming in structural calculations");
-  }
+
 
   // Step 1: Find all unique X and Y coordinates to create a grid
   const xCoords = [...new Set(workingPoints.map(p => p.x))].sort((a, b) => a - b);
   const yCoords = [...new Set(workingPoints.map(p => p.y))].sort((a, b) => a - b);
-  
-  console.log("Grid X coordinates:", xCoords);
-  console.log("Grid Y coordinates:", yCoords);
 
   // Step 2: Create grid cells and test which ones are inside the polygon
   const insideCells = [];
@@ -102,375 +213,19 @@ function decomposePolygonIntoRectangles(points, wallIndex) {
       const centerY = y + height / 2;
       
       if (isPointInsidePolygon({ x: centerX, y: centerY }, workingPoints)) {
-        insideCells.push({ x, y, width, height });
+        insideCells.push({ x, y, width, height, col: i, row: j });
       }
     }
   }
   
-  console.log(`Found ${insideCells.length} cells inside polygon`);
-  console.log("Inside cells:", insideCells);
+  // Determine merge direction from ledger wall
+  const ledgerStart = workingPoints[wallIndex % workingPoints.length];
+  const ledgerEnd = workingPoints[(wallIndex + 1) % workingPoints.length];
+  const isLedgerHorizontal = Math.abs(ledgerStart.y - ledgerEnd.y) < EPSILON;
 
-  // Step 3: Smart merging based on shape complexity
-  // For L-shapes (3 cells), we need to be careful about which cells to merge
-  let mergedRectangles;
-  
-  if (insideCells.length === 2) {
-    console.log("Exactly 2 cells - keeping them separate");
-    mergedRectangles = insideCells;
-  } else if (insideCells.length === 3) {
-    console.log("3 cells detected - L-shape pattern, using selective merging");
-    
-    // Determine ledger orientation to decide merge direction
-    const ledgerStart = workingPoints[wallIndex];
-    const ledgerEnd = workingPoints[(wallIndex + 1) % workingPoints.length];
-    const isLedgerHorizontal = Math.abs(ledgerStart.y - ledgerEnd.y) < EPSILON;
-    
-    console.log(`Ledger is ${isLedgerHorizontal ? 'horizontal' : 'vertical'}`);
-    
-    // Find which cells are horizontally adjacent (same Y) vs vertically adjacent (same X)
-    const cellsByRow = {};
-    const cellsByCol = {};
-    
-    insideCells.forEach((cell, index) => {
-      const rowKey = `${cell.y}_${cell.height}`;
-      const colKey = `${cell.x}_${cell.width}`;
-      
-      if (!cellsByRow[rowKey]) cellsByRow[rowKey] = [];
-      if (!cellsByCol[colKey]) cellsByCol[colKey] = [];
-      
-      cellsByRow[rowKey].push(index);
-      cellsByCol[colKey].push(index);
-    });
-    
-    mergedRectangles = [];
-    const merged = new Set();
-    
-    if (isLedgerHorizontal) {
-      // For horizontal ledger (top/bottom), merge cells VERTICALLY (same column)
-      Object.values(cellsByCol).forEach(indices => {
-        if (indices.length > 1 && !indices.some(i => merged.has(i))) {
-          // Merge these cells vertically
-          const cellsToMerge = indices.map(i => insideCells[i]);
-          const minY = Math.min(...cellsToMerge.map(c => c.y));
-          const maxY = Math.max(...cellsToMerge.map(c => c.y + c.height));
-          const x = cellsToMerge[0].x;
-          const width = cellsToMerge[0].width;
-          
-          mergedRectangles.push({
-            x: x,
-            y: minY,
-            width: width,
-            height: maxY - minY
-          });
-          
-          indices.forEach(i => merged.add(i));
-        }
-      });
-    } else {
-      // For vertical ledger (left/right), merge cells HORIZONTALLY (same row)
-      Object.values(cellsByRow).forEach(indices => {
-        if (indices.length > 1 && !indices.some(i => merged.has(i))) {
-          // Merge these cells horizontally
-          const cellsToMerge = indices.map(i => insideCells[i]);
-          const minX = Math.min(...cellsToMerge.map(c => c.x));
-          const maxX = Math.max(...cellsToMerge.map(c => c.x + c.width));
-          const y = cellsToMerge[0].y;
-          const height = cellsToMerge[0].height;
-          
-          mergedRectangles.push({
-            x: minX,
-            y: y,
-            width: maxX - minX,
-            height: height
-          });
-          
-          indices.forEach(i => merged.add(i));
-        }
-      });
-    }
-    
-    // Add any unmerged cells
-    insideCells.forEach((cell, index) => {
-      if (!merged.has(index)) {
-        mergedRectangles.push(cell);
-      }
-    });
-    
-  } else if (insideCells.length === 6) {
-    console.log("6 cells detected - U-shape pattern, using special merging");
-    
-    // Determine ledger orientation
-    const ledgerStart = workingPoints[wallIndex];
-    const ledgerEnd = workingPoints[(wallIndex + 1) % workingPoints.length];
-    const isLedgerHorizontal = Math.abs(ledgerStart.y - ledgerEnd.y) < EPSILON;
-    
-    console.log(`U-shape with ${isLedgerHorizontal ? 'horizontal' : 'vertical'} ledger`);
-    
-    mergedRectangles = [];
-    const merged = new Set();
-    
-    if (isLedgerHorizontal) {
-      // For horizontal ledger (top/bottom), create 3 vertical strips
-      // Group cells by their X position
-      const columnGroups = {};
-      insideCells.forEach((cell, index) => {
-        const xKey = cell.x;
-        if (!columnGroups[xKey]) columnGroups[xKey] = [];
-        columnGroups[xKey].push({ cell, index });
-      });
-      
-      // Merge cells within each column (vertical merging only)
-      Object.values(columnGroups).forEach(group => {
-        if (group.length > 1) {
-          // Sort by Y position
-          group.sort((a, b) => a.cell.y - b.cell.y);
-          
-          // Merge all cells in this column
-          const cells = group.map(g => g.cell);
-          const minY = Math.min(...cells.map(c => c.y));
-          const maxY = Math.max(...cells.map(c => c.y + c.height));
-          const x = cells[0].x;
-          const width = cells[0].width;
-          
-          mergedRectangles.push({
-            x: x,
-            y: minY,
-            width: width,
-            height: maxY - minY
-          });
-          
-          group.forEach(g => merged.add(g.index));
-        } else {
-          // Single cell in this column
-          mergedRectangles.push(group[0].cell);
-          merged.add(group[0].index);
-        }
-      });
-    } else {
-      // For vertical ledger (left/right), create 3 horizontal strips
-      // Group cells by their Y position
-      const rowGroups = {};
-      insideCells.forEach((cell, index) => {
-        const yKey = cell.y;
-        if (!rowGroups[yKey]) rowGroups[yKey] = [];
-        rowGroups[yKey].push({ cell, index });
-      });
-      
-      // Merge cells within each row (horizontal merging only)
-      Object.values(rowGroups).forEach(group => {
-        if (group.length > 1) {
-          // Sort by X position
-          group.sort((a, b) => a.cell.x - b.cell.x);
-          
-          // Merge all cells in this row
-          const cells = group.map(g => g.cell);
-          const minX = Math.min(...cells.map(c => c.x));
-          const maxX = Math.max(...cells.map(c => c.x + c.width));
-          const y = cells[0].y;
-          const height = cells[0].height;
-          
-          mergedRectangles.push({
-            x: minX,
-            y: y,
-            width: maxX - minX,
-            height: height
-          });
-          
-          group.forEach(g => merged.add(g.index));
-        } else {
-          // Single cell in this row
-          mergedRectangles.push(group[0].cell);
-          merged.add(group[0].index);
-        }
-      });
-    }
-    
-  } else if (insideCells.length >= 8) {
-    console.log(`${insideCells.length} cells detected - Complex shape, using column-based merging`);
-    
-    // For complex shapes like W, we should merge by columns to avoid spanning notches
-    // Determine ledger orientation
-    const ledgerStart = workingPoints[wallIndex];
-    const ledgerEnd = workingPoints[(wallIndex + 1) % workingPoints.length];
-    const isLedgerHorizontal = Math.abs(ledgerStart.y - ledgerEnd.y) < EPSILON;
-    
-    console.log(`Complex shape with ${isLedgerHorizontal ? 'horizontal' : 'vertical'} ledger`);
-    
-    mergedRectangles = [];
-    
-    if (isLedgerHorizontal) {
-      // For horizontal ledger, merge cells vertically within columns
-      const columnGroups = {};
-      insideCells.forEach((cell) => {
-        const xKey = cell.x;
-        if (!columnGroups[xKey]) columnGroups[xKey] = [];
-        columnGroups[xKey].push(cell);
-      });
-      
-      // Merge cells within each column
-      Object.values(columnGroups).forEach(column => {
-        if (column.length > 1) {
-          // Sort by Y position
-          column.sort((a, b) => a.y - b.y);
-          
-          // Check for gaps and merge continuous sections
-          let currentGroup = [column[0]];
-          
-          for (let i = 1; i < column.length; i++) {
-            const prevCell = column[i-1];
-            const currCell = column[i];
-            
-            // Check if cells are adjacent (no gap)
-            if (Math.abs((prevCell.y + prevCell.height) - currCell.y) < EPSILON) {
-              currentGroup.push(currCell);
-            } else {
-              // Gap found - merge current group and start new one
-              if (currentGroup.length > 0) {
-                const minY = Math.min(...currentGroup.map(c => c.y));
-                const maxY = Math.max(...currentGroup.map(c => c.y + c.height));
-                mergedRectangles.push({
-                  x: currentGroup[0].x,
-                  y: minY,
-                  width: currentGroup[0].width,
-                  height: maxY - minY
-                });
-              }
-              currentGroup = [currCell];
-            }
-          }
-          
-          // Merge final group
-          if (currentGroup.length > 0) {
-            const minY = Math.min(...currentGroup.map(c => c.y));
-            const maxY = Math.max(...currentGroup.map(c => c.y + c.height));
-            mergedRectangles.push({
-              x: currentGroup[0].x,
-              y: minY,
-              width: currentGroup[0].width,
-              height: maxY - minY
-            });
-          }
-        } else {
-          mergedRectangles.push(column[0]);
-        }
-      });
-    } else {
-      // For vertical ledger, merge cells horizontally within rows
-      const rowGroups = {};
-      insideCells.forEach((cell) => {
-        const yKey = cell.y;
-        if (!rowGroups[yKey]) rowGroups[yKey] = [];
-        rowGroups[yKey].push(cell);
-      });
-      
-      // Merge cells within each row
-      Object.values(rowGroups).forEach(row => {
-        if (row.length > 1) {
-          // Sort by X position
-          row.sort((a, b) => a.x - b.x);
-          
-          // Check for gaps and merge continuous sections
-          let currentGroup = [row[0]];
-          
-          for (let i = 1; i < row.length; i++) {
-            const prevCell = row[i-1];
-            const currCell = row[i];
-            
-            // Check if cells are adjacent (no gap)
-            if (Math.abs((prevCell.x + prevCell.width) - currCell.x) < EPSILON) {
-              currentGroup.push(currCell);
-            } else {
-              // Gap found - merge current group and start new one
-              if (currentGroup.length > 0) {
-                const minX = Math.min(...currentGroup.map(c => c.x));
-                const maxX = Math.max(...currentGroup.map(c => c.x + c.width));
-                mergedRectangles.push({
-                  x: minX,
-                  y: currentGroup[0].y,
-                  width: maxX - minX,
-                  height: currentGroup[0].height
-                });
-              }
-              currentGroup = [currCell];
-            }
-          }
-          
-          // Merge final group
-          if (currentGroup.length > 0) {
-            const minX = Math.min(...currentGroup.map(c => c.x));
-            const maxX = Math.max(...currentGroup.map(c => c.x + c.width));
-            mergedRectangles.push({
-              x: minX,
-              y: currentGroup[0].y,
-              width: maxX - minX,
-              height: currentGroup[0].height
-            });
-          }
-        } else {
-          mergedRectangles.push(row[0]);
-        }
-      });
-    }
-    
-  } else {
-    mergedRectangles = mergeAdjacentRectangles(insideCells);
-  }
-  
-  console.log(`Merged into ${mergedRectangles.length} rectangles`);
-  console.log("Final rectangles:", mergedRectangles);
-  
+  // General greedy merge
+  const mergedRectangles = greedyMerge(insideCells, xCoords, yCoords, isLedgerHorizontal);
   return mergedRectangles;
-}
-
-/**
- * Finds corners adjacent to a given corner in the polygon
- * @param {Object} corner - The corner point {x, y}
- * @param {Array<Object>} points - All polygon points
- * @returns {Array<Object>} Adjacent corner points
- */
-function findAdjacentCorners(corner, points) {
-  const index = points.findIndex(p => 
-    Math.abs(p.x - corner.x) < EPSILON && Math.abs(p.y - corner.y) < EPSILON
-  );
-  
-  if (index === -1) return [];
-  
-  const prev = points[(index - 1 + points.length) % points.length];
-  const next = points[(index + 1) % points.length];
-  
-  return [prev, next];
-}
-
-/**
- * Fallback decomposition for non-axis-aligned ledgers
- * @param {Array<Object>} points - Polygon points
- * @returns {Array<Object>} Single rectangle covering the polygon bounds
- */
-function fallbackDecomposition(points) {
-  const bounds = getPolygonBounds(points);
-  return [{
-    x: bounds.minX,
-    y: bounds.minY,
-    width: bounds.maxX - bounds.minX,
-    height: bounds.maxY - bounds.minY
-  }];
-}
-
-/**
- * Removes overlaps and merges adjacent rectangles
- * @param {Array<Object>} rectangles - Array of rectangles
- * @returns {Array<Object>} Non-overlapping rectangles
- */
-function removeOverlapsAndMerge(rectangles) {
-  if (rectangles.length <= 1) return rectangles;
-  
-  // For now, just return the rectangles as-is
-  // In a more complex implementation, we would:
-  // 1. Detect overlapping rectangles
-  // 2. Split overlapping areas
-  // 3. Merge adjacent non-overlapping rectangles
-  
-  return mergeAdjacentRectangles(rectangles);
 }
 
 /**
@@ -616,232 +371,6 @@ function recursivelyDecompose(polygon, ledgerWallIndex = 0) {
 }
 
 /**
- * Checks if a polygon is a rectangle (4 or 5 points with last being duplicate)
- * @param {Array<{x: number, y: number}>} polygon - Polygon points
- * @returns {boolean} True if polygon is a rectangle
- */
-function isRectangle(polygon) {
-  // Handle case where last point is duplicate of first
-  let workingPolygon = polygon;
-  if (polygon.length === 5) {
-    const first = polygon[0];
-    const last = polygon[4];
-    if (Math.abs(first.x - last.x) < EPSILON && Math.abs(first.y - last.y) < EPSILON) {
-      workingPolygon = polygon.slice(0, 4);
-    }
-  }
-
-  if (workingPolygon.length !== 4) {
-    return false;
-  }
-
-  // Check that all edges are horizontal or vertical
-  for (let i = 0; i < 4; i++) {
-    const p1 = workingPolygon[i];
-    const p2 = workingPolygon[(i + 1) % 4];
-    
-    const isHorizontal = Math.abs(p1.y - p2.y) < EPSILON;
-    const isVertical = Math.abs(p1.x - p2.x) < EPSILON;
-    
-    if (!isHorizontal && !isVertical) {
-      return false;
-    }
-  }
-
-  return true;
-}
-
-/**
- * Finds a concave vertex and determines the optimal split line
- * @param {Array<{x: number, y: number}>} polygon - Polygon points
- * @returns {Object|null} Object with concaveVertex and splitLine, or null if no valid split found
- */
-function findConcaveVertexAndSplitLine(polygon) {
-  const concaveVertices = findAllConcaveVertices(polygon);
-  
-  if (concaveVertices.length === 0) {
-    return null;
-  }
-
-  // Try each concave vertex to find a valid split
-  for (const concaveVertex of concaveVertices) {
-    const splitLine = createSplitLineFromConcaveVertex(polygon, concaveVertex);
-    
-    if (splitLine && isValidSplitLine(polygon, splitLine)) {
-      return {
-        concaveVertex: concaveVertex,
-        splitLine: splitLine
-      };
-    }
-  }
-
-  return null;
-}
-
-/**
- * Classifies all vertices in a polygon as convex, concave, or collinear
- * @param {Array<{x: number, y: number}>} polygon - Polygon points
- * @returns {Array<Object>} Array of vertex objects with point, index, and type
- */
-function classifyAllVertices(polygon) {
-  const vertices = [];
-  const n = polygon.length;
-
-  for (let i = 0; i < n; i++) {
-    const prev = polygon[(i - 1 + n) % n];
-    const curr = polygon[i];
-    const next = polygon[(i + 1) % n];
-
-    // Calculate vectors from current vertex
-    const v1 = { x: prev.x - curr.x, y: prev.y - curr.y };
-    const v2 = { x: next.x - curr.x, y: next.y - curr.y };
-
-    // Calculate cross product (for counter-clockwise polygon, negative means concave)
-    const crossProduct = v1.x * v2.y - v1.y * v2.x;
-
-    let type;
-    if (crossProduct < -EPSILON) {
-      type = 'concave';
-    } else if (crossProduct > EPSILON) {
-      type = 'convex';
-    } else {
-      type = 'collinear';
-    }
-
-    vertices.push({
-      point: curr,
-      index: i,
-      type: type
-    });
-  }
-
-  return vertices;
-}
-
-/**
- * Finds all concave vertices in a polygon
- * @param {Array<{x: number, y: number}>} polygon - Polygon points
- * @returns {Array<Object>} Array of concave vertex objects with point and index
- */
-function findAllConcaveVertices(polygon) {
-  const allVertices = classifyAllVertices(polygon);
-  return allVertices.filter(vertex => vertex.type === 'concave');
-}
-
-/**
- * Determines if a vertex is concave (interior angle > 180 degrees)
- * @param {Object} prev - Previous vertex {x, y}
- * @param {Object} curr - Current vertex {x, y}  
- * @param {Object} next - Next vertex {x, y}
- * @returns {boolean} True if vertex is concave
- */
-function isConcaveVertex(prev, curr, next) {
-  // Calculate vectors from current vertex
-  const v1 = { x: prev.x - curr.x, y: prev.y - curr.y };
-  const v2 = { x: next.x - curr.x, y: next.y - curr.y };
-
-  // Calculate cross product (for counter-clockwise polygon, negative means concave)
-  const crossProduct = v1.x * v2.y - v1.y * v2.x;
-
-  // For rectilinear polygons assumed to be counter-clockwise, concave vertices have negative cross product
-  return crossProduct < -EPSILON;
-}
-
-/**
- * Creates a split line from a concave vertex extending into the polygon
- * @param {Array<{x: number, y: number}>} polygon - Polygon points
- * @param {Object} concaveVertex - Concave vertex object with point and index
- * @returns {Object|null} Split line object or null if no valid line can be created
- */
-function createSplitLineFromConcaveVertex(polygon, concaveVertex) {
-  const point = concaveVertex.point;
-  const index = concaveVertex.index;
-  const n = polygon.length;
-
-  // Get adjacent edges
-  const prevPoint = polygon[(index - 1 + n) % n];
-  const nextPoint = polygon[(index + 1) % n];
-
-  // Determine edge directions
-  const edge1 = { x: point.x - prevPoint.x, y: point.y - prevPoint.y };
-  const edge2 = { x: nextPoint.x - point.x, y: nextPoint.y - point.y };
-
-  // Normalize edges to determine direction
-  const isEdge1Horizontal = Math.abs(edge1.y) < EPSILON;
-  const isEdge2Horizontal = Math.abs(edge2.y) < EPSILON;
-
-  let splitLine = null;
-
-  // Create split line perpendicular to one of the edges
-  if (isEdge1Horizontal && !isEdge2Horizontal) {
-    // Edge1 is horizontal, create vertical split line
-    splitLine = createVerticalSplitLine(polygon, point);
-  } else if (!isEdge1Horizontal && isEdge2Horizontal) {
-    // Edge2 is horizontal, create horizontal split line  
-    splitLine = createHorizontalSplitLine(polygon, point);
-  } else {
-    // Try both directions and pick the one that creates a valid split
-    const verticalSplit = createVerticalSplitLine(polygon, point);
-    const horizontalSplit = createHorizontalSplitLine(polygon, point);
-    
-    if (verticalSplit && isValidSplitLine(polygon, verticalSplit)) {
-      splitLine = verticalSplit;
-    } else if (horizontalSplit && isValidSplitLine(polygon, horizontalSplit)) {
-      splitLine = horizontalSplit;
-    }
-  }
-
-  return splitLine;
-}
-
-/**
- * Creates a horizontal split line through a point
- * @param {Array<{x: number, y: number}>} polygon - Polygon points
- * @param {Object} point - Point to create line through {x, y}
- * @returns {Object} Horizontal split line object
- */
-function createHorizontalSplitLine(polygon, point) {
-  const bounds = getPolygonBounds(polygon);
-  return {
-    type: 'horizontal',
-    y: point.y,
-    start: { x: bounds.minX - 1, y: point.y },
-    end: { x: bounds.maxX + 1, y: point.y }
-  };
-}
-
-/**
- * Creates a vertical split line through a point
- * @param {Array<{x: number, y: number}>} polygon - Polygon points
- * @param {Object} point - Point to create line through {x, y}
- * @returns {Object} Vertical split line object
- */
-function createVerticalSplitLine(polygon, point) {
-  const bounds = getPolygonBounds(polygon);
-  return {
-    type: 'vertical',
-    x: point.x,
-    start: { x: point.x, y: bounds.minY - 1 },
-    end: { x: point.x, y: bounds.maxY + 1 }
-  };
-}
-
-/**
- * Checks if a split line is valid for polygon splitting
- * @param {Array<{x: number, y: number}>} polygon - Polygon points
- * @param {Object} splitLine - Split line object
- * @returns {boolean} True if split line is valid
- */
-function isValidSplitLine(polygon, splitLine) {
-  const intersections = findLinePolygonIntersections(splitLine.start, splitLine.end, polygon);
-  
-  // A valid split line should intersect the polygon at exactly 2 points
-  // and the line should pass through the interior of the polygon
-  return intersections.length >= 2;
-}
-
-
-/**
  * Processes raw rectangles into the final format with IDs, adjacency, and ledger information
  * @param {Array<Array<{x: number, y: number}>>} rawRectangles - Array of rectangle corner arrays
  * @param {Array<Object>} originalLedgerWalls - Array of original ledger wall objects
@@ -850,32 +379,23 @@ function isValidSplitLine(polygon, splitLine) {
 function processRawRectangles(rawRectangles, originalLedgerWalls) {
   const rectangles = [];
 
-  console.log(`\nProcessing ${rawRectangles.length} raw rectangles with ${originalLedgerWalls.length} original ledger walls...`);
-  
   // Create rectangle objects with unique IDs
   for (let i = 0; i < rawRectangles.length; i++) {
     const corners = rawRectangles[i];
     const rectId = `rect_${i}`;
-    
-    console.log(`\nProcessing rectangle ${i + 1}/${rawRectangles.length} (${rectId}):`);
-    
+
     // Check if this rectangle contains part of any ledger wall
     let isLedgerRectangle = false;
     let ledgerWalls = [];
-    
+
     originalLedgerWalls.forEach((originalWall, wallIndex) => {
-      console.log(`  Checking against ledger wall ${wallIndex + 1}/${originalLedgerWalls.length}:`);
       const ledgerInfo = findLedgerWallInRectangle(corners, originalWall);
       if (ledgerInfo.isLedgerRectangle) {
         isLedgerRectangle = true;
         ledgerWalls.push(ledgerInfo.ledgerWall);
-        const ledgerLength = getLineSegmentLength(ledgerInfo.ledgerWall.p1, ledgerInfo.ledgerWall.p2) / 24;
-        console.log(`    ✓ Rectangle ${rectId} contains ${ledgerLength.toFixed(2)}' of ledger`);
-      } else {
-        console.log(`    ✗ Rectangle ${rectId} does not contain this ledger wall`);
       }
     });
-    
+
     const rectangle = {
       id: rectId,
       corners: ensureClockwiseOrder(corners),
@@ -885,9 +405,7 @@ function processRawRectangles(rawRectangles, originalLedgerWalls) {
       adjacentRectangles: [], // Will be populated below
       sharedEdges: [] // Will be populated below
     };
-    
-    console.log(`  Final: Rectangle ${rectId} - isLedgerRectangle: ${isLedgerRectangle}, ledgerWalls: ${ledgerWalls.length}`);
-    
+
     rectangles.push(rectangle);
   }
 
@@ -908,9 +426,6 @@ function findLedgerWallInRectangle(corners, originalLedgerWall) {
   const ledgerStart = originalLedgerWall.p1;
   const ledgerEnd = originalLedgerWall.p2;
 
-  console.log(`Checking rectangle for ledger wall: ledger from (${ledgerStart.x}, ${ledgerStart.y}) to (${ledgerEnd.x}, ${ledgerEnd.y})`);
-  console.log(`Rectangle bounds: (${bounds.minX}, ${bounds.minY}) to (${bounds.maxX}, ${bounds.maxY})`);
-
   // Check if the ledger wall segment intersects with any edge of the rectangle
   for (let i = 0; i < corners.length; i++) {
     const edgeStart = corners[i];
@@ -921,10 +436,6 @@ function findLedgerWallInRectangle(corners, originalLedgerWall) {
     
     if (overlap) {
       // Calculate the actual length of the overlapping segment
-      const overlapLength = getLineSegmentLength(overlap.p1, overlap.p2);
-      
-      console.log(`✓ Found direct ledger overlap: ${(overlapLength / 24).toFixed(2)} feet in rectangle`);
-      
       return {
         ledgerWall: overlap,
         isLedgerRectangle: true
@@ -940,8 +451,7 @@ function findLedgerWallInRectangle(corners, originalLedgerWall) {
   };
   
   const isLedgerHorizontal = Math.abs(ledgerDirection.x) > Math.abs(ledgerDirection.y);
-  console.log(`Ledger is ${isLedgerHorizontal ? 'horizontal' : 'vertical'}`);
-  
+
   // For L-shaped decks, check if this rectangle is collinear with the ledger
   // and should be considered part of the continuous ledger structure
   if (isLedgerHorizontal) {
@@ -967,9 +477,6 @@ function findLedgerWallInRectangle(corners, originalLedgerWall) {
         const gap = Math.min(Math.abs(edgeMinX - ledgerMaxX), Math.abs(ledgerMinX - edgeMaxX));
         
         if (gap < tolerance || (edgeMaxX >= ledgerMinX && edgeMinX <= ledgerMaxX)) {
-          const edgeLength = getLineSegmentLength(edgeStart, edgeEnd);
-          console.log(`✓ Found collinear ledger continuation: ${(edgeLength / 24).toFixed(2)} feet (horizontal)`);
-          
           return {
             ledgerWall: {
               p1: edgeStart,
@@ -1003,9 +510,6 @@ function findLedgerWallInRectangle(corners, originalLedgerWall) {
         const gap = Math.min(Math.abs(edgeMinY - ledgerMaxY), Math.abs(ledgerMinY - edgeMaxY));
         
         if (gap < tolerance || (edgeMaxY >= ledgerMinY && edgeMinY <= ledgerMaxY)) {
-          const edgeLength = getLineSegmentLength(edgeStart, edgeEnd);
-          console.log(`✓ Found collinear ledger continuation: ${(edgeLength / 24).toFixed(2)} feet (vertical)`);
-          
           return {
             ledgerWall: {
               p1: edgeStart,
@@ -1027,8 +531,6 @@ function findLedgerWallInRectangle(corners, originalLedgerWall) {
       const isAlongLedgerExtension = isPointAlongLineExtension(corner, ledgerStart, ledgerEnd);
       
       if (isAlongLedgerExtension) {
-        console.log(`Rectangle is adjacent to extended ledger line - treating as ledger rectangle`);
-        
         // Create a virtual ledger segment for this rectangle along the adjacent edge
         const adjacentEdge = findAdjacentEdgeToLedger(corners, ledgerStart, ledgerEnd);
         
@@ -1042,7 +544,6 @@ function findLedgerWallInRectangle(corners, originalLedgerWall) {
     }
   }
 
-  console.log(`✗ Rectangle does not contain ledger wall`);
   return {
     ledgerWall: null,
     isLedgerRectangle: false
@@ -1242,7 +743,6 @@ function hasDiagonalEdge(points) {
 
     if (!isHorizontal && !isVertical) {
       // It's a diagonal edge
-      console.log(`Found diagonal edge from (${p1.x}, ${p1.y}) to (${p2.x}, ${p2.y})`);
       return true;
     }
   }
@@ -1326,32 +826,6 @@ function findLineIntersection(p1, p2, p3, p4) {
   }
   
   return null;
-}
-
-/**
- * Checks if a point lies on a line segment
- * @param {Object} point - Point to test {x, y}
- * @param {Object} lineStart - Start of line segment {x, y}
- * @param {Object} lineEnd - End of line segment {x, y}
- * @returns {boolean} True if point is on the line segment
- */
-function isPointOnLineSegment(point, lineStart, lineEnd) {
-  // Check if point is collinear with the line segment
-  const crossProduct = (point.y - lineStart.y) * (lineEnd.x - lineStart.x) - 
-                      (point.x - lineStart.x) * (lineEnd.y - lineStart.y);
-  
-  if (Math.abs(crossProduct) > EPSILON) {
-    return false; // Not collinear
-  }
-  
-  // Check if point is within the bounds of the line segment
-  const minX = Math.min(lineStart.x, lineEnd.x);
-  const maxX = Math.max(lineStart.x, lineEnd.x);
-  const minY = Math.min(lineStart.y, lineEnd.y);
-  const maxY = Math.max(lineStart.y, lineEnd.y);
-  
-  return point.x >= minX - EPSILON && point.x <= maxX + EPSILON &&
-         point.y >= minY - EPSILON && point.y <= maxY + EPSILON;
 }
 
 /**

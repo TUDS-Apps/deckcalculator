@@ -208,6 +208,35 @@ describe('Drawing Pipeline Integration', () => {
     });
   });
 
+  describe('Test 9: Plus-shape (+) decomposition', () => {
+    it('should decompose a plus shape into rectangular sections', () => {
+      // Plus shape: 14' wide, 14' tall, arms are 4' wide
+      const plusShape = [
+        { x: ft(4), y: 0 },
+        { x: ft(10), y: 0 },
+        { x: ft(10), y: ft(4) },
+        { x: ft(14), y: ft(4) },
+        { x: ft(14), y: ft(10) },
+        { x: ft(10), y: ft(10) },
+        { x: ft(10), y: ft(14) },
+        { x: ft(4), y: ft(14) },
+        { x: ft(4), y: ft(10) },
+        { x: 0, y: ft(10) },
+        { x: 0, y: ft(4) },
+        { x: ft(4), y: ft(4) },
+        { x: ft(4), y: 0 }  // closing point
+      ];
+
+      const simplified = simplifyPoints(plusShape);
+      const validation = validateShape(simplified);
+      expect(validation.isValid).toBe(true);
+
+      const sections = decomposeShape(simplified, 0);
+      expect(sections.length).toBeGreaterThanOrEqual(3);
+      expect(sections.length).toBeLessThanOrEqual(5);
+    });
+  });
+
   describe('Test 8: Point-in-polygon for concave shapes', () => {
     it('should correctly identify points inside and outside an L-shape', () => {
       // L-shape without closing point for isPointInsidePolygon
