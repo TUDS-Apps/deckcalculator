@@ -2217,8 +2217,8 @@ function updateBOMVisibility(stepId) {
       bomSection.classList.add('hidden');
     }
     if (bomPlaceholder) {
-      bomPlaceholder.style.display = 'block';
-      bomPlaceholder.classList.remove('hidden');
+      bomPlaceholder.style.display = 'none';
+      bomPlaceholder.classList.add('hidden');
     }
     if (runningTotalBar) {
       runningTotalBar.classList.add('hidden');
@@ -6274,12 +6274,21 @@ document.addEventListener("DOMContentLoaded", () => {
   // PROGRESSIVE RENDERING: Set initial BOM visibility based on wizard step
   updateBOMVisibility(appState.wizardStep);
 
-  // Re-initialize viewport after browser has computed layout
-  // DOMContentLoaded fires before flex layout is finalized, so canvas may have default 300x150
-  requestAnimationFrame(() => {
-    initializeViewport();
-    redrawApp();
-  });
+  // Ensure canvas gets proper dimensions after layout is computed.
+  // DOMContentLoaded fires before flex layout is finalized, so canvas may still be 300x150.
+  // Use multiple timing strategies since Shopify page embedding can delay layout.
+  function ensureCanvasReady() {
+    const resized = canvasLogic.resizeCanvas();
+    if (resized || deckCanvas.width <= 300) {
+      initializeViewport();
+      redrawApp();
+    }
+  }
+  requestAnimationFrame(ensureCanvasReady);
+  // Fallback: also try after window load (Shopify pages may delay layout)
+  window.addEventListener('load', ensureCanvasReady);
+  // Final fallback: try again after a short delay for any late layout shifts
+  setTimeout(ensureCanvasReady, 500);
 
   console.log("Deck Calculator App Initialized with Wizard-based workflow.");
 });

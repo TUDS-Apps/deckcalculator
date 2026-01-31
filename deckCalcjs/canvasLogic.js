@@ -113,8 +113,8 @@ export function initializeCanvas(
   }
 }
 
-function resizeCanvas() {
-  if (!canvasContainerElement || !canvasElement || !ctx) return;
+export function resizeCanvas() {
+  if (!canvasContainerElement || !canvasElement || !ctx) return false;
 
   const containerWidth = canvasContainerElement.clientWidth;
   const containerHeight = canvasContainerElement.clientHeight;
@@ -126,8 +126,10 @@ function resizeCanvas() {
     ) {
       canvasElement.width = containerWidth;
       canvasElement.height = containerHeight;
+      return true; // dimensions changed
     }
   }
+  return false;
 }
 
 // --- Drawing Functions ---
