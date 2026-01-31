@@ -2099,6 +2099,8 @@ function getModelMousePosition(viewMouseX, viewMouseY) {
   return { x: modelX, y: modelY };
 }
 
+let viewportInitialized = false;
+
 function initializeViewport() {
   if (!deckCanvas || !canvasContainer) {
     console.error("Canvas or container not ready for viewport initialization.");
@@ -2120,6 +2122,8 @@ function initializeViewport() {
     canvasWidth / 2 - modelCenterX * appState.viewportScale;
   appState.viewportOffsetY =
     canvasHeight / 2 - modelCenterY * appState.viewportScale;
+
+  viewportInitialized = true;
 }
 
 
@@ -3082,12 +3086,28 @@ function updateConfigSectionValues() {
     beamsVal.textContent = beamEl.value === 'drop' ? 'Drop Beam' : 'Flush Beam';
   }
 
-  // Finishing
+  // Picture Frame
   const pfEl = document.getElementById('pictureFrame');
-  const finishVal = document.getElementById('configFinishingValue');
-  if (pfEl && finishVal) {
-    const labels = { 'none': 'No Picture Frame', 'single': 'Single PF', 'double': 'Double PF' };
-    finishVal.textContent = labels[pfEl.value] || pfEl.value;
+  const pfVal = document.getElementById('configPictureFrameValue');
+  if (pfEl && pfVal) {
+    const labels = { 'none': 'None', 'single': 'Single', 'double': 'Double' };
+    pfVal.textContent = labels[pfEl.value] || pfEl.value;
+  }
+
+  // Joist Protection
+  const jpEl = document.getElementById('joistProtection');
+  const jpVal = document.getElementById('configJoistProtectionValue');
+  if (jpEl && jpVal) {
+    const labels = { 'none': 'None', 'gtape': 'G-Tape', 'coating': 'Coating' };
+    jpVal.textContent = labels[jpEl.value] || jpEl.value;
+  }
+
+  // Fasteners
+  const fastEl = document.getElementById('fasteners');
+  const fastVal = document.getElementById('configFastenersValue');
+  if (fastEl && fastVal) {
+    const labels = { 'screws_3in': 'Screws', 'u2_3_18': 'U2', 'paslode_3_14': 'Paslode' };
+    fastVal.textContent = labels[fastEl.value] || fastEl.value;
   }
 }
 
@@ -5187,11 +5207,11 @@ function handleCanvasResize(oldCanvasWidth, oldCanvasHeight) {
   const newCanvasWidth = deckCanvas.width;
   const newCanvasHeight = deckCanvas.height;
 
-  // If old dimensions were the HTML default (300x150) or 0, re-initialize viewport
-  // This handles the first resize after page load when layout is computed
-  if (!oldCanvasWidth || !oldCanvasHeight || oldCanvasWidth <= 300) {
+  // Only re-initialize viewport on the very first resize (page load).
+  // After that, always preserve the current view to avoid snapping on panel toggles.
+  if (!viewportInitialized) {
     initializeViewport();
-  } else {
+  } else if (oldCanvasWidth > 0 && oldCanvasHeight > 0) {
     // Adjust viewport offset to keep the same model point at the center
     const modelPtAtOldCenter = getModelMousePosition(
       oldCanvasWidth / 2,

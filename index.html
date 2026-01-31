@@ -545,7 +545,7 @@
                       <div class="config-section-header">
                         <span class="config-section-label">Deck Height</span>
                         <span class="config-section-value" id="configHeightValue">4' 0"</span>
-                        <button type="button" class="config-change-btn" onclick="toggleConfigSection('height')">Change</button>
+                        <button type="button" class="config-change-btn" onclick="toggleConfigSection('height')"><svg class="config-chevron" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" width="16" height="16"><path fill-rule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 11.168l3.71-3.938a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z" clip-rule="evenodd"/></svg></button>
                       </div>
                       <div class="config-section-body">
 
@@ -609,7 +609,7 @@
                       <div class="config-section-header">
                         <span class="config-section-label">Foundation</span>
                         <span class="config-section-value" id="configFoundationValue">GH Levellers</span>
-                        <button type="button" class="config-change-btn" onclick="toggleConfigSection('foundation')">Change</button>
+                        <button type="button" class="config-change-btn" onclick="toggleConfigSection('foundation')"><svg class="config-chevron" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" width="16" height="16"><path fill-rule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 11.168l3.71-3.938a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z" clip-rule="evenodd"/></svg></button>
                       </div>
                       <div class="config-section-body">
                     <!-- Footing Type Visual Selector -->
@@ -695,7 +695,7 @@
                       <div class="config-section-header">
                         <span class="config-section-label">Joists</span>
                         <span class="config-section-value" id="configJoistsValue">16" OC</span>
-                        <button type="button" class="config-change-btn" onclick="toggleConfigSection('joists')">Change</button>
+                        <button type="button" class="config-change-btn" onclick="toggleConfigSection('joists')"><svg class="config-chevron" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" width="16" height="16"><path fill-rule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 11.168l3.71-3.938a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z" clip-rule="evenodd"/></svg></button>
                       </div>
                       <div class="config-section-body">
                     <!-- Joist Spacing Visual Selector -->
@@ -732,7 +732,7 @@
                       <div class="config-section-header">
                         <span class="config-section-label">Attachment</span>
                         <span class="config-section-value" id="configLedgerValue">House Rim</span>
-                        <button type="button" class="config-change-btn" onclick="toggleConfigSection('ledger')">Change</button>
+                        <button type="button" class="config-change-btn" onclick="toggleConfigSection('ledger')"><svg class="config-chevron" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" width="16" height="16"><path fill-rule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 11.168l3.71-3.938a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z" clip-rule="evenodd"/></svg></button>
                       </div>
                       <div class="config-section-body">
                     <!-- Attachment Type Visual Selector -->
@@ -777,7 +777,7 @@
                       <div class="config-section-header">
                         <span class="config-section-label">Beam Type</span>
                         <span class="config-section-value" id="configBeamsValue">Drop Beam</span>
-                        <button type="button" class="config-change-btn" onclick="toggleConfigSection('beams')">Change</button>
+                        <button type="button" class="config-change-btn" onclick="toggleConfigSection('beams')"><svg class="config-chevron" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" width="16" height="16"><path fill-rule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 11.168l3.71-3.938a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z" clip-rule="evenodd"/></svg></button>
                       </div>
                       <div class="config-section-body">
                     <!-- Beam Type Visual Selector -->
@@ -814,19 +814,17 @@
                     <!-- Sub-step 3: Finishing -->
                     <div id="structure-substep-3" class="structure-substep active" data-substep="3">
 
-                    <!-- Finishing Section (collapsible) -->
-                    <div class="config-section" data-section="finishing">
+                    <!-- Picture Frame Section (collapsible) -->
+                    <div class="config-section" data-section="pictureFrame">
                       <div class="config-section-header">
-                        <span class="config-section-label">Finishing</span>
-                        <span class="config-section-value" id="configFinishingValue">No Picture Frame</span>
-                        <button type="button" class="config-change-btn" onclick="toggleConfigSection('finishing')">Change</button>
+                        <span class="config-section-label">Picture Frame</span>
+                        <span class="config-section-value" id="configPictureFrameValue">None</span>
+                        <button type="button" class="config-change-btn" onclick="toggleConfigSection('pictureFrame')" aria-label="Toggle picture frame options">
+                          <svg class="config-chevron" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" width="16" height="16"><path fill-rule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 11.168l3.71-3.938a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z" clip-rule="evenodd"/></svg>
+                        </button>
                       </div>
                       <div class="config-section-body">
-                    <!-- Picture Frame Visual Selector -->
                     <div class="visual-selector compact" data-selector="pictureFrame">
-                      <div class="visual-selector-label">
-                        Picture Frame
-                      </div>
                       <div class="visual-selector-grid three-col">
                         <div class="visual-option selected" data-value="none">
                           <div class="visual-option-icon">
@@ -853,11 +851,20 @@
                         <option value="double">Double</option>
                       </select>
                     </div>
-                    <!-- Joist Protection Visual Selector -->
-                    <div class="visual-selector compact" data-selector="joistProtection">
-                      <div class="visual-selector-label">
-                        Joist Protection
                       </div>
+                    </div><!-- end config-section pictureFrame -->
+
+                    <!-- Joist Protection Section (collapsible) -->
+                    <div class="config-section" data-section="joistProtection">
+                      <div class="config-section-header">
+                        <span class="config-section-label">Joist Protection</span>
+                        <span class="config-section-value" id="configJoistProtectionValue">None</span>
+                        <button type="button" class="config-change-btn" onclick="toggleConfigSection('joistProtection')" aria-label="Toggle joist protection options">
+                          <svg class="config-chevron" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" width="16" height="16"><path fill-rule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 11.168l3.71-3.938a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z" clip-rule="evenodd"/></svg>
+                        </button>
+                      </div>
+                      <div class="config-section-body">
+                    <div class="visual-selector compact" data-selector="joistProtection">
                       <div class="visual-selector-grid three-col">
                         <div class="visual-option selected" data-value="none">
                           <div class="visual-option-icon">
@@ -887,11 +894,20 @@
                         <option value="coating">Deck Coating</option>
                       </select>
                     </div>
-                    <!-- Framing Fasteners Visual Selector -->
-                    <div class="visual-selector compact" data-selector="fasteners">
-                      <div class="visual-selector-label">
-                        Framing Fasteners
                       </div>
+                    </div><!-- end config-section joistProtection -->
+
+                    <!-- Framing Fasteners Section (collapsible) -->
+                    <div class="config-section" data-section="fasteners">
+                      <div class="config-section-header">
+                        <span class="config-section-label">Fasteners</span>
+                        <span class="config-section-value" id="configFastenersValue">Screws</span>
+                        <button type="button" class="config-change-btn" onclick="toggleConfigSection('fasteners')" aria-label="Toggle fastener options">
+                          <svg class="config-chevron" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" width="16" height="16"><path fill-rule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 11.168l3.71-3.938a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z" clip-rule="evenodd"/></svg>
+                        </button>
+                      </div>
+                      <div class="config-section-body">
+                    <div class="visual-selector compact" data-selector="fasteners">
                       <div class="visual-selector-grid three-col">
                         <div class="visual-option selected" data-value="screws_3in">
                           <div class="visual-option-icon">
@@ -921,8 +937,8 @@
                         <option value="paslode_3_14">Paslode 3-1/4"</option>
                       </select>
                     </div>
-                      </div><!-- end config-section-body for finishing -->
-                    </div><!-- end config-section finishing -->
+                      </div>
+                    </div><!-- end config-section fasteners -->
 
                     </div><!-- end framing-config -->
                     </div><!-- End Sub-step 3: Finishing -->

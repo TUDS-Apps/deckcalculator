@@ -9241,18 +9241,27 @@ canvas.mode-transition {
 .config-change-btn {
   background: none;
   border: none;
-  color: var(--tuds-teal);
-  font-size: var(--text-sm);
-  font-weight: var(--font-medium);
+  color: var(--gray-400);
   cursor: pointer;
-  padding: var(--space-1) var(--space-2);
+  padding: var(--space-1);
   border-radius: var(--radius-sm);
-  transition: background var(--transition-fast);
-  white-space: nowrap;
+  transition: color var(--transition-fast), transform var(--transition-fast);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
 }
 
 .config-change-btn:hover {
-  background: var(--tuds-teal-muted);
+  color: var(--tuds-teal);
+}
+
+.config-chevron {
+  transition: transform var(--transition-normal);
+}
+
+.config-section.expanded .config-chevron {
+  transform: rotate(180deg);
 }
 
 .config-section-body {
@@ -9270,7 +9279,7 @@ canvas.mode-transition {
 }
 
 .config-section.expanded .config-change-btn {
-  color: var(--gray-500);
+  color: var(--tuds-teal);
 }
 
 /* ================================================
