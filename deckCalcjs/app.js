@@ -2100,6 +2100,7 @@ function getModelMousePosition(viewMouseX, viewMouseY) {
 }
 
 let viewportInitialized = false;
+let suppressViewportAdjust = false;
 
 function initializeViewport() {
   if (!deckCanvas || !canvasContainer) {
@@ -2366,8 +2367,13 @@ function setWizardStep(stepId) {
 
   const previousStep = appState.wizardStep;
   appState.wizardStep = stepId;
+
+  // Suppress viewport adjustment during panel swap to prevent shape jumping
+  suppressViewportAdjust = true;
   showWizardStepContent(stepId);
   renderWizardStepList();
+  // Allow layout to settle, then re-enable viewport adjust
+  requestAnimationFrame(() => { suppressViewportAdjust = false; });
 
   // Update mobile bottom navigation
   updateMobileBottomNav(stepId);
@@ -5215,20 +5221,21 @@ function handleCanvasResize(oldCanvasWidth, oldCanvasHeight) {
   const newCanvasWidth = deckCanvas.width;
   const newCanvasHeight = deckCanvas.height;
 
+  // During step transitions, skip viewport adjustment entirely — just redraw
+  if (suppressViewportAdjust) {
+    redrawApp();
+    return;
+  }
+
   // Only re-initialize viewport on the very first resize (page load).
   // After that, always preserve the current view to avoid snapping on panel toggles.
   if (!viewportInitialized) {
     initializeViewport();
   } else if (oldCanvasWidth > 0 && oldCanvasHeight > 0) {
-    // Adjust viewport offset to keep the same model point at the center
-    const modelPtAtOldCenter = getModelMousePosition(
-      oldCanvasWidth / 2,
-      oldCanvasHeight / 2
-    );
-    appState.viewportOffsetX =
-      newCanvasWidth / 2 - modelPtAtOldCenter.x * appState.viewportScale;
-    appState.viewportOffsetY =
-      newCanvasHeight / 2 - modelPtAtOldCenter.y * appState.viewportScale;
+    // Only adjust horizontal offset for width changes (sidebar toggle).
+    // Keep Y offset stable so the shape doesn't jump vertically.
+    const widthDelta = newCanvasWidth - oldCanvasWidth;
+    appState.viewportOffsetX += widthDelta / 2;
   }
   redrawApp();
 }
