@@ -98,9 +98,12 @@ export function initializeCanvas(
           canvasElement.width !== newWidth ||
           canvasElement.height !== newHeight
         ) {
+          // Save old dimensions BEFORE resizeCanvas() changes them
+          const oldWidth = canvasElement.width;
+          const oldHeight = canvasElement.height;
           resizeCanvas();
           if (onCanvasResizeCallback) {
-            onCanvasResizeCallback();
+            onCanvasResizeCallback(oldWidth, oldHeight);
           }
         }
       }
@@ -113,8 +116,8 @@ export function initializeCanvas(
 function resizeCanvas() {
   if (!canvasContainerElement || !canvasElement || !ctx) return;
 
-  const containerWidth = canvasContainerElement.offsetWidth;
-  const containerHeight = canvasContainerElement.offsetHeight;
+  const containerWidth = canvasContainerElement.clientWidth;
+  const containerHeight = canvasContainerElement.clientHeight;
 
   if (containerWidth > 0 && containerHeight > 0) {
     if (

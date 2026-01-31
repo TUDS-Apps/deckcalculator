@@ -5179,28 +5179,25 @@ function handleCanvasMouseUp(event) {
   }
 }
 
-function handleCanvasResize() {
-  const oldCanvasWidth = deckCanvas.width;
-  const oldCanvasHeight = deckCanvas.height;
-  const modelPtAtOldCenter = getModelMousePosition(
-    oldCanvasWidth / 2,
-    oldCanvasHeight / 2
-  );
-
-  // CanvasLogic will resize the canvas element via its observer
-  // After resize, get new dimensions
+function handleCanvasResize(oldCanvasWidth, oldCanvasHeight) {
+  // resizeCanvas() has already set deckCanvas.width/height to the new values
   const newCanvasWidth = deckCanvas.width;
   const newCanvasHeight = deckCanvas.height;
 
-  // Adjust viewport offset to keep the same model point at the center of the new canvas size
-  if (oldCanvasWidth > 0 && oldCanvasHeight > 0) {
-    // Avoid issues if initial size was 0
+  // If old dimensions were the HTML default (300x150) or 0, re-initialize viewport
+  // This handles the first resize after page load when layout is computed
+  if (!oldCanvasWidth || !oldCanvasHeight || oldCanvasWidth <= 300) {
+    initializeViewport();
+  } else {
+    // Adjust viewport offset to keep the same model point at the center
+    const modelPtAtOldCenter = getModelMousePosition(
+      oldCanvasWidth / 2,
+      oldCanvasHeight / 2
+    );
     appState.viewportOffsetX =
       newCanvasWidth / 2 - modelPtAtOldCenter.x * appState.viewportScale;
     appState.viewportOffsetY =
       newCanvasHeight / 2 - modelPtAtOldCenter.y * appState.viewportScale;
-  } else {
-    initializeViewport(); // Fallback if old dimensions were invalid
   }
   redrawApp();
 }
@@ -6276,6 +6273,13 @@ document.addEventListener("DOMContentLoaded", () => {
 
   // PROGRESSIVE RENDERING: Set initial BOM visibility based on wizard step
   updateBOMVisibility(appState.wizardStep);
+
+  // Re-initialize viewport after browser has computed layout
+  // DOMContentLoaded fires before flex layout is finalized, so canvas may have default 300x150
+  requestAnimationFrame(() => {
+    initializeViewport();
+    redrawApp();
+  });
 
   console.log("Deck Calculator App Initialized with Wizard-based workflow.");
 });
