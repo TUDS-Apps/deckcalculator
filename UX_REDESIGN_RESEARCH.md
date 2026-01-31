@@ -399,7 +399,15 @@ Don't pre-populate the canvas with a sample deck. Users would need to delete it 
 
 ---
 
-## 10. Implementation Priorities
+## 10. Visual Design
+
+**See [VISUAL_DESIGN_SPEC.md](./VISUAL_DESIGN_SPEC.md)** for the complete component-by-component visual specification.
+
+That document covers exact CSS specs for every component: page shell, header, step sidebar, config panel, cards, buttons, form inputs, canvas area, floating toolbar, BOM table, persistent footer, modals, transitions/micro-interactions, loading/skeleton states, empty states, notification toasts, Lucide icon system, accessibility, and anti-patterns to avoid.
+
+---
+
+## 11. Implementation Priorities
 
 Ordered by impact-to-effort ratio. Each phase is independently valuable — the app improves after every phase, not just after all of them.
 
@@ -407,48 +415,60 @@ Ordered by impact-to-effort ratio. Each phase is independently valuable — the 
 1. Fix canvas rendering bug (already diagnosed — CSS ID mismatch, resize calculation, viewport init timing)
 2. Fix CSS `#content-panel` → `#main-content-panel` mismatch throughout stylesheet
 
-### Phase 2: Combined Start Flow
-3. Redesign Step 0 to include shape entry (Mode → Shape method → dimensions/template/custom)
-4. Build template gallery with L-shape, T-shape, Wraparound shapes
-5. "Enter Dimensions" quick path that creates rectangle on canvas directly
-6. Auto-advance to Draw step with shape already placed
+### Phase 2: Visual Foundation (from VISUAL_DESIGN_SPEC.md)
+3. Page shell: body background to `gray-50`, remove body padding, full viewport
+4. Header: 56px fixed height, sticky, ghost-style action buttons, no negative margins
+5. Buttons: Consistent height system (28/36/44px), hover lightens, active press scale
+6. Form inputs: 36px height, teal focus ring, consistent styling across all inputs/selects
+7. Replace all inline SVGs with Lucide icon set
 
-### Phase 3: Persistent Footer
-7. Add fixed footer bar with running cost estimate
-8. Move "Next step" button from in-panel to footer
-9. Show step progress indicator in footer center
-10. Connect footer estimate to calculation results (update on each step completion)
+### Phase 3: Combined Start Flow
+8. Redesign Step 0 to include shape entry (Mode → Shape method → dimensions/template/custom)
+9. Build template gallery with L-shape, T-shape, Wraparound shapes
+10. "Enter Dimensions" quick path that creates rectangle on canvas directly
+11. Auto-advance to Draw step with shape already placed
 
-### Phase 4: Canvas Interaction Improvements
-11. Add dimension labels on canvas edges (clickable to edit inline)
-12. Drawing guidance overlay for custom draw (pulsing dot, rubberband line, snap indicator)
-13. Direct shape editing without separate edit mode (click edge → edit dimension, drag vertex → reshape)
-14. Point counter and "click to close" tooltip during drawing
+### Phase 4: Persistent Footer
+12. Add fixed footer bar with running cost estimate
+13. Move "Next step" button from in-panel to footer
+14. Show step progress indicator in footer center
+15. Connect footer estimate to calculation results (update on each step completion)
 
-### Phase 5: Wizard Flow Improvements
-15. Allow non-linear step navigation (any step reachable after shape is closed)
-16. Auto-calculate structure on step entry (don't wait for "Generate Plan" click)
-17. Smart defaults that produce a valid BOM with zero configuration
-18. Relax step gating so Review is reachable immediately after shape + defaults
+### Phase 5: Canvas Interaction Improvements
+16. Add dimension labels on canvas edges (clickable to edit inline)
+17. Drawing guidance overlay for custom draw (pulsing dot, rubberband line, snap indicator)
+18. Direct shape editing without separate edit mode (click edge → edit dimension, drag vertex → reshape)
+19. Point counter and "click to close" tooltip during drawing
 
-### Phase 6: Visual Polish
-19. Replace all inline SVGs with Lucide icon set
-20. Page background to `#F8FAFC`
-21. Enforce consistent spacing (8px grid), shadows (3 levels), border-radius
-22. Button hover states, step transition animations, calculation feedback
-23. Loading states for Shopify price fetching, calculation spinners
+### Phase 6: Wizard Flow Improvements
+20. Allow non-linear step navigation (any step reachable after shape is closed)
+21. Auto-calculate structure on step entry (don't wait for "Generate Plan" click)
+22. Smart defaults that produce a valid BOM with zero configuration
+23. Relax step gating so Review is reachable immediately after shape + defaults
 
-### Phase 7: Mobile & Touch
-24. Bottom sheet for config panel on screens <1024px
-25. Canvas-first mobile layout with full-width canvas
-26. Touch target sizing (44px minimum)
-27. Bottom sheet with three snap points (peek/half/full)
-28. Mobile step navigation (horizontal indicator or sheet-header nav)
+### Phase 7: Visual Polish (from VISUAL_DESIGN_SPEC.md)
+24. Config panel: 300px width, custom scrollbar, generous padding, section styling
+25. Cards: top accent stripe, icon containers, glow ring selection state
+26. Step sidebar: active glow ring, hover scale, green completion state
+27. Canvas area: card wrapper with shadow, gray-50 background contrast
+28. Floating toolbar: shadow-md, ghost buttons, teal active state
+29. BOM table: sticky headers, tabular-nums pricing, teal hover tint
+30. Modals: backdrop blur, slide-up animation, consistent header/footer
+31. Transitions: 150ms interactions, 200ms content, 300ms layout, prefers-reduced-motion
+32. Loading states: button spinners, skeleton shimmer for BOM, threshold timing
+33. Notification toasts: dark background, left-border accent color, slide-in animation
 
-### Phase 8: Onboarding
-29. Empty canvas overlay with drawing guidance (pulsing dot, tips)
-30. First-time contextual tooltips (one per key interaction, localStorage tracked)
-31. Fade-out behavior (guidance disappears after first point placed)
+### Phase 8: Mobile & Touch
+34. Bottom sheet for config panel on screens <1024px
+35. Canvas-first mobile layout with full-width canvas
+36. Touch target sizing (44px minimum)
+37. Bottom sheet with three snap points (peek/half/full)
+38. Mobile step navigation (horizontal indicator or sheet-header nav)
+
+### Phase 9: Onboarding
+39. Empty canvas overlay with drawing guidance (pulsing dot, tips)
+40. First-time contextual tooltips (one per key interaction, localStorage tracked)
+41. Fade-out behavior (guidance disappears after first point placed)
 
 ---
 
