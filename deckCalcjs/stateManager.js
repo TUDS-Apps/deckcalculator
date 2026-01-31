@@ -211,37 +211,44 @@ export function createInitialState() {
   Object.defineProperty(state, 'points', {
     get() { return state.tiers[state.activeTierId].points; },
     set(v) { state.tiers[state.activeTierId].points = v; },
-    configurable: true
+    configurable: true,
+    enumerable: true
   });
   Object.defineProperty(state, 'isShapeClosed', {
     get() { return state.tiers[state.activeTierId].isShapeClosed; },
     set(v) { state.tiers[state.activeTierId].isShapeClosed = v; },
-    configurable: true
+    configurable: true,
+    enumerable: true
   });
   Object.defineProperty(state, 'isDrawing', {
     get() { return state.tiers[state.activeTierId].isDrawing; },
     set(v) { state.tiers[state.activeTierId].isDrawing = v; },
-    configurable: true
+    configurable: true,
+    enumerable: true
   });
   Object.defineProperty(state, 'selectedWallIndices', {
     get() { return state.tiers[state.activeTierId].selectedWallIndices; },
     set(v) { state.tiers[state.activeTierId].selectedWallIndices = v; },
-    configurable: true
+    configurable: true,
+    enumerable: true
   });
   Object.defineProperty(state, 'rectangularSections', {
     get() { return state.tiers[state.activeTierId].rectangularSections; },
     set(v) { state.tiers[state.activeTierId].rectangularSections = v; },
-    configurable: true
+    configurable: true,
+    enumerable: true
   });
   Object.defineProperty(state, 'structuralComponents', {
     get() { return state.tiers[state.activeTierId].structuralComponents; },
     set(v) { state.tiers[state.activeTierId].structuralComponents = v; },
-    configurable: true
+    configurable: true,
+    enumerable: true
   });
   Object.defineProperty(state, 'deckDimensions', {
     get() { return state.tiers[state.activeTierId].deckDimensions; },
     set(v) { state.tiers[state.activeTierId].deckDimensions = v; },
-    configurable: true
+    configurable: true,
+    enumerable: true
   });
 
   return state;
