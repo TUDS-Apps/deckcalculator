@@ -3056,12 +3056,20 @@ function updateConfigSectionValues() {
     heightVal.textContent = `${ft}' ${inc}"`;
   }
 
-  // Foundation
+  // Footing Type
   const footingEl = document.getElementById('footingType');
-  const foundVal = document.getElementById('configFoundationValue');
-  if (footingEl && foundVal) {
+  const footingVal = document.getElementById('configFootingTypeValue');
+  if (footingEl && footingVal) {
     const labels = { 'gh_levellers': 'GH Levellers', 'pylex': 'Pylex', 'helical': 'Helical' };
-    foundVal.textContent = labels[footingEl.value] || footingEl.value;
+    footingVal.textContent = labels[footingEl.value] || footingEl.value;
+  }
+
+  // Post Size
+  const postEl = document.getElementById('postSize');
+  const postVal = document.getElementById('configPostSizeValue');
+  if (postEl && postVal) {
+    const labels = { 'auto': 'Auto', '4x4': '4x4', '6x6': '6x6' };
+    postVal.textContent = labels[postEl.value] || postEl.value;
   }
 
   // Joists
@@ -5422,14 +5430,16 @@ function handleCenterFit() {
   } else {
     const canvasWidth = deckCanvas.width;
     const canvasHeight = deckCanvas.height;
-    const scaleX = (canvasWidth * 0.9) / contentWidthModel; // MODIFIED: Target 90% of view
-    const scaleY = (canvasHeight * 0.9) / contentHeightModel; // MODIFIED: Target 90% of view
+    const scaleX = (canvasWidth * 0.75) / contentWidthModel;
+    const scaleY = (canvasHeight * 0.75) / contentHeightModel;
     appState.viewportScale = Math.min(scaleX, scaleY);
   }
 
+  // Cap auto-fit zoom: don't zoom in past 1.5x to avoid overly close view
+  const maxAutoFitZoom = 1.5;
   appState.viewportScale = Math.max(
     config.MIN_ZOOM_SCALE,
-    Math.min(appState.viewportScale, config.MAX_ZOOM_SCALE)
+    Math.min(appState.viewportScale, maxAutoFitZoom)
   );
 
   const contentCenterXModel = (minX + maxX) / 2;
@@ -6303,7 +6313,7 @@ document.addEventListener("DOMContentLoaded", () => {
   // Use multiple timing strategies since Shopify page embedding can delay layout.
   function ensureCanvasReady() {
     const resized = canvasLogic.resizeCanvas();
-    if (resized || deckCanvas.width <= 300) {
+    if (!viewportInitialized && (resized || deckCanvas.width <= 300)) {
       initializeViewport();
       redrawApp();
     }

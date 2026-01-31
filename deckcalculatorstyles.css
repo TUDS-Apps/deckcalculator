@@ -4309,14 +4309,12 @@ canvas.mode-transition {
   position: fixed;
   top: 0;
   left: 0;
-  right: 0;
-  bottom: 0;
   width: 100%;
   height: 100%;
   z-index: var(--z-modal);
-  display: flex;
-  align-items: center;
-  justify-content: center;
+  overflow-y: auto;
+  padding: 2rem 1rem;
+  box-sizing: border-box;
   background-color: rgba(0, 0, 0, 0.5);
   backdrop-filter: blur(4px);
   padding: 1rem;
@@ -4335,12 +4333,11 @@ canvas.mode-transition {
   box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
   max-width: 900px;
   width: 100%;
-  max-height: calc(100vh - 2rem);
+  margin: 0 auto;
   display: flex;
   flex-direction: column;
   overflow: hidden;
   animation: modalSlideIn var(--transition-normal);
-  flex-shrink: 0;
 }
 
 @keyframes modalSlideIn {
@@ -4570,14 +4567,12 @@ canvas.mode-transition {
   position: fixed;
   top: 0;
   left: 0;
-  right: 0;
-  bottom: 0;
   width: 100%;
   height: 100%;
   z-index: 9999;
-  display: flex;
-  align-items: center;
-  justify-content: center;
+  overflow-y: auto;
+  padding: 2rem 1rem;
+  box-sizing: border-box;
   background-color: rgba(0, 0, 0, 0.5);
   backdrop-filter: blur(2px);
   padding: 1rem;
@@ -4596,12 +4591,11 @@ canvas.mode-transition {
   box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
   max-width: 800px;
   width: 100%;
-  max-height: calc(100vh - 2rem);
+  margin: 0 auto;
   display: flex;
   flex-direction: column;
   overflow: hidden;
   animation: modalSlideIn 0.2s ease-out;
-  flex-shrink: 0;
 }
 
 .cut-list-modal-header {
@@ -5614,15 +5608,13 @@ canvas.mode-transition {
   position: fixed;
   top: 0;
   left: 0;
-  right: 0;
-  bottom: 0;
   width: 100%;
   height: 100%;
   background: rgba(0, 0, 0, 0.6);
   backdrop-filter: blur(4px);
-  display: flex;
-  align-items: center;
-  justify-content: center;
+  overflow-y: auto;
+  padding: 2rem 1rem;
+  box-sizing: border-box;
   z-index: 1000;
   padding: 1rem;
   box-sizing: border-box;
@@ -5638,7 +5630,7 @@ canvas.mode-transition {
   box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
   width: 100%;
   max-width: 600px;
-  max-height: calc(100vh - 2rem);
+  margin: 0 auto;
   display: flex;
   flex-direction: column;
   overflow: hidden;
@@ -6364,15 +6356,13 @@ canvas.mode-transition {
   position: fixed;
   top: 0;
   left: 0;
-  right: 0;
-  bottom: 0;
   width: 100%;
   height: 100%;
   background: rgba(0, 0, 0, 0.6);
   backdrop-filter: blur(4px);
-  display: flex;
-  align-items: center;
-  justify-content: center;
+  overflow-y: auto;
+  padding: 2rem 1rem;
+  box-sizing: border-box;
   z-index: 10000;
   padding: 1rem;
   box-sizing: border-box;
@@ -6383,8 +6373,7 @@ canvas.mode-transition {
   border-radius: 12px;
   max-width: 400px;
   width: 100%;
-  max-height: calc(100vh - 2rem);
-  overflow-y: auto;
+  margin: 0 auto;
   box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
 }
 
@@ -8921,13 +8910,15 @@ canvas.mode-transition {
 
 .welcome-modal {
   position: fixed;
-  inset: 0;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
   background: rgba(0, 0, 0, 0.5);
   z-index: 10000;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 1rem;
+  overflow-y: auto;
+  padding: 2rem 1rem;
+  box-sizing: border-box;
 }
 
 .welcome-modal.hidden {
@@ -8939,7 +8930,7 @@ canvas.mode-transition {
   border-radius: 16px;
   max-width: 680px;
   width: 100%;
-  max-height: calc(100vh - 2rem);
+  margin: 0 auto;
   display: flex;
   flex-direction: column;
   overflow: hidden;
