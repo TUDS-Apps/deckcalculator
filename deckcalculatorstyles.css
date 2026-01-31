@@ -2430,17 +2430,16 @@ canvas.mode-transition {
 }
 
 .instruction-box {
-  background-color: var(--color-info-light);
-  border: 1px solid var(--tuds-blue-accent);
-  border-left: 4px solid var(--tuds-blue-accent);
-  border-radius: var(--radius-md);
-  padding: var(--space-4);
-  margin-bottom: var(--space-4);
+  background-color: var(--gray-50);
+  border: 1px solid var(--gray-200);
+  border-radius: var(--radius-lg);
+  padding: var(--space-3) var(--space-4);
+  margin-bottom: var(--space-3);
 }
 
 .instruction-text {
-  color: var(--gray-700);
-  font-size: var(--text-base);
+  color: var(--gray-600);
+  font-size: var(--text-sm);
   line-height: var(--leading-normal);
   margin: 0;
 }
@@ -3456,16 +3455,16 @@ canvas.mode-transition {
 
 /* Instructions Panel */
 .draw-instructions-panel {
-  background: linear-gradient(135deg, var(--tuds-green-muted) 0%, var(--tuds-green-muted) 100%);
-  border: 1px solid var(--tuds-green-light);
-  border-radius: 0.5rem;
+  background: var(--gray-50);
+  border: 1px solid var(--gray-200);
+  border-radius: var(--radius-lg);
   padding: 0.75rem 1rem;
   margin-bottom: 0.75rem;
 }
 
 .draw-instructions-text {
   font-size: var(--text-sm);
-  color: var(--color-success);
+  color: var(--gray-600);
   margin: 0;
   text-align: center;
   line-height: 1.4;
@@ -3473,9 +3472,9 @@ canvas.mode-transition {
 
 /* Quick Dimensions Panel */
 .quick-dimensions-panel {
-  background: var(--gray-50);
+  background: var(--surface-primary);
   border: 1px solid var(--gray-200);
-  border-radius: 0.5rem;
+  border-radius: var(--radius-lg);
   padding: 0.75rem;
   margin-bottom: 0.75rem;
 }
@@ -3483,28 +3482,26 @@ canvas.mode-transition {
 .section-label {
   font-size: 11px;
   font-weight: 600;
-  color: var(--gray-400);
+  color: var(--gray-500);
   text-transform: uppercase;
   letter-spacing: 0.05em;
   margin-bottom: 0.5rem;
-  margin-top: 1rem;
-  padding-top: 0.75rem;
-  border-top: 1px solid var(--gray-200);
+  margin-top: 0.75rem;
+  padding-top: 0;
+  border-top: none;
 }
 
-/* Remove top border from first section label */
+/* Remove top margin from first section label */
 .panel-content > .section-label:first-child,
 .wizard-step-content > .panel-content > .section-label:first-child {
-  border-top: none;
   margin-top: 0;
-  padding-top: 0;
 }
 
 /* Template Gallery Panel (simplified) */
 .template-gallery-panel {
-  background: var(--gray-50);
+  background: var(--surface-primary);
   border: 1px solid var(--gray-200);
-  border-radius: 0.5rem;
+  border-radius: var(--radius-lg);
   padding: 0.75rem;
   margin-bottom: 0.75rem;
 }
@@ -3637,7 +3634,7 @@ canvas.mode-transition {
 }
 
 .template-card:hover {
-  background: var(--surface-primary);
+  background: var(--tuds-teal-muted, rgba(45, 106, 106, 0.06));
   border-color: var(--tuds-teal);
   box-shadow: 0 2px 8px rgba(45, 106, 106, 0.15);
 }
@@ -3648,7 +3645,7 @@ canvas.mode-transition {
 
 .template-preview {
   width: 100%;
-  height: 2rem;
+  height: 2.5rem;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -7664,14 +7661,26 @@ canvas.mode-transition {
    HORIZONTAL PROGRESS BAR
    ============================================ */
 
+/* ---- Compact Dot Stepper ---- */
 .progress-bar {
   display: flex;
+  flex-direction: column;
   align-items: center;
-  padding: 8px 16px;
+  padding: 10px 16px 8px;
   border-bottom: 1px solid var(--gray-200);
   background: var(--gray-50);
   flex-shrink: 0;
-  gap: 0;
+  gap: 6px;
+}
+
+.progress-bar > .progress-step {
+  /* Steps laid out in a row via flex wrapping */
+}
+
+/* Use a pseudo-row: steps are direct children of .progress-bar alongside .progress-active-label */
+.progress-bar {
+  flex-wrap: wrap;
+  justify-content: center;
 }
 
 .progress-step {
@@ -7679,60 +7688,49 @@ canvas.mode-transition {
   align-items: center;
   cursor: pointer;
   position: relative;
-  padding: 4px 0;
+  padding: 2px 0;
   flex-shrink: 0;
-}
-
-.progress-step:not(:last-child) {
-  margin-right: 0;
 }
 
 /* Connector line between steps */
-.progress-step:not(:last-child)::after {
+.progress-step:not(:last-of-type)::after {
   content: '';
   display: block;
-  width: 24px;
+  width: 20px;
   height: 2px;
   background: var(--gray-300);
-  margin-left: 6px;
+  margin-left: 4px;
   flex-shrink: 0;
 }
 
-.progress-step.complete:not(:last-child)::after {
+.progress-step.complete:not(:last-of-type)::after {
   background: var(--tuds-teal);
 }
 
-.progress-step-inner {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-}
-
 .progress-dot {
-  width: 20px;
-  height: 20px;
+  width: 14px;
+  height: 14px;
   border-radius: 50%;
   border: 2px solid var(--gray-300);
   background: var(--surface-primary);
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 10px;
-  font-weight: var(--font-bold);
-  color: var(--gray-400);
+  font-size: 0;
   transition: all 0.15s ease;
   flex-shrink: 0;
 }
 
 .progress-dot svg {
-  width: 12px;
-  height: 12px;
+  width: 8px;
+  height: 8px;
 }
 
 .progress-step.active .progress-dot {
   background: var(--tuds-navy);
   border-color: var(--tuds-navy);
-  color: white;
+  width: 16px;
+  height: 16px;
 }
 
 .progress-step.complete .progress-dot {
@@ -7746,31 +7744,38 @@ canvas.mode-transition {
   cursor: not-allowed;
 }
 
-.progress-label {
-  font-size: var(--text-xs);
-  font-weight: var(--font-semibold);
-  color: var(--gray-400);
+/* Tooltip on hover */
+.progress-step::before {
+  content: attr(data-label);
+  position: absolute;
+  bottom: calc(100% + 6px);
+  left: 50%;
+  transform: translateX(-50%);
+  background: var(--gray-800);
+  color: white;
+  font-size: 11px;
+  font-weight: 500;
+  padding: 3px 8px;
+  border-radius: var(--radius-sm);
   white-space: nowrap;
-  transition: color 0.15s ease;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.15s ease;
+  z-index: 100;
 }
 
-.progress-step.active .progress-label {
-  color: var(--tuds-navy);
+.progress-step:hover::before {
+  opacity: 1;
+}
+
+/* Active step label below dots */
+.progress-active-label {
+  width: 100%;
+  font-size: 11px;
   font-weight: var(--font-bold);
-}
-
-.progress-step.complete .progress-label {
-  color: var(--tuds-teal);
-}
-
-/* Hide progress labels on narrow panels to save space */
-@media (max-width: 1200px) {
-  .progress-label {
-    display: none;
-  }
-  .progress-step:not(:last-child)::after {
-    width: 16px;
-  }
+  color: var(--tuds-navy);
+  text-align: center;
+  line-height: 1;
 }
 
 /* Mobile responsive layout */
@@ -9193,11 +9198,16 @@ canvas.mode-transition {
   display: flex;
   flex-direction: column;
   gap: 0;
+  background: var(--gray-50);
+  border: 1px solid var(--gray-200);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
 }
 
 .config-section {
   border-bottom: 1px solid var(--gray-200);
-  padding: var(--space-3) 0;
+  padding: 0;
+  background: var(--surface-primary);
 }
 
 .config-section:last-child {
@@ -9208,8 +9218,19 @@ canvas.mode-transition {
   display: flex;
   align-items: center;
   gap: var(--space-2);
-  min-height: 36px;
-  padding: 8px 0;
+  min-height: 40px;
+  padding: 10px var(--space-4);
+  border-bottom: none;
+  transition: background var(--transition-fast);
+  cursor: pointer;
+}
+
+.config-section-header:hover {
+  background: var(--gray-50);
+}
+
+.config-section.expanded .config-section-header {
+  background: var(--gray-50);
   border-bottom: 1px solid var(--gray-100);
 }
 
@@ -9260,12 +9281,13 @@ canvas.mode-transition {
   max-height: 0;
   opacity: 0;
   transition: max-height var(--transition-slow), opacity var(--transition-normal), padding var(--transition-normal);
-  padding-top: 0;
+  padding: 0 var(--space-4);
 }
 
 .config-section.expanded .config-section-body {
   max-height: 500px;
   opacity: 1;
+  padding: var(--space-3) var(--space-4) var(--space-4);
   padding-top: var(--space-3);
 }
 

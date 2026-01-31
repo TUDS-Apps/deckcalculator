@@ -2596,9 +2596,9 @@ function renderWizardStepList() {
   if (!progressBar) return;
 
   const visibleSteps = getVisibleSteps();
-  let visibleIndex = 0;
+  let activeStepName = '';
 
-  progressBar.innerHTML = WIZARD_STEPS.map((step) => {
+  const stepsHtml = WIZARD_STEPS.map((step) => {
     // Mode step is handled by welcome modal, not shown in stepper
     if (step.id === 'mode') return '';
     const isVisible = visibleSteps.includes(step.id);
@@ -2606,31 +2606,33 @@ function renderWizardStepList() {
     const isComplete = isStepComplete(step.id);
     const isAvailable = isStepAvailable(step.id);
 
+    if (isActive) activeStepName = step.name;
+
     let statusClass = '';
     if (isActive) statusClass = 'active';
     else if (isComplete) statusClass = 'complete';
     else if (!isAvailable) statusClass = 'unavailable';
 
     const displayStyle = isVisible ? '' : 'display:none;';
-    const stepNumber = isVisible ? ++visibleIndex : 0;
 
     const checkmarkSvg = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M16.704 4.153a.75.75 0 01.143 1.052l-8 10.5a.75.75 0 01-1.127.075l-4.5-4.5a.75.75 0 011.06-1.06l3.894 3.893 7.48-9.817a.75.75 0 011.05-.143z" clip-rule="evenodd" /></svg>';
 
     return `
       <div class="progress-step ${statusClass}"
            data-step="${step.id}"
+           data-label="${step.shortName}"
            style="${displayStyle}"
            onclick="handleWizardStepClick('${step.id}')"
            ${!isAvailable ? 'title="Complete drawing first"' : ''}>
-        <div class="progress-step-inner">
-          <span class="progress-dot">
-            ${isComplete ? checkmarkSvg : stepNumber}
-          </span>
-          <span class="progress-label">${step.shortName}</span>
-        </div>
+        <span class="progress-dot">
+          ${isComplete ? checkmarkSvg : ''}
+        </span>
       </div>
     `;
   }).join('');
+
+  progressBar.innerHTML = stepsHtml +
+    `<div class="progress-active-label">${activeStepName}</div>`;
 }
 
 // Handle click on wizard step item
