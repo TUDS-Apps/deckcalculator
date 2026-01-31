@@ -1552,7 +1552,16 @@ button, .btn, a, input, select, .mode-card, .wizard-step-item,
 
 ## 18. Icons
 
-### Replace all inline SVGs with Lucide
+### CRITICAL: Preserve all custom SVG icons
+
+The codebase contains **44 custom-designed SVG icons** that must NOT be replaced:
+
+- **5 Mode Selection Card icons** (index.html lines ~167-233, `viewBox="0 0 48 48"`): Full Build, Framing Only, Decking Only, Railing Only, Custom Combo — these are custom geometric illustrations showing deck components.
+- **~39 Product Configuration icons** (index.html, `viewBox="0 0 36 36"`): Footing types (GH Levellers, Pylex, Helical), post sizes (4x4, 6x6), joist spacing, attachment types (Ledger, Concrete, Floating), picture frame options, stringer types, landing types, and more.
+
+These icons were specifically designed for this application and depict construction-specific concepts that generic icon libraries cannot represent. **Do NOT replace these with Lucide or any other icon library.**
+
+### Use Lucide ONLY for generic UI chrome icons
 
 **Add to `<head>` in index.html:**
 ```html
@@ -1579,15 +1588,12 @@ lucide.createIcons();
 .icon-xl { width: 32px; height: 32px; }
 ```
 
-### Suggested icon mapping
+### Lucide mapping — UI chrome icons ONLY
+
+Only replace generic UI/toolbar icons with Lucide. Leave all domain-specific SVGs (mode cards, product options, templates) as-is.
 
 | Current usage | Lucide icon name |
 |---|---|
-| Mode: Full Build | `building-2` |
-| Mode: Framing Only | `frame` |
-| Mode: Decking Only | `layers` |
-| Mode: Railing Only | `fence` |
-| Mode: Custom Combo | `settings-2` |
 | Draw/Pencil | `pencil` |
 | Edit/Select | `mouse-pointer` |
 | Measure | `ruler` |
@@ -1603,8 +1609,6 @@ lucide.createIcons();
 | Settings/Admin | `settings` |
 | Help | `help-circle` |
 | User/Sign In | `user` |
-| Stairs | `stairs` (or `arrow-up-right`) |
-| Structure | `box` |
 | Expand/Collapse | `chevron-down` / `chevron-right` |
 | Check/Complete | `check` |
 | Close | `x` |
@@ -1612,13 +1616,23 @@ lucide.createIcons();
 | Warning | `alert-triangle` |
 | Grid | `grid-3x3` |
 | Move | `move` |
-| Blueprint | `file-text` |
 
-### Why
-- Lucide has 1500+ icons with consistent 1.5px stroke weight — no more mixing hand-drawn SVGs.
+### What NOT to replace
+
+| Icon category | Keep as-is? | Reason |
+|---|---|---|
+| Mode selection cards (Full Build, Framing, etc.) | **YES — do not touch** | Custom construction illustrations |
+| Product config options (footings, posts, joists, etc.) | **YES — do not touch** | Domain-specific technical diagrams |
+| Deck shape templates | **YES — do not touch** | Custom shape previews |
+| Favicon | **YES — do not touch** | Brand identity |
+| Toolbar/UI buttons (draw, undo, zoom, save, etc.) | Replace with Lucide | Generic UI actions |
+| Navigation icons (chevrons, close, check) | Replace with Lucide | Generic UI chrome |
+
+### Why (for UI chrome icons only)
+- Lucide has 1500+ icons with consistent 1.5px stroke weight — gives toolbar and nav a unified look.
 - CDN load means no build step needed for this vanilla JS app.
 - `lucide.createIcons()` auto-replaces `<i data-lucide="...">` elements, making migration straightforward.
-- Size classes (xs through xl) enforce consistency — no more inline `width="24" height="24"` scattered through HTML.
+- Size classes (xs through xl) enforce consistency for UI chrome icons.
 
 ---
 

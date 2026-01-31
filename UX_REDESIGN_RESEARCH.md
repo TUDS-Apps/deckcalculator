@@ -273,16 +273,17 @@ The estimate updates each time a step recalculates. It's not live-updating on ev
 - Labels: 12px / 500 weight
 - Small/caption: 11px / 400 weight
 
-### Icons — Replace with Lucide
+### Icons — Lucide for UI chrome only, preserve custom SVGs
 
-Replace all inline SVG icons with [Lucide](https://lucide.dev) icon set:
+**IMPORTANT: Do NOT replace the 44 custom SVG icons** (5 mode selection cards + ~39 product configuration diagrams). These are custom-designed construction-specific illustrations that cannot be replicated by any icon library.
+
+Use [Lucide](https://lucide.dev) **only for generic UI/toolbar icons** (draw, undo, zoom, save, close, chevrons, etc.):
 - Open source, MIT license, 1500+ icons
 - Consistent 1.5px stroke weight
 - Available via CDN: `https://unpkg.com/lucide@latest`
 - 20px for toolbar icons, 16px for inline icons
-- Eliminates the inconsistent hand-drawn SVG problem
 
-This is a straightforward find-and-replace task. No AI image generation needed for UI icons. Save AI-generated imagery for marketing assets or deck style preview thumbnails if needed later.
+See `VISUAL_DESIGN_SPEC.md` Section 18 for the full mapping of which icons to replace and which to preserve.
 
 ### Spacing (8px base grid)
 
@@ -420,7 +421,7 @@ Ordered by impact-to-effort ratio. Each phase is independently valuable — the 
 4. Header: 56px fixed height, sticky, ghost-style action buttons, no negative margins
 5. Buttons: Consistent height system (28/36/44px), hover lightens, active press scale
 6. Form inputs: 36px height, teal focus ring, consistent styling across all inputs/selects
-7. Replace all inline SVGs with Lucide icon set
+7. Replace generic UI/toolbar SVGs with Lucide (preserve all 44 custom mode card & product config SVGs)
 
 ### Phase 3: Combined Start Flow
 8. Redesign Step 0 to include shape entry (Mode → Shape method → dimensions/template/custom)
