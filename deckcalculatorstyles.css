@@ -1663,8 +1663,9 @@ canvas.mode-transition {
   align-items: center;
   gap: 0.375rem;
   margin-bottom: 0.25rem;
-  font-weight: 500;
-  color: var(--gray-800);
+  font-size: var(--text-sm);
+  font-weight: var(--font-semibold);
+  color: var(--gray-700);
   transition: color 0.2s ease;
 }
 
@@ -3731,9 +3732,9 @@ canvas.mode-transition {
   display: flex;
   align-items: center;
   gap: 0.5rem;
-  font-size: var(--text-base);
-  font-weight: 500;
-  color: var(--tuds-navy);
+  font-size: var(--text-sm);
+  font-weight: var(--font-semibold);
+  color: var(--gray-700);
   margin-bottom: 0.5rem;
 }
 
@@ -3755,14 +3756,13 @@ canvas.mode-transition {
   display: flex;
   flex-direction: column;
   align-items: center;
-  padding: 0.75rem 0.5rem;
-  border: 2px solid var(--gray-200);
-  border-radius: 8px;
+  padding: 0.5rem 0.375rem;
+  border: 1.5px solid var(--gray-200);
+  border-radius: var(--radius-lg);
   background: var(--surface-primary);
   cursor: pointer;
-  transition: border-color 150ms ease;
+  transition: border-color 150ms ease, background 150ms ease;
   text-align: center;
-  min-height: 90px;
 }
 
 .visual-option:hover {
@@ -7662,25 +7662,22 @@ canvas.mode-transition {
    ============================================ */
 
 /* ---- Compact Dot Stepper ---- */
+/* ========================================
+   FULL-WIDTH PROGRESS STEPPER
+   Sits below header, spans entire page width
+   ======================================== */
 .progress-bar {
   display: flex;
-  flex-direction: column;
+  flex-direction: row;
   align-items: center;
-  padding: 10px 16px 8px;
-  border-bottom: 1px solid var(--gray-200);
-  background: var(--gray-50);
-  flex-shrink: 0;
-  gap: 6px;
-}
-
-.progress-bar > .progress-step {
-  /* Steps laid out in a row via flex wrapping */
-}
-
-/* Use a pseudo-row: steps are direct children of .progress-bar alongside .progress-active-label */
-.progress-bar {
-  flex-wrap: wrap;
   justify-content: center;
+  padding: 8px 24px;
+  border-bottom: 1px solid var(--gray-200);
+  background: var(--surface-primary);
+  flex-shrink: 0;
+  gap: 0;
+  width: 100%;
+  box-sizing: border-box;
 }
 
 .progress-step {
@@ -7688,18 +7685,38 @@ canvas.mode-transition {
   align-items: center;
   cursor: pointer;
   position: relative;
-  padding: 2px 0;
+  padding: 4px 0;
   flex-shrink: 0;
+  gap: 6px;
+}
+
+/* Step label shown inline next to dot */
+.progress-step-label {
+  font-size: 12px;
+  font-weight: var(--font-medium);
+  color: var(--gray-400);
+  white-space: nowrap;
+  transition: color 0.15s ease;
+}
+
+.progress-step.active .progress-step-label {
+  color: var(--tuds-navy);
+  font-weight: var(--font-bold);
+}
+
+.progress-step.complete .progress-step-label {
+  color: var(--tuds-teal);
+  font-weight: var(--font-medium);
 }
 
 /* Connector line between steps */
 .progress-step:not(:last-of-type)::after {
   content: '';
   display: block;
-  width: 20px;
+  width: 32px;
   height: 2px;
-  background: var(--gray-300);
-  margin-left: 4px;
+  background: var(--gray-200);
+  margin: 0 8px;
   flex-shrink: 0;
 }
 
@@ -7708,8 +7725,8 @@ canvas.mode-transition {
 }
 
 .progress-dot {
-  width: 14px;
-  height: 14px;
+  width: 10px;
+  height: 10px;
   border-radius: 50%;
   border: 2px solid var(--gray-300);
   background: var(--surface-primary);
@@ -7722,15 +7739,15 @@ canvas.mode-transition {
 }
 
 .progress-dot svg {
-  width: 8px;
-  height: 8px;
+  width: 7px;
+  height: 7px;
 }
 
 .progress-step.active .progress-dot {
   background: var(--tuds-navy);
   border-color: var(--tuds-navy);
-  width: 16px;
-  height: 16px;
+  width: 12px;
+  height: 12px;
 }
 
 .progress-step.complete .progress-dot {
@@ -7744,7 +7761,11 @@ canvas.mode-transition {
   cursor: not-allowed;
 }
 
-/* Tooltip on hover */
+.progress-step.unavailable .progress-step-label {
+  color: var(--gray-300);
+}
+
+/* Tooltip on hover (backup for narrow screens where labels are hidden) */
 .progress-step::before {
   content: attr(data-label);
   position: absolute;
@@ -7768,14 +7789,9 @@ canvas.mode-transition {
   opacity: 1;
 }
 
-/* Active step label below dots */
+/* Hide the old active-label since we now show labels inline */
 .progress-active-label {
-  width: 100%;
-  font-size: 11px;
-  font-weight: var(--font-bold);
-  color: var(--tuds-navy);
-  text-align: center;
-  line-height: 1;
+  display: none;
 }
 
 /* Mobile responsive layout */
@@ -8093,16 +8109,11 @@ canvas.mode-transition {
 
 /* Step Title — sticky at top */
 .wizard-step-title {
-  font-size: 18px;
+  font-size: 16px;
   font-weight: var(--font-bold);
   color: var(--gray-800);
-  margin: 0 -16px;
-  padding: 12px 16px;
-  border-bottom: 1px solid var(--gray-200);
-  position: sticky;
-  top: 0;
-  background: var(--surface-primary);
-  z-index: 10;
+  margin: 0;
+  padding: 4px 0 12px;
 }
 
 /* Wizard Step Actions — fixed at bottom of panel */
