@@ -2627,12 +2627,12 @@ function renderWizardStepList() {
         <span class="progress-dot">
           ${isComplete ? checkmarkSvg : ''}
         </span>
+        <span class="progress-step-label">${step.shortName}</span>
       </div>
     `;
   }).join('');
 
-  progressBar.innerHTML = stepsHtml +
-    `<div class="progress-active-label">${activeStepName}</div>`;
+  progressBar.innerHTML = stepsHtml;
 }
 
 // Handle click on wizard step item
