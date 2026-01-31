@@ -1,6 +1,8 @@
-# TUDS Pro Deck Calculator — Research-Backed UX Redesign Plan
+# TUDS Pro Deck Calculator — UX Redesign Plan (Revised)
 
-> Compiled from research across product configurator UX, construction estimator tools, drawing tool interaction patterns, dual-audience design, mobile canvas UX, and modern SaaS design systems. Grounded in the specific context of a deck building calculator used by both lumber yard salespeople and consumers.
+> Revised based on research AND owner feedback. Stripped of bad recommendations.
+> Focused on what actually makes sense for a deck configurator used by lumber yard salespeople and consumers.
+> Replaces the original UX_REDESIGN_RESEARCH.md.
 
 ---
 
@@ -8,15 +10,14 @@
 
 1. [Competitive Landscape](#1-competitive-landscape)
 2. [Core Design Principles](#2-core-design-principles)
-3. [Layout Architecture](#3-layout-architecture)
-4. [Drawing Experience](#4-drawing-experience)
+3. [Combined Start Flow: Mode + Shape Entry](#3-combined-start-flow-mode--shape-entry)
+4. [Drawing & Canvas Experience](#4-drawing--canvas-experience)
 5. [Wizard & Configuration Flow](#5-wizard--configuration-flow)
-6. [Quote & BOM Presentation](#6-quote--bom-presentation)
-7. [Dual-Audience Strategy](#7-dual-audience-strategy)
-8. [Visual Design System](#8-visual-design-system)
-9. [Mobile & Touch](#9-mobile--touch)
-10. [Onboarding & Empty States](#10-onboarding--empty-states)
-11. [Implementation Priorities](#11-implementation-priorities)
+6. [Persistent Cost Estimate Footer](#6-persistent-cost-estimate-footer)
+7. [Visual Design System](#7-visual-design-system)
+8. [Mobile & Touch](#8-mobile--touch)
+9. [Onboarding & Empty States](#9-onboarding--empty-states)
+10. [Implementation Priorities](#10-implementation-priorities)
 
 ---
 
@@ -24,375 +25,276 @@
 
 ### What the best deck tools do well
 
-**Trex Deck Designer** (the gold standard):
+**Trex Deck Designer** (gold standard):
 - Template library OR start from scratch — users choose their entry point
 - Shape flexibility: L-shapes, T-shapes, bump-outs, cut corners
 - Section-by-section dimensioning (main deck vs bump-out vs stairs)
-- Material selection with real-time visual preview (color changes live)
-- Tiered product comparison (good/better/best) within the flow
+- Material selection with real-time visual preview
 - Outputs: 3D renders, printable construction plans, BOM with cost estimate, share-to-retailer
-- Desktop only — no mobile support for the full designer
+- Desktop only — no mobile support
 
-**TimberTech/AZEK Deck Designer**:
-- BOM accessible at any stage (not gated behind completion)
-- iPad app available — one of the few that supports tablet
-- 140+ furnishing library for scene dressing
-
-**Simpson Strong-Tie Deck Planner**:
+**Simpson Strong-Tie Deck Planner:**
+- Config panel on the LEFT (standard for configurators)
 - In-app video tutorial walks through each step
-- Drag-drop-resize components (not click-to-draw)
+- Drag-drop-resize components
 - Explicit 2D/3D mode toggle
 
-**Decks.com**:
-- Simplest UX — fast and responsive, basic graphics
-- 2D draw → 3D render toggle
+**TimberTech/AZEK:**
+- BOM accessible at any stage (not gated behind completion)
+- iPad app available
+
+**Decks.com:**
+- Simplest UX — fast and responsive
 - Targets the "I just need a quick plan" user
 
-### What they all get wrong
-- None handle the salesperson-at-counter use case well
-- Most are product-locked (only their brand's materials)
-- None integrate with a retail POS/Shopify for actual purchasing
-- Drawing UX assumes spatial comfort — no hand-holding for first-timers
-- No concept of "just give me framing" or "just give me decking" (component-only modes)
-
-### TUDS Pro's unique advantages
-- Multi-brand, multi-supplier material options
-- Shopify cart integration (estimate → purchase in one flow)
+### TUDS Pro's unique advantages over all of them
+- Multi-brand, multi-supplier material options (not locked to one brand)
+- Shopify cart integration (estimate → actual purchase in one flow)
 - Component-only build modes (framing only, decking only, etc.)
-- Dual-audience: works for both salesperson and consumer
-- Structural calculation engine (not just surface area estimation)
+- Dual-audience: works for both salesperson at counter and consumer at home
+- Real structural calculation engine (not just surface area estimation)
 
 ---
 
 ## 2. Core Design Principles
 
-Based on the research, these principles should guide every design decision:
+### P1: Config left, canvas right
+People read left to right. Make a selection on the left, see the result on the right. This matches Simpson Strong-Tie, Trex, and most configurator tools. The current left-panel layout is correct — keep it.
 
-### P1: Canvas is king
-The drawing/preview canvas should dominate the screen. Every competitor gives the visual 60-70% of viewport. Configuration controls are secondary — they support what's on the canvas, not the other way around. The current layout gives the canvas roughly equal weight with the sidebar. That's wrong.
+### P2: Know what you're building before you build it
+Mode selection is one of the best features. Users must declare their intent (Full Build, Framing Only, Decking Only, etc.) before entering the design flow. This sets context for which wizard steps appear and which calculations run. Don't bury this — it's the first thing users see.
 
-### P2: Progressive disclosure, not progressive hiding
-Show the minimum needed for the current task. Don't hide things behind accordions and collapses — instead, only render the controls that matter for the current step. Research shows that progressive disclosure works best when it adapts to user context, not when it buries features in collapsible sections.
+### P3: Progressive disclosure, not progressive hiding
+Show the minimum needed for the current task. Don't hide things behind nested accordions — instead, only render the controls that matter for the current step. Controls appear because the step demands them, not because the user hunts for them.
 
-### P3: Always-visible output
-The Trex model of "BOM accessible at any stage" is correct. Users should always see their running cost estimate, even if it's just "~$X,XXX estimated." Hiding the BOM behind a final step creates anxiety. A persistent cost indicator builds confidence and creates a natural motivation to complete the design.
-
-### P4: Templates are the fast path
-Research shows that 60-70% of deck projects are simple rectangles or L-shapes. Providing templates with preset dimensions eliminates the drawing step entirely for most users. The current "Quick Rectangle" input is buried in the draw step. It should be the primary entry point.
+### P4: Always-visible cost estimate
+A persistent footer showing the running cost estimate builds confidence and creates natural motivation to complete the design. Even before calculations run, showing "$0 — complete structure step for estimate" tells the user where value comes from.
 
 ### P5: Error prevention over error correction
-Smart defaults and constraints should make it nearly impossible to create an invalid design. The current app validates after the fact. Better: constrain inputs so invalid states can't be reached. Auto-snap to grid, enforce minimum dimensions, prevent impossible shapes inline.
+Smart defaults and constraints should make it nearly impossible to create an invalid design. Auto-snap to grid, enforce minimum dimensions, prevent impossible shapes inline. Validate during input, not after submission.
 
 ### P6: One tool, two speeds
-Salespeople need speed — they're standing at a counter with a customer. Consumers need guidance — they're exploring at home. The same tool must serve both by making the fast path obvious (templates, quick rectangle, defaults) while keeping the detailed path available (custom draw, manual config).
+Salespeople need speed (templates, quick dimensions, defaults). Consumers need guidance (clear options, visual feedback, tooltips). Same tool, but the fast path is obvious while the detailed path is always available.
 
 ---
 
-## 3. Layout Architecture
+## 3. Combined Start Flow: Mode + Shape Entry
 
-### Desktop (≥1024px): Three-zone layout
+### The new Step 0: "What are you building?"
 
-```
-┌──────────────────────────────────────────────────────────┐
-│  HEADER: Logo + Project Name + [Save] [Share] [Sign In]  │
-├────────┬─────────────────────────────────┬───────────────┤
-│        │                                 │               │
-│  STEP  │         CANVAS (65%)            │  CONTEXT      │
-│  NAV   │                                 │  PANEL        │
-│  (48px)│   Drawing area with grid,       │  (280px)      │
-│        │   zoom controls bottom-right,   │               │
-│        │   tool palette top-left         │  Shows only   │
-│        │                                 │  controls     │
-│        │                                 │  relevant to  │
-│        │                                 │  current step │
-│        │                                 │               │
-├────────┴─────────────────────────────────┴───────────────┤
-│  FOOTER BAR: Running cost estimate | Step X of Y | Next  │
-└──────────────────────────────────────────────────────────┘
-```
+This replaces the current mode-selection-only step with a two-part modal/panel flow:
 
-**Key changes from current layout:**
-- Canvas gets ~65% of horizontal space (currently ~50%)
-- Context panel is on the RIGHT (where Trex, Figma, and most tools put it)
-- Step nav is a narrow icon strip on the left (like Figma's tool panel)
-- Running cost estimate is always visible in footer
-- No horizontal progress bar eating vertical space — steps are in the left icon strip
+**Part 1: Select your build mode** (same as current mode cards)
+- Full Build
+- Framing Only
+- Decking Only
+- Railing Only
+- Custom Combo
 
-### Why right-side panel
-Research on drawing/canvas tools (Figma, SketchUp, Canva, Trex) consistently places the property/configuration panel on the right side. The left side is reserved for tools and navigation. This matches the natural eye flow: scan left-to-right, tools → canvas → properties. The current layout puts the config panel on the left, which forces the eye to jump back and forth.
+User clicks a mode card → Part 2 slides in or appears below.
 
-### Tablet (768-1023px): Canvas + bottom sheet
+**Part 2: How do you want to create your shape?**
+
+Three clear options presented as cards:
 
 ```
-┌──────────────────────────────────────┐
-│  HEADER: Compact                      │
-├──────────────────────────────────────┤
-│                                      │
-│         CANVAS (full width)          │
-│                                      │
-│   Tool palette floats top-left       │
-│   Zoom controls float bottom-right   │
-│                                      │
-├──────────────────────────────────────┤
-│  ▔▔▔ drag handle ▔▔▔                │
-│  BOTTOM SHEET: Config controls       │
-│  (collapsible, 3 snap points:        │
-│   peek / half / full)                │
-└──────────────────────────────────────┘
+┌─────────────────────────────────────────────────────┐
+│  Great! Now let's create your deck shape.            │
+│                                                      │
+│  ┌──────────────┐ ┌──────────────┐ ┌──────────────┐ │
+│  │  ENTER       │ │  CHOOSE A    │ │  DRAW        │ │
+│  │  DIMENSIONS  │ │  TEMPLATE    │ │  CUSTOM      │ │
+│  │              │ │              │ │              │ │
+│  │  [rect icon] │ │  [L T shapes]│ │  [pen icon]  │ │
+│  │              │ │              │ │              │ │
+│  │  Type width  │ │  L-shape     │ │  Click to    │ │
+│  │  and depth   │ │  T-shape     │ │  place       │ │
+│  │  for a       │ │  Wraparound  │ │  points on   │ │
+│  │  rectangle   │ │  Octagon     │ │  the canvas  │ │
+│  └──────────────┘ └──────────────┘ └──────────────┘ │
+└─────────────────────────────────────────────────────┘
 ```
 
-### Mobile (<768px): Canvas + bottom sheet (mandatory)
+**Option A: Enter Dimensions**
+- Two fields appear inline: Width (ft) × Depth (ft)
+- "Create Rectangle" button
+- Clicking creates the rectangle on canvas, auto-closes the modal, advances to the Draw step with the shape already placed
+- User can then drag edges/vertices on canvas to adjust if needed
 
-Same as tablet but the bottom sheet is the only way to access configuration. Canvas gets maximum vertical space. Step navigation moves to the bottom sheet header.
+**Option B: Choose a Template**
+- Expands to show a grid of shape thumbnails:
+  - Rectangle (with dimension fields)
+  - L-Shape (with dimension fields for each leg)
+  - T-Shape (with dimension fields)
+  - Wraparound (with dimension fields)
+  - Maybe: Octagon corner, Custom polygon
+- Each template shows an outline preview with labeled dimension inputs
+- User fills in dimensions, clicks "Create" → shape appears on canvas
+
+**Option C: Draw Custom**
+- Closes the modal, advances to the Draw step with a blank canvas
+- Canvas shows the empty state guidance (see Section 9)
+- User clicks to place points manually
+
+### Why this is better than the current flow
+
+Currently: Mode Selection → advance → Draw step (blank canvas + sidebar instructions)
+
+Proposed: Mode Selection + Shape Entry → shape already on canvas OR blank canvas with clear intent
+
+The key improvement: **most users leave the start step with a shape already created.** They skip the blank-canvas-with-instructions experience entirely. Only the ~10% who need a truly custom shape ever see a blank canvas.
+
+For salespeople at the counter, this means: click Full Build → type 12 × 16 → Create → shape is on canvas in under 5 seconds.
 
 ---
 
-## 4. Drawing Experience
+## 4. Drawing & Canvas Experience
 
-### The onboarding problem
+### Canvas layout (keep current structure)
 
-The current app drops users onto a blank canvas with the instruction "Click on the canvas to draw a custom shape." Research shows this is the #1 drop-off point for non-technical users. They don't know where to click, how many clicks, or what a "shape" means in this context.
+Config panel stays on the left (280px). Canvas takes the remaining space on the right. This is the correct layout for a configurator — matches industry standard.
 
-### Research-backed solution: Three entry paths
+### Improvements to drawing interaction
 
-Present these as cards (similar to the current mode selection, but for shape entry):
+**Dimension labels on edges:**
+- Once a shape exists on canvas, each edge shows its dimension (e.g., "12'-0"")
+- Click a dimension label → inline edit field appears → type new value → edge resizes
+- This gives users direct manipulation without needing the sidebar input fields
 
-**Path A: Quick Rectangle** (primary, 60-70% of users)
-- Two input fields: Width × Depth
-- "Create" button instantly generates a rectangle on canvas
-- No drawing required — shape appears, user can resize by dragging edges
-- This should be the DEFAULT highlighted option
+**Drawing guidance for custom draw:**
+- Animated dot pulsing on the grid: "Click here to start"
+- After first point: rubberband preview line from last point to cursor
+- Live dimension label on the rubberband line showing distance
+- Snap indicator highlighting the nearest grid intersection
+- After 3+ points: tooltip near first point says "Click here to close shape"
+- Point counter in toolbar area: "3 points placed"
 
-**Path B: Choose a Template** (20-25% of users)
-- Grid of common shapes: Rectangle, L-shape, T-shape, Wraparound, Octagon corner
-- Each shows a thumbnail with placeholder dimensions
-- Click → shape appears on canvas with editable dimensions
-- Simpson Strong-Tie and Trex both use this pattern effectively
-
-**Path C: Custom Draw** (5-10% of users)
-- Click-to-place-points drawing (current approach)
-- BUT with better guidance:
-  - Animated ghost showing "click here to start" on the grid
-  - Point counter: "Point 1 of ?" with a "Close shape" button
-  - Live dimension labels on each segment as you draw
-  - Rubberband preview line from last point to cursor
-  - Snap indicators that highlight the grid intersection point
-  - "Click near your first point to close the shape" tooltip after 3+ points
-
-### Drawing tool palette
-Float a small toolbar over the top-left of the canvas (like Figma):
-- Select/Move tool (default after shape is closed)
-- Draw tool (point-by-point)
-- Edit tool (drag vertices/edges)
-- Measure tool
-- Zoom controls in bottom-right corner
-
-### Post-drawing interaction
-Once a shape exists on canvas:
-- Click any edge → shows dimension label, click label to edit
-- Click any vertex → drag to reshape
-- Double-click an edge → add a vertex (for notches/bump-outs)
+**Shape editing (post-drawing):**
+- Click any edge → dimension label highlights, clickable to edit
+- Click any vertex → drag handle appears, drag to reshape
+- Double-click an edge → insert a new vertex (for notches/bump-outs)
 - Click inside shape → drag to reposition
-- All of this should work on the current shape without entering a separate "edit mode"
+- No separate "edit mode" toggle needed — these should work directly on the canvas
+
+**Floating tool hints:**
+- Small toolbar floating over top-left of canvas:
+  - Draw (pencil icon) — only when no shape exists
+  - Edit (cursor icon) — default after shape is closed
+  - Measure (ruler icon)
+- Zoom controls in bottom-right corner (keep current)
 
 ---
 
 ## 5. Wizard & Configuration Flow
 
-### Step structure
+### Step structure (revised)
 
-Research confirms the wizard pattern is correct for this type of configurator, but with key modifications:
-
-| Step | Name | What it does | Can skip? |
+| Step | Name | What happens | Can skip? |
 |------|------|-------------|-----------|
-| 0 | Start | Shape entry (Quick Rect / Template / Custom Draw) | No |
-| 1 | Structure | Joist size, spacing, beam config, posts | Yes (use defaults) |
-| 2 | Stairs | Place stairs on edges | Yes (no stairs) |
-| 3 | Decking | Material, direction, picture frame | Yes (use defaults) |
-| 4 | Railing | Brand, style, sections (future) | Yes (skip) |
-| 5 | Review | Full BOM, cost, PDF export, add to cart | No |
+| 0 | Start | Mode selection + shape entry (combined) | No |
+| 1 | Draw | Canvas active, shape editing, wall selection | No (but may arrive with shape already placed) |
+| 2 | Structure | Joist size, spacing, beam config, posts | Yes (use smart defaults) |
+| 3 | Stairs | Place stairs on edges | Yes (no stairs) |
+| 4 | Decking | Material, direction, picture frame | Yes (use smart defaults) |
+| 5 | Railing | Brand, style, sections (future) | Yes (skip / coming soon) |
+| 6 | Review | Full BOM, cost, PDF export, add to cart | No |
 
-**Key changes from current:**
-- "Mode Selection" (full build, framing only, etc.) becomes a setting, not a step. It's a dropdown or toggle in the header, not a separate wizard page. Research shows that forcing a "what kind of build" decision upfront creates confusion for consumers who don't understand the distinction.
-- "Draw" is not a wizard step — it's the canvas. Drawing happens continuously. The wizard steps control which CONFIG PANEL is showing on the right side, not whether you can draw.
-- Steps should be completable in any order after the shape exists. The left nav should allow jumping to any unlocked step. Research on configurator UX shows that forcing linear progression frustrates expert users (salespeople).
-- Smart defaults mean most users only interact with Step 0 (shape) and Step 5 (review). The middle steps exist for customization but aren't mandatory.
+### Key improvements
 
-### Smart defaults (research-backed)
+**Non-linear navigation after shape exists:**
+Once the shape is drawn and closed, users should be able to click any step in the left nav to jump directly to it. Forcing strictly linear progression frustrates salespeople who know exactly what they want to configure. Currently the step items are clickable but gated — relax the gating so any step is reachable after shape completion.
 
-The configurator research is clear: smart defaults dramatically reduce time-to-value. Based on the most common deck configurations:
+**Smart defaults mean Step 2-5 are optional:**
+With good defaults pre-loaded (2×8 joists at 16" OC, PT 5/4×6 decking, no stairs, no railing), a user who enters dimensions in Step 0 could theoretically jump straight to Review and get a valid BOM. The middle steps exist for customization, not as mandatory gates.
 
-- **Joist size**: 2×8 (most common residential)
-- **Joist spacing**: 16" OC
-- **Attachment**: Ledger board (house-attached)
-- **Decking**: Pressure-treated 5/4×6
-- **Decking direction**: Perpendicular to joists
-- **No stairs** by default
-- **No railing** by default
-- **No picture frame** by default
-
-These defaults should produce a valid, buildable design with zero configuration. The "Review" step should show the full BOM immediately. Users who want to change things can navigate back to any step.
+**Auto-calculate on step entry:**
+When a user enters the Structure step, framing should calculate immediately with the current defaults. Don't wait for them to click "Generate Plan." The calculation is the point of the step — show it right away. (This is partially implemented already with `triggerAutoCalculation` but should be more aggressive about running with defaults.)
 
 ---
 
-## 6. Quote & BOM Presentation
+## 6. Persistent Cost Estimate Footer
 
-### Research findings on estimator/quote UX
+### Design
 
-The construction estimator tools (Buildxact, Buildertrend, Groundplan) all follow this pattern:
-
-1. **Running estimate always visible** — not hidden until the end
-2. **Category grouping** — materials grouped by type (lumber, hardware, decking, fasteners)
-3. **Progressive detail** — summary total first, expandable categories, line items within
-4. **Visual distinction** between subtotal and total
-5. **One-click export** to PDF, Excel, or email
-6. **Professional formatting** — the PDF output should look like it came from a real business, not a web app
-
-### Recommended BOM layout
+A fixed footer bar at the bottom of the viewport, always visible:
 
 ```
-┌─────────────────────────────────────────────┐
-│  YOUR DECK ESTIMATE                         │
-│  12' × 16' Rectangle | 192 sq ft           │
-│                                             │
-│  ┌─────────────────────────────────────┐    │
-│  │ Framing              $1,234.56  ▼   │    │
-│  ├─────────────────────────────────────┤    │
-│  │ Decking                $867.00  ▼   │    │
-│  ├─────────────────────────────────────┤    │
-│  │ Hardware & Fasteners   $234.00  ▼   │    │
-│  ├─────────────────────────────────────┤    │
-│  │ Railing                  $0.00  ▼   │    │
-│  ├─────────────────────────────────────┤    │
-│  │ Stairs                   $0.00  ▼   │    │
-│  ╞═════════════════════════════════════╡    │
-│  │ ESTIMATED TOTAL       $2,335.56     │    │
-│  └─────────────────────────────────────┘    │
-│                                             │
-│  [Download PDF]  [Email Quote]  [Add to Cart]│
-│                                             │
-│  Prices from: TUDS Sherwood Park            │
-│  Valid for: 30 days                         │
-└─────────────────────────────────────────────┘
+┌─────────────────────────────────────────────────────────────┐
+│  Est. Total: $2,335.56  │  Step 3 of 6: Stairs  │  [Next →]│
+└─────────────────────────────────────────────────────────────┘
 ```
 
-Each category expands to show line items:
-```
-▼ Framing                          $1,234.56
-  2×8×12  SPF Joist          ×14    $378.00
-  2×10×16 SPF Beam           ×2     $156.00
-  2×8×16  SPF Ledger         ×1      $67.00
-  4×4×10  PT Post            ×6     $234.00
-  ...
-```
+### Behavior
 
-### PDF output
-The PDF should look like a professional quote/invoice:
-- Company logo and store info at top
-- Customer name (if signed in)
-- Date and quote number
-- Deck dimensions and 2D layout drawing
-- Categorized materials list with SKUs
-- Subtotals by category
-- Grand total
-- Store contact info and validity period
-- QR code linking back to the saved project
+| State | What the footer shows |
+|-------|----------------------|
+| No shape yet | `Draw your deck to get an estimate` |
+| Shape drawn, no calc yet | `Complete Structure step for pricing →` |
+| Structure calculated | `Est. Total: $X,XXX` (framing cost so far) |
+| Decking configured | `Est. Total: $X,XXX` (updated with decking) |
+| Stairs added | `Est. Total: $X,XXX` (updated with stairs) |
+| Review step | Full BOM visible in panel, footer shows grand total |
+
+The estimate updates each time a step recalculates. It's not live-updating on every input change — it reflects the last completed calculation.
+
+### Implementation notes
+
+- Fixed position, bottom of viewport, full width
+- Height: 48px
+- Background: white with top border and subtle shadow
+- Left: running estimate with currency formatting
+- Center: current step indicator
+- Right: "Next" button (replaces the current in-panel next button)
+- On mobile: same footer, but "Next" may move into the bottom sheet
 
 ---
 
-## 7. Dual-Audience Strategy
+## 7. Visual Design System
 
-### The core tension
+### Color system (keep current TUDS brand)
 
-Salespeople need: speed, accuracy, ability to modify on the fly, customer association, quote printing
-Consumers need: guidance, templates, visual feedback, cost awareness, ability to save and return
-
-### Research-backed solution: Progressive disclosure with role awareness
-
-**Don't ask "Are you a salesperson or consumer?" upfront.** Instead, infer from behavior and offer progressive complexity:
-
-**Layer 1 — Everyone sees this:**
-- Shape entry (Quick Rectangle prominent, templates visible)
-- Canvas with the deck shape
-- Running cost estimate
-- Download PDF / Email Quote
-
-**Layer 2 — Available on request (one click deeper):**
-- Structure configuration (joist size, spacing, beams)
-- Decking material options
-- Stair placement
-- Edit shape vertices
-
-**Layer 3 — Requires sign-in:**
-- Save project to cloud
-- Associate with customer name
-- Submit quote to store
-- Access saved project library
-- Store-specific pricing
-
-This maps to how Home Depot and Lowe's handle their project tools: anonymous users can plan and estimate, signed-in users get personalization and saving, pro users get account-level features.
-
-### Salesperson-specific enhancements
-Once signed in as a TUDS employee:
-- "New Quote" button in header (fast reset)
-- Customer name field appears in header
-- Store selector (for multi-location pricing)
-- "Submit to Store" button alongside PDF/Email
-- Project history searchable by customer name
-- Keyboard shortcuts for common actions (R for rectangle, S for stairs, etc.)
-
----
-
-## 8. Visual Design System
-
-### Color system (research-backed)
-
-Research confirms: muted professional palettes with strategic bold accents outperform both flat gray interfaces and heavily branded ones.
-
-**Primary palette:**
-- Navy `#1A2B49` — primary brand, header, active states (keep existing TUDS navy)
-- Teal `#2A9D8F` — success states, completed steps, positive actions (keep existing TUDS teal)
+- Navy `#1A2B49` — primary brand, header, active states
+- Teal `#2A9D8F` — success states, completed steps, positive actions
 - White `#FFFFFF` — canvas background, cards, primary surface
-- Light gray `#F8FAFC` — page background (barely off-white, not the current `bg-gray-200`)
-- Medium gray `#E2E8F0` — borders, dividers, grid lines
+- Page background: `#F8FAFC` (subtle off-white instead of Tailwind `bg-gray-200`)
+- Borders: `#E2E8F0` — consistent throughout
 
-**Accent palette:**
-- Blue `#3B82F6` — interactive elements, links, drawing cursor
-- Amber `#F59E0B` — warnings, "in progress" states
+**Accent colors:**
+- Blue `#3B82F6` — interactive elements, drawing cursor, links
+- Amber `#F59E0B` — warnings, "in progress" indicators
 - Red `#EF4444` — errors, delete actions
 - Green `#10B981` — success confirmations
 
-**Dark mode (future):**
-Research shows dark mode is now a user expectation for professional tools. Plan for it by using CSS custom properties consistently. Don't implement now, but architect for it.
+### Typography (already using Inter — just enforce consistency)
 
-### Typography
+- Page title: 24px / 600 weight
+- Section headers: 16px / 600 weight
+- Body text: 14px / 400 weight
+- Labels: 12px / 500 weight
+- Small/caption: 11px / 400 weight
 
-Research confirms: one font family, clear hierarchy, readable at all sizes.
+### Icons — Replace with Lucide
 
-- **Font**: Inter (already loaded) — excellent for UI, screen-optimized
-- **Scale**:
-  - Page title: 24px / 600 weight
-  - Section headers: 16px / 600 weight
-  - Body text: 14px / 400 weight
-  - Labels: 12px / 500 weight
-  - Small/caption: 11px / 400 weight
-- **Line height**: 1.5 for body, 1.2 for headings
-- No font changes needed — just enforce the scale consistently
+Replace all inline SVG icons with [Lucide](https://lucide.dev) icon set:
+- Open source, MIT license, 1500+ icons
+- Consistent 1.5px stroke weight
+- Available via CDN: `https://unpkg.com/lucide@latest`
+- 20px for toolbar icons, 16px for inline icons
+- Eliminates the inconsistent hand-drawn SVG problem
 
-### Spacing
+This is a straightforward find-and-replace task. No AI image generation needed for UI icons. Save AI-generated imagery for marketing assets or deck style preview thumbnails if needed later.
 
-Use an 8px base grid (industry standard):
-- `--space-1`: 4px (tight)
-- `--space-2`: 8px (default)
+### Spacing (8px base grid)
+
+- `--space-1`: 4px
+- `--space-2`: 8px
 - `--space-3`: 12px
 - `--space-4`: 16px
 - `--space-5`: 24px
 - `--space-6`: 32px
-- `--space-8`: 48px
 
-### Shadows and elevation
+### Shadows (three levels)
 
-Three levels only:
 - `--shadow-sm`: `0 1px 2px rgba(0,0,0,0.05)` — cards, inputs
 - `--shadow-md`: `0 4px 6px rgba(0,0,0,0.07)` — dropdowns, floating toolbar
 - `--shadow-lg`: `0 10px 25px rgba(0,0,0,0.1)` — modals, bottom sheets
@@ -401,205 +303,201 @@ Three levels only:
 
 - Small (inputs, buttons): 6px
 - Medium (cards, panels): 8px
-- Large (modals, hero elements): 12px
-
-### Icons
-
-Replace all inline SVG icons with a consistent icon set. Research recommends:
-- **Lucide** (open source, consistent stroke weight, 1000+ icons, MIT license)
-- Load via CDN: `https://unpkg.com/lucide@latest`
-- Consistent 20px size for toolbar, 16px for inline
-- 1.5px stroke weight throughout
-
-This eliminates the "shitty SVG icons" problem without needing AI image generation for UI icons. Save AI-generated imagery for the template thumbnails and deck style previews.
+- Large (modals): 12px
 
 ---
 
-## 9. Mobile & Touch
+## 8. Mobile & Touch
 
-### Layout strategy
+### Layout: Canvas-first with bottom sheet
 
-Research (NNGroup, Material Design, Figma's approach) converges on:
+On screens below 1024px, the config panel moves from the left sidebar into a bottom sheet:
 
-**Canvas-first, controls in bottom sheet.**
+```
+┌──────────────────────────────────┐
+│  HEADER: Compact logo + nav      │
+├──────────────────────────────────┤
+│                                  │
+│      CANVAS (full width)         │
+│                                  │
+│  Tool hints float top-left       │
+│  Zoom controls float bottom-right│
+│                                  │
+├──────────────────────────────────┤
+│  ▔▔▔ drag handle ▔▔▔            │
+│  BOTTOM SHEET: Current step      │
+│  controls (3 snap points:        │
+│  peek / half / full)             │
+├──────────────────────────────────┤
+│  FOOTER: Estimate + Next         │
+└──────────────────────────────────┘
+```
 
-The canvas fills the full viewport above a persistent bottom bar. Configuration lives in a draggable bottom sheet with three snap points:
-- **Peek** (64px): Shows step name and "drag up" indicator
-- **Half** (50% viewport): Shows current step's controls
-- **Full** (90% viewport): For BOM review, long forms
+### Bottom sheet snap points
 
-### Touch drawing
+- **Peek** (64px): Step name + drag indicator. Canvas gets maximum space.
+- **Half** (~40% viewport): Current step's controls visible. Canvas still usable above.
+- **Full** (~85% viewport): For BOM review, template gallery, forms with many inputs.
+
+### Touch interactions
 
 - **Tap** = place point (same as click)
-- **Tap near first point** = close shape (with larger touch target — 44px radius)
+- **Tap near first point** = close shape (with 44px touch target, larger than desktop)
 - **Pinch** = zoom (already implemented)
 - **Two-finger drag** = pan (already implemented)
-- **Long press on edge** = show dimension, open edit
-- **Long press on vertex** = enter edit mode for that vertex
-- **Single finger drag on shape** = move entire shape
-- All touch targets must be minimum 44×44px (Apple HIG guideline)
+- **Long press on edge** = show dimension label / enter edit
+- **Single finger drag on shape** = move shape
+- All touch targets minimum 44×44px
 
-### Bottom sheet implementation
+### Step navigation on mobile
 
-Use the standard pattern from Material Design and NNGroup research:
-- Grab handle (32px wide, 4px tall, centered, `border-radius: 2px`)
-- Drag physics with momentum
-- Snap to three positions
-- Tapping the scrim (darkened area above sheet) collapses to peek
-- Support Android back button to collapse
-- Don't use bottom sheets for critical actions that need to be always visible (the running cost estimate stays in the persistent footer)
+The left sidebar step nav is hidden on mobile. Instead:
+- Bottom sheet header shows current step with prev/next arrows
+- Or: a horizontal step indicator below the header (compact, scrollable if needed)
+- The persistent footer "Next" button is the primary navigation
 
 ---
 
-## 10. Onboarding & Empty States
+## 9. Onboarding & Empty States
 
-### First-run experience
+### Empty canvas state (when user picks "Draw Custom")
 
-Research shows 25% of users abandon after one session if onboarding is poor. The deck calculator's first-run should:
-
-1. **No modal tutorials.** Users skip them. Instead, use contextual hints.
-2. **Pre-populated template gallery** as the primary landing state — not a blank canvas.
-3. **"Try it" template** — a pre-built 12×16 rectangle deck that's already on canvas when the page loads for the first time. Users can explore the tool with real data. (Notion does this — never show a blank page.)
-4. **Contextual tooltips** that appear on first interaction with each tool:
-   - First time hovering over canvas: "Click to place points, or use Quick Rectangle below"
-   - First time opening structure panel: "These defaults work for most decks. Adjust if needed."
-   - First time reaching review: "Your estimate is ready! Download or email it."
-5. **Progress motivation**: The persistent footer shows "3 of 5 steps complete" style indicators.
-
-### Empty canvas state
-
-When the canvas has no shape (after clearing or on first visit without template):
+When the canvas has no shape, show guidance ON the canvas — not in a sidebar:
 
 ```
 ┌─────────────────────────────────────────────┐
 │                                             │
-│            ┌───────────────┐                │
-│            │   [deck icon] │                │
-│            └───────────────┘                │
 │                                             │
-│      Design your deck in minutes            │
+│         Click on the grid to place          │
+│         your first point                    │
 │                                             │
-│   ┌──────────┐ ┌──────────┐ ┌──────────┐   │
-│   │ Quick    │ │ Choose a │ │ Draw     │   │
-│   │ Rectangle│ │ Template │ │ Custom   │   │
-│   │   ⬜     │ │   🔲🔲   │ │   ✏️     │   │
-│   └──────────┘ └──────────┘ └──────────┘   │
+│              · (pulsing dot)                │
 │                                             │
-│      Most popular: 12×16 rectangle          │
-│      [Create 12×16 deck →]                  │
+│         Tips:                               │
+│         • Click to place corners            │
+│         • Lines snap to 90° angles          │
+│         • Click near first point to close   │
+│                                             │
 │                                             │
 └─────────────────────────────────────────────┘
 ```
 
-This replaces the current blank canvas + sidebar instructions.
+This overlay fades out as soon as the user places their first point.
+
+### First-time tooltips (show once per user)
+
+Triggered on first interaction, stored in localStorage so they don't repeat:
+
+- **First time on mode step**: No tooltip needed — the cards are self-explanatory
+- **First time on canvas with shape**: "Click any edge to see its dimension. Drag corners to reshape."
+- **First time on structure step**: "These defaults work for most residential decks. Adjust if your project needs something different."
+- **First time reaching review**: "Your material list and estimate are ready. Download a PDF or email it to a customer."
+
+### No pre-populated content
+
+Don't pre-populate the canvas with a sample deck. Users would need to delete it before starting their own project, which is wasted friction. A clear empty state with actionable guidance is better than sample data.
 
 ---
 
-## 11. Implementation Priorities
+## 10. Implementation Priorities
 
-Based on impact-to-effort ratio and the research findings, here's the recommended order:
+Ordered by impact-to-effort ratio. Each phase is independently valuable — the app improves after every phase, not just after all of them.
 
-### Phase 1: Fix the foundation (critical)
-1. **Fix the canvas rendering bug** (already diagnosed)
-2. **Fix CSS ID mismatch** (`#content-panel` → `#main-content-panel`)
-3. **Move config panel to right side** of canvas
-4. **Make canvas 65% width**, config panel 280px right
-5. **Add persistent footer** with running cost estimate and step navigation
+### Phase 1: Fix critical bugs
+1. Fix canvas rendering bug (already diagnosed — CSS ID mismatch, resize calculation, viewport init timing)
+2. Fix CSS `#content-panel` → `#main-content-panel` mismatch throughout stylesheet
 
-### Phase 2: Shape entry revolution
-6. **Promote Quick Rectangle** to primary action (large, prominent, above fold)
-7. **Add template gallery** (Rectangle, L-shape, T-shape, Wraparound) with thumbnails
-8. **Move custom draw** to a secondary option ("or draw a custom shape")
-9. **Add dimension labels** on canvas edges (clickable to edit)
+### Phase 2: Combined Start Flow
+3. Redesign Step 0 to include shape entry (Mode → Shape method → dimensions/template/custom)
+4. Build template gallery with L-shape, T-shape, Wraparound shapes
+5. "Enter Dimensions" quick path that creates rectangle on canvas directly
+6. Auto-advance to Draw step with shape already placed
 
-### Phase 3: Smart defaults & flow
-10. **Remove Mode Selection as a step** — make it a header dropdown
-11. **Pre-populate all structural defaults** so Review step works immediately after shape
-12. **Allow non-linear step navigation** (click any unlocked step)
-13. **Always show estimated cost** in footer (even partial)
+### Phase 3: Persistent Footer
+7. Add fixed footer bar with running cost estimate
+8. Move "Next step" button from in-panel to footer
+9. Show step progress indicator in footer center
+10. Connect footer estimate to calculation results (update on each step completion)
 
-### Phase 4: BOM & output overhaul
-14. **Redesign BOM as categorized, expandable quote** (not a flat table)
-15. **Professional PDF template** with logo, dimensions, layout drawing
-16. **Email quote** functionality
-17. **Add-to-cart** integration refinement
+### Phase 4: Canvas Interaction Improvements
+11. Add dimension labels on canvas edges (clickable to edit inline)
+12. Drawing guidance overlay for custom draw (pulsing dot, rubberband line, snap indicator)
+13. Direct shape editing without separate edit mode (click edge → edit dimension, drag vertex → reshape)
+14. Point counter and "click to close" tooltip during drawing
 
-### Phase 5: Visual polish
-18. **Replace all inline SVGs** with Lucide icon set
-19. **Page background** to `#F8FAFC` (subtle off-white)
-20. **Card redesign** — consistent radius, shadow, padding
-21. **Micro-interactions** — button hover states, step transitions, canvas tool feedback
-22. **Loading states** — skeleton screens for Shopify price loading, spinner for calculations
+### Phase 5: Wizard Flow Improvements
+15. Allow non-linear step navigation (any step reachable after shape is closed)
+16. Auto-calculate structure on step entry (don't wait for "Generate Plan" click)
+17. Smart defaults that produce a valid BOM with zero configuration
+18. Relax step gating so Review is reachable immediately after shape + defaults
 
-### Phase 6: Mobile & touch
-23. **Bottom sheet** for config panel on screens <1024px
-24. **Canvas-first mobile layout** — full viewport canvas
-25. **Touch target sizing** — minimum 44px for all interactive elements
-26. **Pinch zoom enhancement** — zoom to cursor, smooth momentum
+### Phase 6: Visual Polish
+19. Replace all inline SVGs with Lucide icon set
+20. Page background to `#F8FAFC`
+21. Enforce consistent spacing (8px grid), shadows (3 levels), border-radius
+22. Button hover states, step transition animations, calculation feedback
+23. Loading states for Shopify price fetching, calculation spinners
 
-### Phase 7: Onboarding & empty states
-27. **Template-populated first run** (pre-built 12×16 on canvas)
-28. **Contextual tooltips** for first-time interactions
-29. **Empty canvas state** with three entry path cards
-30. **Progress indicators** in footer
+### Phase 7: Mobile & Touch
+24. Bottom sheet for config panel on screens <1024px
+25. Canvas-first mobile layout with full-width canvas
+26. Touch target sizing (44px minimum)
+27. Bottom sheet with three snap points (peek/half/full)
+28. Mobile step navigation (horizontal indicator or sheet-header nav)
+
+### Phase 8: Onboarding
+29. Empty canvas overlay with drawing guidance (pulsing dot, tips)
+30. First-time contextual tooltips (one per key interaction, localStorage tracked)
+31. Fade-out behavior (guidance disappears after first point placed)
+
+---
+
+## What was removed from the original plan (and why)
+
+| Original recommendation | Why it was removed |
+|---|---|
+| Move config panel to right side | Wrong. Left-side config is standard for configurators. Users select left, see result right. |
+| Remove Mode Selection as a step | Wrong. Mode selection sets critical context. Users should know what they're building before they start. |
+| Pre-populate canvas with sample deck | Wrong. Users would have to delete it. Clear empty state with guidance is better. |
+| Redesign BOM as categorized/expandable | Already implemented. BOM already has category headers, subtotals, and collapsible sections. |
+| "Quick Rectangle as hero" replacing draw | Scaled back. Quick rectangle is now ONE of three options in the combined start flow, not a replacement. |
 
 ---
 
 ## Sources
 
 ### Product Configurator UX
-- [DriveWorks: How to Build a Product Configurator](https://www.driveworks.co.uk/articles/how-to-build-a-product-configurator-planning-design-ux/)
-- [ConvertCalculator: Product Configuration Guide](https://www.convertcalculator.com/blog/product-configuration-ultimate-guide/)
 - [CPQ Integrations: Simplify Complex Configurations](https://cpq-integrations.com/blog/how-to-simplify-complex-product-configurations-for-the-average-user/)
-- [Salesforce CPQ Best Practices](https://www.dupontcirclesolutions.com/2025/04/03/salesforce-cpq-best-practices-enhancing-the-user-experience/)
+- [Salesforce CPQ UX Best Practices](https://www.dupontcirclesolutions.com/2025/04/03/salesforce-cpq-best-practices-enhancing-the-user-experience/)
 - [Configit: Product Configurator Prototyping UX](https://configit.com/learn/blog/improved-ux-with-product-configurator-prototyping/)
 
 ### Deck Design Tools
 - [Trex Deck Designer](https://www.trex.com/build-your-deck/planyourdeck/deck-designer/)
-- [Engineer Fix: How to Use Trex Deck Designer](https://engineerfix.com/how-to-use-the-trex-deck-designer-tool/)
-- [Decks.com Free Deck Designer](https://www.decks.com/deck-designer/)
-- [Planner 5D Deck Design](https://planner5d.com/use/deck-design)
+- [Engineer Fix: Trex Deck Designer Walkthrough](https://engineerfix.com/how-to-use-the-trex-deck-designer-tool/)
 - [Simpson Strong-Tie Deck Planner](https://www.strongtie.com/deckplanner/)
 - [ZWSOFT: 10 Best Deck Design Software 2025](https://blog.zwsoft.com/deck-design-software/)
 
-### Construction Estimator Tools
-- [Buildxact Construction Quoting](https://www.buildxact.com/us/features/construction-quoting-software/)
-- [Buildertrend Construction Estimating](https://buildertrend.com/financial-tools/construction-estimating-software/)
-- [Groundplan Cloud Estimating](https://groundplan.com)
-- [BuildingWorks Estimating](https://getbuildingworks.com/product/estimate/)
-
 ### Dual-Audience & Progressive Disclosure
-- [Peterson Technology Partners: Serving a Dual Audience](https://www.ptechpartners.com/2025/12/09/ui-ux-ax-serving-a-dual-audience-in-design/)
 - [IxDF: Progressive Disclosure](https://www.interaction-design.org/literature/topics/progressive-disclosure)
-- [IxDF: B2C Model in UX Design](https://www.interaction-design.org/literature/topics/business-to-consumers-model)
-- [Userpilot: UX Design Principles](https://userpilot.com/blog/ux-design-principles/)
+- [Peterson Tech Partners: Serving a Dual Audience](https://www.ptechpartners.com/2025/12/09/ui-ux-ax-serving-a-dual-audience-in-design/)
 
 ### Mobile & Bottom Sheets
-- [NNGroup: Bottom Sheets Definition and Guidelines](https://www.nngroup.com/articles/bottom-sheet/)
+- [NNGroup: Bottom Sheets Guidelines](https://www.nngroup.com/articles/bottom-sheet/)
 - [LogRocket: Bottom Sheets for Optimized UX](https://blog.logrocket.com/ux-design/bottom-sheets-optimized-ux/)
-- [Mobbin: Bottom Sheet Design Inspiration](https://mobbin.com/explore/mobile/ui-elements/bottom-sheet)
-- [Shadcn UI Drawer Component](https://www.shadcn.io/ui/drawer)
-
-### Home Improvement Retail
-- [Retail Dive: Home Depot Digital Project Planning Tool](https://www.retaildive.com/news/home-depot-digital-project-planning-tool-pro-customers/761497/)
-- [Retail Dive: Lowe's & Home Depot AI Tools](https://www.retaildive.com/news/lowes-home-depot-online-ai-powered-tools/741855/)
-- [Lowe's Digital Project Planning Tools](https://www.lowes.com/n/ideas-inspiration/lowes-project-planning-tools)
 
 ### SaaS Design Trends
-- [Design Studio: Top SaaS Design Trends 2026](https://www.designstudiouiux.com/blog/top-saas-design-trends/)
-- [Duck.design: SaaS UX/UI Best Practices](https://duck.design/ux-ui-design-for-saas/)
 - [Good Side: SaaS UI Trends 2025](https://goodside.fi/blog/top-saas-ui-trends-2025)
-- [JetBase: SaaS Design Trends 2025](https://jetbase.io/blog/saas-design-trends-best-practices)
-- [Codica: SaaS Design Ultimate Guide](https://www.codica.com/blog/how-to-design-saas-app/)
+- [Codica: SaaS Design Guide](https://www.codica.com/blog/how-to-design-saas-app/)
 
 ### Onboarding & Empty States
-- [NNGroup: Empty States](https://www.nngroup.com/articles/empty-states/)
-- [Carbon Design System: Empty States Pattern](https://carbondesignsystem.com/patterns/empty-states-pattern/)
 - [Toptal: Empty State UX Design](https://www.toptal.com/designers/ux/empty-state-ux-design)
 - [Appcues: In-App Onboarding Guide 2025](https://www.appcues.com/blog/in-app-onboarding)
-- [UserGuiding: Onboarding Best Practices 2025](https://userguiding.com/blog/user-onboarding-best-practices)
+- [Carbon Design System: Empty States](https://carbondesignsystem.com/patterns/empty-states-pattern/)
 
-### Lumber Yard POS/Software
-- [ECI Spruce: Building Materials Software](https://www.ecisolutions.com/products/building-materials-software/)
+### Home Improvement Retail
+- [Retail Dive: Home Depot Digital Planning Tool](https://www.retaildive.com/news/home-depot-digital-project-planning-tool-pro-customers/761497/)
+- [Retail Dive: Lowe's & Home Depot AI Tools](https://www.retaildive.com/news/lowes-home-depot-online-ai-powered-tools/741855/)
+
+### Lumber Yard Software
+- [ECI Spruce: Building Materials POS](https://www.ecisolutions.com/products/building-materials-software/)
 - [Paladin: Lumber Point of Sale](https://paladinpointofsale.com/lumber-point-of-sale/)
-- [TradeTek: Lumber Yard Estimating](https://www.tradeteksoftware.com/lumber-yard-estimating-software)
