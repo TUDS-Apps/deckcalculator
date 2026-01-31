@@ -90,21 +90,19 @@ export function initializeCanvas(
     canvasElement.addEventListener("touchend", handleTouchEndInternal, { passive: false });
     canvasElement.addEventListener("touchcancel", handleTouchEndInternal, { passive: false });
 
-    const resizeObserver = new ResizeObserver((entries) => {
-      for (let entry of entries) {
-        const newWidth = Math.round(entry.contentRect.width);
-        const newHeight = Math.round(entry.contentRect.height);
-        if (
-          canvasElement.width !== newWidth ||
-          canvasElement.height !== newHeight
-        ) {
-          // Save old dimensions BEFORE resizeCanvas() changes them
-          const oldWidth = canvasElement.width;
-          const oldHeight = canvasElement.height;
-          resizeCanvas();
-          if (onCanvasResizeCallback) {
-            onCanvasResizeCallback(oldWidth, oldHeight);
-          }
+    const resizeObserver = new ResizeObserver(() => {
+      // Use clientWidth/clientHeight consistently with resizeCanvas()
+      const newWidth = canvasContainerElement.clientWidth;
+      const newHeight = canvasContainerElement.clientHeight;
+      if (
+        canvasElement.width !== newWidth ||
+        canvasElement.height !== newHeight
+      ) {
+        const oldWidth = canvasElement.width;
+        const oldHeight = canvasElement.height;
+        resizeCanvas();
+        if (onCanvasResizeCallback) {
+          onCanvasResizeCallback(oldWidth, oldHeight);
         }
       }
     });
