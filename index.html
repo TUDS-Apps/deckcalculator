@@ -61,6 +61,93 @@
       })();
     </script>
 
+    <!-- Welcome Modal - shown on app load for mode selection -->
+    <div id="welcomeModal" class="welcome-modal hidden">
+      <div class="welcome-modal-content">
+        <div class="welcome-modal-header">
+          <img src="https://tuds.ca/cdn/shop/files/TUDS_logo.svg?v=1676653488"
+               alt="TUDS" class="welcome-logo">
+          <h2>TUDS Pro Deck Estimator</h2>
+        </div>
+
+        <div class="welcome-modal-body">
+          <h3 class="welcome-prompt">What are you building today?</h3>
+
+          <div class="welcome-mode-grid">
+            <button type="button" class="welcome-mode-card" data-mode="full_build">
+              <div class="welcome-mode-icon">
+                <img src="icons/mode_full_build.png" alt="Full Deck Build">
+              </div>
+              <div class="welcome-mode-label">Full Deck Build</div>
+              <div class="welcome-mode-desc">Complete deck with framing, decking, and railing</div>
+            </button>
+            <button type="button" class="welcome-mode-card" data-mode="framing_only">
+              <div class="welcome-mode-icon">
+                <img src="icons/mode_framing_only.png" alt="Framing Only">
+              </div>
+              <div class="welcome-mode-label">Framing Only</div>
+              <div class="welcome-mode-desc">Structural takeoff &mdash; joists, beams, posts, footings</div>
+            </button>
+            <button type="button" class="welcome-mode-card" data-mode="decking_only">
+              <div class="welcome-mode-icon">
+                <img src="icons/mode_decking_only.png" alt="Decking Only">
+              </div>
+              <div class="welcome-mode-label">Decking Only</div>
+              <div class="welcome-mode-desc">Deck board layout and materials</div>
+            </button>
+            <button type="button" class="welcome-mode-card" data-mode="railing_only">
+              <div class="welcome-mode-icon">
+                <img src="icons/mode_railing_only.png" alt="Railing Only">
+              </div>
+              <div class="welcome-mode-label">Railing Only</div>
+              <div class="welcome-mode-desc">Railing components and hardware</div>
+            </button>
+            <button type="button" class="welcome-mode-card" data-mode="custom">
+              <div class="welcome-mode-icon">
+                <img src="icons/mode_custom.png" alt="Custom Combo">
+              </div>
+              <div class="welcome-mode-label">Custom Combo</div>
+              <div class="welcome-mode-desc">Pick which components you need</div>
+            </button>
+          </div>
+
+          <!-- Custom Combo inline checkboxes (shown when custom selected) -->
+          <div id="welcomeCustomComboOptions" class="welcome-custom-combo hidden">
+            <div class="custom-combo-label">Select components:</div>
+            <label class="custom-combo-checkbox">
+              <input type="checkbox" id="welcomeCustomFraming" checked> Framing
+            </label>
+            <label class="custom-combo-checkbox">
+              <input type="checkbox" id="welcomeCustomDecking" checked> Decking
+            </label>
+            <label class="custom-combo-checkbox">
+              <input type="checkbox" id="welcomeCustomRailing" checked> Railing
+            </label>
+          </div>
+
+          <!-- Project name field -->
+          <div class="welcome-project-field">
+            <label for="welcomeProjectName">Project Name <span class="optional-label">(optional)</span></label>
+            <input type="text" id="welcomeProjectName" value="Untitled Deck"
+                   placeholder="e.g., Smith Residence - Backyard Deck" maxlength="100">
+          </div>
+        </div>
+
+        <div class="welcome-modal-footer">
+          <a href="#" class="welcome-sign-in-link" onclick="event.preventDefault(); if(window.openAuthModal) openAuthModal(); else if(window.openProjectsModal) openProjectsModal();">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" width="16" height="16">
+              <path fill-rule="evenodd" d="M3 4.25A2.25 2.25 0 015.25 2h5.5A2.25 2.25 0 0113 4.25v2a.75.75 0 01-1.5 0v-2a.75.75 0 00-.75-.75h-5.5a.75.75 0 00-.75.75v11.5c0 .414.336.75.75.75h5.5a.75.75 0 00.75-.75v-2a.75.75 0 011.5 0v2A2.25 2.25 0 0110.75 18h-5.5A2.25 2.25 0 013 15.75V4.25z" clip-rule="evenodd" />
+              <path fill-rule="evenodd" d="M19 10a.75.75 0 00-.75-.75H8.704l1.048-.943a.75.75 0 10-1.004-1.114l-2.5 2.25a.75.75 0 000 1.114l2.5 2.25a.75.75 0 101.004-1.114l-1.048-.943h9.546A.75.75 0 0019 10z" clip-rule="evenodd" />
+            </svg>
+            Sign in to save projects
+          </a>
+          <button type="button" id="welcomeStartBtn" class="btn btn-primary welcome-start-btn" disabled>
+            Start Designing
+          </button>
+        </div>
+      </div>
+    </div>
+
     <div class="app-shell">
       <div class="deck-calculator-header">
         <div class="header-content">
@@ -217,7 +304,14 @@
 
             <!-- Step 1: Draw Shape -->
             <div id="wizard-step-draw" class="wizard-step-content hidden" data-step-id="draw">
-              <h2 class="wizard-step-title">Draw Your Deck</h2>
+              <h2 class="wizard-step-title">Draw Your Deck
+                <button type="button" class="change-mode-btn" onclick="openWelcomeModal()" title="Change build mode">
+                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" width="14" height="14">
+                    <path d="M15.312 11.424a5.5 5.5 0 01-9.201 2.466l-.312-.311h2.433a.75.75 0 000-1.5H4.598a.75.75 0 00-.75.75v3.634a.75.75 0 001.5 0v-2.033l.312.311a7 7 0 0011.712-3.138.75.75 0 00-1.449-.39zm-11.073-3.96a.75.75 0 00.39 1.449 5.5 5.5 0 019.201-2.466l.312.311H12.71a.75.75 0 000 1.5h3.634a.75.75 0 00.75-.75V3.874a.75.75 0 00-1.5 0v2.033l-.312-.311A7 7 0 003.571 8.735.75.75 0 004.24 7.464z" />
+                  </svg>
+                  Change Mode
+                </button>
+              </h2>
               <div class="panel-content">
 
                 <!-- Initial Instructions (hidden when shape is drawn) -->

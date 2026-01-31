@@ -2589,6 +2589,8 @@ function renderWizardStepList() {
   let visibleIndex = 0;
 
   progressBar.innerHTML = WIZARD_STEPS.map((step) => {
+    // Mode step is handled by welcome modal, not shown in stepper
+    if (step.id === 'mode') return '';
     const isVisible = visibleSteps.includes(step.id);
     const isActive = appState.wizardStep === step.id;
     const isComplete = isStepComplete(step.id);
@@ -3091,8 +3093,9 @@ function updateConfigSectionValues() {
 
 function initializeWizard() {
   renderWizardStepList();
-  showWizardStepContent('mode');
-  updateWizardNextButton('mode');
+  // Start on draw step — mode selection is handled by welcome modal
+  showWizardStepContent('draw');
+  updateWizardNextButton('draw');
 }
 
 // --- Contextual Panel Management Functions (Legacy) ---
@@ -6267,6 +6270,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
   // Initialize wizard step navigation
   initializeWizard();
+  initWelcomeModalListeners();
 
   resetAppState();
   updateContextualPanel(); // Initialize contextual panel (legacy - will be replaced by wizard)
@@ -8215,21 +8219,154 @@ const wizardStepDefinitions = [
 function checkFirstTimeUser() {
   const hasSeenWizard = localStorage.getItem('tuds-deck-wizard-seen');
   if (!hasSeenWizard) {
-    // First-time users land on Mode Selection step — don't auto-start wizard overlay
-    // They can start the tutorial manually via the Help button
     localStorage.setItem('tuds-deck-wizard-seen', 'true');
-  } else {
-    // Returning user - show projects modal after a short delay
-    setTimeout(() => {
-      showInitialProjectsModal();
-    }, 500);
   }
+  // Always show welcome modal for mode selection
+  // Wait for dev warning to be dismissed first
+  setTimeout(() => {
+    const devWarning = document.getElementById('devWarningOverlay');
+    if (!devWarning || devWarning.style.display === 'none') {
+      openWelcomeModal();
+    } else {
+      // Dev warning still visible — watch for its removal
+      const observer = new MutationObserver(() => {
+        if (!document.getElementById('devWarningOverlay')) {
+          observer.disconnect();
+          openWelcomeModal();
+        }
+      });
+      observer.observe(document.body, { childList: true });
+    }
+  }, 300);
 }
 
 // Show the projects modal on initial page load
 function showInitialProjectsModal() {
   console.log('[Projects] Showing initial projects modal');
   openProjectsModal();
+}
+
+// ================================================
+// WELCOME MODAL
+// ================================================
+
+function openWelcomeModal() {
+  const modal = document.getElementById('welcomeModal');
+  if (!modal) return;
+
+  // Reset selection state
+  modal.querySelectorAll('.welcome-mode-card').forEach(c => c.classList.remove('selected'));
+  document.getElementById('welcomeCustomComboOptions')?.classList.add('hidden');
+  document.getElementById('welcomeStartBtn').disabled = true;
+
+  // Pre-fill project name
+  const nameInput = document.getElementById('welcomeProjectName');
+  if (nameInput) nameInput.value = appState.pendingProjectName || 'Untitled Deck';
+
+  // If mode already set (re-opening), pre-select it
+  if (appState.buildMode) {
+    const card = modal.querySelector(`[data-mode="${appState.buildMode}"]`);
+    if (card) {
+      card.classList.add('selected');
+      document.getElementById('welcomeStartBtn').disabled = false;
+      if (appState.buildMode === 'custom') {
+        document.getElementById('welcomeCustomComboOptions')?.classList.remove('hidden');
+      }
+    }
+  }
+
+  modal.classList.remove('hidden');
+}
+window.openWelcomeModal = openWelcomeModal;
+
+function closeWelcomeModal() {
+  const modal = document.getElementById('welcomeModal');
+  if (modal) modal.classList.add('hidden');
+}
+window.closeWelcomeModal = closeWelcomeModal;
+
+function handleWelcomeStart() {
+  const modal = document.getElementById('welcomeModal');
+  const selectedCard = modal?.querySelector('.welcome-mode-card.selected');
+  if (!selectedCard) return;
+
+  const mode = selectedCard.dataset.mode;
+
+  // Set build mode and custom components
+  appState.buildMode = mode;
+  switch (mode) {
+    case 'full_build':
+      appState.customComponents = { framing: true, decking: true, railing: true };
+      break;
+    case 'framing_only':
+      appState.customComponents = { framing: true, decking: false, railing: false };
+      break;
+    case 'decking_only':
+      appState.customComponents = { framing: false, decking: true, railing: false };
+      break;
+    case 'railing_only':
+      appState.customComponents = { framing: false, decking: false, railing: true };
+      break;
+    case 'custom':
+      appState.customComponents = {
+        framing: document.getElementById('welcomeCustomFraming')?.checked ?? true,
+        decking: document.getElementById('welcomeCustomDecking')?.checked ?? true,
+        railing: document.getElementById('welcomeCustomRailing')?.checked ?? true,
+      };
+      const { framing, decking, railing } = appState.customComponents;
+      if (!framing && !decking && !railing) {
+        alert('Please select at least one component.');
+        return;
+      }
+      break;
+  }
+
+  // Store project name
+  const nameInput = document.getElementById('welcomeProjectName');
+  const projectName = nameInput?.value?.trim() || 'Untitled Deck';
+  appState.pendingProjectName = projectName;
+
+  // Mark mode step complete, update wizard, jump to draw
+  markStepComplete('mode');
+  updateWizardVisibility();
+  setWizardStep('draw');
+
+  // Also update the sidebar mode cards to reflect selection (for consistency)
+  document.querySelectorAll('.mode-card').forEach(card => {
+    card.classList.toggle('selected', card.dataset.mode === mode);
+  });
+
+  closeWelcomeModal();
+  redrawApp();
+}
+window.handleWelcomeStart = handleWelcomeStart;
+
+function initWelcomeModalListeners() {
+  const modal = document.getElementById('welcomeModal');
+  if (!modal) return;
+
+  // Card click handlers
+  modal.querySelectorAll('.welcome-mode-card').forEach(card => {
+    card.addEventListener('click', () => {
+      // Deselect all, select this one
+      modal.querySelectorAll('.welcome-mode-card').forEach(c => c.classList.remove('selected'));
+      card.classList.add('selected');
+
+      // Enable start button
+      document.getElementById('welcomeStartBtn').disabled = false;
+
+      // Show/hide custom combo
+      const customOpts = document.getElementById('welcomeCustomComboOptions');
+      if (card.dataset.mode === 'custom') {
+        customOpts?.classList.remove('hidden');
+      } else {
+        customOpts?.classList.add('hidden');
+      }
+    });
+  });
+
+  // Start button
+  document.getElementById('welcomeStartBtn')?.addEventListener('click', handleWelcomeStart);
 }
 
 // Start the help wizard
@@ -8286,9 +8423,9 @@ window.endHelpWizard = function() {
     spotlight.style.cssText = '';
   }
 
-  // Show projects modal after wizard ends
+  // Show welcome modal after wizard ends
   setTimeout(() => {
-    showInitialProjectsModal();
+    openWelcomeModal();
   }, 300);
 };
 
