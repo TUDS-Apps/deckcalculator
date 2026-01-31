@@ -161,73 +161,35 @@
                 <div class="mode-selection-grid">
                   <button type="button" class="mode-card" data-mode="full_build" onclick="selectBuildMode('full_build')">
                     <div class="mode-card-icon">
-                      <svg viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2">
-                        <rect x="4" y="20" width="40" height="4" rx="1"/>
-                        <rect x="8" y="24" width="4" height="16"/>
-                        <rect x="36" y="24" width="4" height="16"/>
-                        <rect x="6" y="14" width="36" height="6" rx="1" opacity="0.5"/>
-                        <line x1="4" y1="18" x2="44" y2="18" stroke-width="1" opacity="0.3"/>
-                        <rect x="4" y="40" width="40" height="2" rx="1" opacity="0.3"/>
-                        <line x1="0" y1="44" x2="8" y2="44" stroke-width="1.5"/>
-                        <line x1="40" y1="44" x2="48" y2="44" stroke-width="1.5"/>
-                      </svg>
+                      <img src="icons/mode_full_build.png" alt="Full Deck Build" class="mode-card-img">
                     </div>
                     <div class="mode-card-label">Full Deck Build</div>
                     <div class="mode-card-desc">Complete deck with framing, decking, and railing</div>
                   </button>
                   <button type="button" class="mode-card" data-mode="framing_only" onclick="selectBuildMode('framing_only')">
                     <div class="mode-card-icon">
-                      <svg viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2">
-                        <rect x="4" y="10" width="40" height="4" rx="1"/>
-                        <rect x="4" y="28" width="40" height="4" rx="1"/>
-                        <rect x="8" y="14" width="4" height="14"/>
-                        <rect x="22" y="14" width="4" height="14"/>
-                        <rect x="36" y="14" width="4" height="14"/>
-                        <rect x="8" y="32" width="4" height="10"/>
-                        <rect x="36" y="32" width="4" height="10"/>
-                        <ellipse cx="10" cy="44" rx="4" ry="2" opacity="0.4"/>
-                        <ellipse cx="38" cy="44" rx="4" ry="2" opacity="0.4"/>
-                      </svg>
+                      <img src="icons/mode_framing_only.png" alt="Framing Only" class="mode-card-img">
                     </div>
                     <div class="mode-card-label">Framing Only</div>
                     <div class="mode-card-desc">Structural takeoff &mdash; joists, beams, posts, footings</div>
                   </button>
                   <button type="button" class="mode-card" data-mode="decking_only" onclick="selectBuildMode('decking_only')">
                     <div class="mode-card-icon">
-                      <svg viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2">
-                        <rect x="4" y="8" width="40" height="32" rx="2" stroke-dasharray="3 3" opacity="0.3"/>
-                        <line x1="6" y1="12" x2="42" y2="12"/>
-                        <line x1="6" y1="18" x2="42" y2="18"/>
-                        <line x1="6" y1="24" x2="42" y2="24"/>
-                        <line x1="6" y1="30" x2="42" y2="30"/>
-                        <line x1="6" y1="36" x2="42" y2="36"/>
-                      </svg>
+                      <img src="icons/mode_decking_only.png" alt="Decking Only" class="mode-card-img">
                     </div>
                     <div class="mode-card-label">Decking Only</div>
                     <div class="mode-card-desc">Deck board layout and materials</div>
                   </button>
                   <button type="button" class="mode-card" data-mode="railing_only" onclick="selectBuildMode('railing_only')">
                     <div class="mode-card-icon">
-                      <svg viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2">
-                        <line x1="4" y1="12" x2="44" y2="12"/>
-                        <line x1="4" y1="36" x2="44" y2="36" opacity="0.3"/>
-                        <rect x="4" y="12" width="4" height="24"/>
-                        <rect x="14" y="12" width="2" height="24"/>
-                        <rect x="23" y="12" width="2" height="24"/>
-                        <rect x="32" y="12" width="2" height="24"/>
-                        <rect x="40" y="12" width="4" height="24"/>
-                      </svg>
+                      <img src="icons/mode_railing_only.png" alt="Railing Only" class="mode-card-img">
                     </div>
                     <div class="mode-card-label">Railing Only</div>
                     <div class="mode-card-desc">Railing components and hardware</div>
                   </button>
                   <button type="button" class="mode-card" data-mode="custom" onclick="selectBuildMode('custom')">
                     <div class="mode-card-icon">
-                      <svg viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2">
-                        <circle cx="24" cy="24" r="18" stroke-dasharray="4 2"/>
-                        <path d="M24 14 L24 34 M14 24 L34 24" stroke-width="2.5"/>
-                        <circle cx="24" cy="24" r="6" opacity="0.3"/>
-                      </svg>
+                      <img src="icons/mode_custom.png" alt="Custom Combo" class="mode-card-img">
                     </div>
                     <div class="mode-card-label">Custom Combo</div>
                     <div class="mode-card-desc">Pick which components you need</div>
@@ -564,36 +526,21 @@
                       <div class="visual-selector-grid three-col">
                         <div class="visual-option selected" data-value="gh_levellers">
                           <div class="visual-option-icon">
-                            <svg viewBox="0 0 36 36" fill="none" stroke="currentColor" stroke-width="2">
-                              <rect x="6" y="24" width="24" height="6" rx="1"/>
-                              <rect x="12" y="16" width="12" height="8"/>
-                              <line x1="18" y1="8" x2="18" y2="16"/>
-                              <circle cx="18" cy="6" r="2"/>
-                            </svg>
+                            <img src="icons/footing_gh_leveller.png" alt="GH Levellers" class="visual-option-img">
                           </div>
                           <div class="visual-option-name">GH Levellers</div>
                           <div class="visual-option-desc">+ 16x16 Slab</div>
                         </div>
                         <div class="visual-option" data-value="pylex">
                           <div class="visual-option-icon">
-                            <svg viewBox="0 0 36 36" fill="none" stroke="currentColor" stroke-width="2">
-                              <path d="M18 6 L18 30"/>
-                              <path d="M14 28 L18 34 L22 28"/>
-                              <path d="M12 10 L24 10"/>
-                              <circle cx="18" cy="6" r="2"/>
-                            </svg>
+                            <img src="icons/footing_pylex.png" alt="Pylex Screw Piles" class="visual-option-img">
                           </div>
                           <div class="visual-option-name">Pylex</div>
                           <div class="visual-option-desc">50" Screw Piles</div>
                         </div>
                         <div class="visual-option" data-value="helical">
                           <div class="visual-option-icon">
-                            <svg viewBox="0 0 36 36" fill="none" stroke="currentColor" stroke-width="2">
-                              <path d="M18 4 L18 32"/>
-                              <ellipse cx="18" cy="28" rx="8" ry="3"/>
-                              <ellipse cx="18" cy="22" rx="6" ry="2"/>
-                              <rect x="14" y="2" width="8" height="4"/>
-                            </svg>
+                            <img src="icons/footing_helical.png" alt="Helical Piles" class="visual-option-img">
                           </div>
                           <div class="visual-option-name">Helical</div>
                           <div class="visual-option-desc">10' Piles</div>
@@ -613,31 +560,21 @@
                       <div class="visual-selector-grid three-col">
                         <div class="visual-option selected" data-value="auto">
                           <div class="visual-option-icon">
-                            <svg viewBox="0 0 36 36" fill="none" stroke="currentColor" stroke-width="2">
-                              <rect x="14" y="8" width="8" height="20" rx="1"/>
-                              <circle cx="18" cy="5" r="3"/>
-                              <path d="M12 18 L8 18 M24 18 L28 18" stroke-dasharray="2 2"/>
-                            </svg>
+                            <img src="icons/post_auto.png" alt="Auto" class="visual-option-img">
                           </div>
                           <div class="visual-option-name">Auto</div>
                           <div class="visual-option-desc">App Decides</div>
                         </div>
                         <div class="visual-option" data-value="4x4">
                           <div class="visual-option-icon">
-                            <svg viewBox="0 0 36 36" fill="none" stroke="currentColor" stroke-width="2">
-                              <rect x="13" y="6" width="10" height="24" rx="1"/>
-                              <text x="18" y="21" font-size="8" text-anchor="middle" fill="currentColor" stroke="none">4x4</text>
-                            </svg>
+                            <img src="icons/post_4x4.png" alt="4x4 Post" class="visual-option-img">
                           </div>
                           <div class="visual-option-name">4x4</div>
                           <div class="visual-option-desc">2-ply beams</div>
                         </div>
                         <div class="visual-option" data-value="6x6">
                           <div class="visual-option-icon">
-                            <svg viewBox="0 0 36 36" fill="none" stroke="currentColor" stroke-width="2">
-                              <rect x="10" y="6" width="16" height="24" rx="1"/>
-                              <text x="18" y="21" font-size="8" text-anchor="middle" fill="currentColor" stroke="none">6x6</text>
-                            </svg>
+                            <img src="icons/post_6x6.png" alt="6x6 Post" class="visual-option-img">
                           </div>
                           <div class="visual-option-name">6x6</div>
                           <div class="visual-option-desc">3-ply beams</div>
@@ -675,27 +612,14 @@
                       <div class="visual-selector-grid two-col">
                         <div class="visual-option selected" data-value="16">
                           <div class="visual-option-icon">
-                            <svg viewBox="0 0 36 36" fill="none" stroke="currentColor" stroke-width="2">
-                              <rect x="4" y="6" width="3" height="24"/>
-                              <rect x="16" y="6" width="3" height="24"/>
-                              <rect x="28" y="6" width="3" height="24"/>
-                              <path d="M7 30 L16 30" stroke-width="1"/>
-                              <path d="M5.5 28 L5.5 32 M17.5 28 L17.5 32" stroke-width="1"/>
-                            </svg>
+                            <img src="icons/joist_16oc.png" alt="16 inch OC" class="visual-option-img">
                           </div>
                           <div class="visual-option-name">16" OC</div>
                           <div class="visual-option-desc">Standard</div>
                         </div>
                         <div class="visual-option" data-value="12">
                           <div class="visual-option-icon">
-                            <svg viewBox="0 0 36 36" fill="none" stroke="currentColor" stroke-width="2">
-                              <rect x="2" y="6" width="3" height="24"/>
-                              <rect x="11" y="6" width="3" height="24"/>
-                              <rect x="20" y="6" width="3" height="24"/>
-                              <rect x="29" y="6" width="3" height="24"/>
-                              <path d="M5 30 L11 30" stroke-width="1"/>
-                              <path d="M3.5 28 L3.5 32 M12.5 28 L12.5 32" stroke-width="1"/>
-                            </svg>
+                            <img src="icons/joist_12oc.png" alt="12 inch OC" class="visual-option-img">
                           </div>
                           <div class="visual-option-name">12" OC</div>
                           <div class="visual-option-desc">Heavy Duty</div>
@@ -725,47 +649,21 @@
                       <div class="visual-selector-grid three-col">
                         <div class="visual-option selected" data-value="house_rim">
                           <div class="visual-option-icon">
-                            <svg viewBox="0 0 36 36" fill="none" stroke="currentColor" stroke-width="2">
-                              <!-- House wall -->
-                              <rect x="2" y="4" width="8" height="28" fill="currentColor" opacity="0.15"/>
-                              <line x1="10" y1="4" x2="10" y2="32"/>
-                              <!-- Ledger attached -->
-                              <rect x="10" y="14" width="22" height="4" fill="currentColor" opacity="0.3"/>
-                              <!-- Deck frame -->
-                              <line x1="10" y1="20" x2="32" y2="20"/>
-                            </svg>
+                            <img src="icons/attach_ledger.png" alt="Ledger" class="visual-option-img">
                           </div>
                           <div class="visual-option-name">Ledger</div>
                           <div class="visual-option-desc">House Rim</div>
                         </div>
                         <div class="visual-option" data-value="concrete">
                           <div class="visual-option-icon">
-                            <svg viewBox="0 0 36 36" fill="none" stroke="currentColor" stroke-width="2">
-                              <!-- Concrete foundation -->
-                              <rect x="2" y="24" width="32" height="8" fill="currentColor" opacity="0.2"/>
-                              <line x1="2" y1="24" x2="34" y2="24"/>
-                              <!-- Bolts -->
-                              <circle cx="10" cy="20" r="2" fill="currentColor"/>
-                              <circle cx="26" cy="20" r="2" fill="currentColor"/>
-                              <!-- Deck frame -->
-                              <rect x="4" y="12" width="28" height="4"/>
-                            </svg>
+                            <img src="icons/attach_concrete.png" alt="Concrete Foundation" class="visual-option-img">
                           </div>
                           <div class="visual-option-name">Concrete</div>
                           <div class="visual-option-desc">Foundation</div>
                         </div>
                         <div class="visual-option" data-value="floating">
                           <div class="visual-option-icon">
-                            <svg viewBox="0 0 36 36" fill="none" stroke="currentColor" stroke-width="2">
-                              <!-- Freestanding deck -->
-                              <rect x="4" y="10" width="28" height="4"/>
-                              <!-- Posts -->
-                              <rect x="6" y="14" width="4" height="14"/>
-                              <rect x="26" y="14" width="4" height="14"/>
-                              <!-- Footings -->
-                              <ellipse cx="8" cy="30" rx="5" ry="2"/>
-                              <ellipse cx="28" cy="30" rx="5" ry="2"/>
-                            </svg>
+                            <img src="icons/attach_floating.png" alt="Floating" class="visual-option-img">
                           </div>
                           <div class="visual-option-name">Floating</div>
                           <div class="visual-option-desc">Freestanding</div>
@@ -796,35 +694,14 @@
                       <div class="visual-selector-grid two-col">
                         <div class="visual-option selected" data-value="drop">
                           <div class="visual-option-icon">
-                            <svg viewBox="0 0 36 36" fill="none" stroke="currentColor" stroke-width="2">
-                              <!-- Joists on top -->
-                              <rect x="4" y="8" width="4" height="12"/>
-                              <rect x="16" y="8" width="4" height="12"/>
-                              <rect x="28" y="8" width="4" height="12"/>
-                              <!-- Beam below -->
-                              <rect x="2" y="22" width="32" height="6" fill="currentColor" opacity="0.3"/>
-                              <!-- Post -->
-                              <rect x="15" y="28" width="6" height="6"/>
-                            </svg>
+                            <img src="icons/beam_drop.png" alt="Drop Beam" class="visual-option-img">
                           </div>
                           <div class="visual-option-name">Drop Beam</div>
                           <div class="visual-option-desc">Below joists</div>
                         </div>
                         <div class="visual-option" data-value="flush">
                           <div class="visual-option-icon">
-                            <svg viewBox="0 0 36 36" fill="none" stroke="currentColor" stroke-width="2">
-                              <!-- Beam flush with joists -->
-                              <rect x="2" y="10" width="32" height="6" fill="currentColor" opacity="0.3"/>
-                              <!-- Joists same level -->
-                              <rect x="4" y="10" width="4" height="12"/>
-                              <rect x="16" y="10" width="4" height="12"/>
-                              <rect x="28" y="10" width="4" height="12"/>
-                              <!-- Hangers -->
-                              <path d="M8 10 L8 16 L12 16 L12 10" stroke-width="1"/>
-                              <path d="M24 10 L24 16 L28 16 L28 10" stroke-width="1"/>
-                              <!-- Post -->
-                              <rect x="15" y="22" width="6" height="12"/>
-                            </svg>
+                            <img src="icons/beam_flush.png" alt="Flush Beam" class="visual-option-img">
                           </div>
                           <div class="visual-option-name">Flush Beam</div>
                           <div class="visual-option-desc">Level with joists</div>
@@ -859,44 +736,19 @@
                       <div class="visual-selector-grid three-col">
                         <div class="visual-option selected" data-value="none">
                           <div class="visual-option-icon">
-                            <svg viewBox="0 0 36 36" fill="none" stroke="currentColor" stroke-width="1.5">
-                              <!-- Simple deck boards -->
-                              <line x1="6" y1="8" x2="6" y2="28"/>
-                              <line x1="12" y1="8" x2="12" y2="28"/>
-                              <line x1="18" y1="8" x2="18" y2="28"/>
-                              <line x1="24" y1="8" x2="24" y2="28"/>
-                              <line x1="30" y1="8" x2="30" y2="28"/>
-                              <rect x="4" y="6" width="28" height="24" stroke-dasharray="2 2"/>
-                            </svg>
+                            <img src="icons/pf_none.png" alt="No Picture Frame" class="visual-option-img">
                           </div>
                           <div class="visual-option-name">None</div>
                         </div>
                         <div class="visual-option" data-value="single">
                           <div class="visual-option-icon">
-                            <svg viewBox="0 0 36 36" fill="none" stroke="currentColor" stroke-width="1.5">
-                              <!-- Deck boards -->
-                              <line x1="10" y1="10" x2="10" y2="26"/>
-                              <line x1="15" y1="10" x2="15" y2="26"/>
-                              <line x1="20" y1="10" x2="20" y2="26"/>
-                              <line x1="25" y1="10" x2="25" y2="26"/>
-                              <!-- Single frame -->
-                              <rect x="4" y="4" width="28" height="28" stroke-width="3" stroke="currentColor"/>
-                            </svg>
+                            <img src="icons/pf_single.png" alt="Single Picture Frame" class="visual-option-img">
                           </div>
                           <div class="visual-option-name">Single</div>
                         </div>
                         <div class="visual-option" data-value="double">
                           <div class="visual-option-icon">
-                            <svg viewBox="0 0 36 36" fill="none" stroke="currentColor" stroke-width="1.5">
-                              <!-- Deck boards -->
-                              <line x1="12" y1="12" x2="12" y2="24"/>
-                              <line x1="16" y1="12" x2="16" y2="24"/>
-                              <line x1="20" y1="12" x2="20" y2="24"/>
-                              <line x1="24" y1="12" x2="24" y2="24"/>
-                              <!-- Double frame -->
-                              <rect x="2" y="2" width="32" height="32" stroke-width="2"/>
-                              <rect x="6" y="6" width="24" height="24" stroke-width="2"/>
-                            </svg>
+                            <img src="icons/pf_double.png" alt="Double Picture Frame" class="visual-option-img">
                           </div>
                           <div class="visual-option-name">Double</div>
                         </div>
@@ -915,37 +767,21 @@
                       <div class="visual-selector-grid three-col">
                         <div class="visual-option selected" data-value="none">
                           <div class="visual-option-icon">
-                            <svg viewBox="0 0 36 36" fill="none" stroke="currentColor" stroke-width="2">
-                              <!-- Plain joist -->
-                              <rect x="6" y="12" width="24" height="12" rx="1"/>
-                              <line x1="6" y1="18" x2="30" y2="18" stroke-dasharray="3 3" opacity="0.5"/>
-                            </svg>
+                            <img src="icons/jp_none.png" alt="No Protection" class="visual-option-img">
                           </div>
                           <div class="visual-option-name">None</div>
                           <div class="visual-option-desc">Unprotected</div>
                         </div>
                         <div class="visual-option" data-value="gtape">
                           <div class="visual-option-icon">
-                            <svg viewBox="0 0 36 36" fill="none" stroke="currentColor" stroke-width="2">
-                              <!-- Joist with tape on top -->
-                              <rect x="6" y="14" width="24" height="12" rx="1"/>
-                              <rect x="6" y="10" width="24" height="4" fill="currentColor" opacity="0.4" rx="1"/>
-                              <line x1="10" y1="12" x2="14" y2="12" stroke-width="1" opacity="0.6"/>
-                              <line x1="18" y1="12" x2="22" y2="12" stroke-width="1" opacity="0.6"/>
-                              <line x1="26" y1="12" x2="30" y2="12" stroke-width="1" opacity="0.6"/>
-                            </svg>
+                            <img src="icons/jp_gtape.png" alt="G-Tape" class="visual-option-img">
                           </div>
                           <div class="visual-option-name">G-Tape</div>
                           <div class="visual-option-desc">Flashing Tape</div>
                         </div>
                         <div class="visual-option" data-value="coating">
                           <div class="visual-option-icon">
-                            <svg viewBox="0 0 36 36" fill="none" stroke="currentColor" stroke-width="2">
-                              <!-- Joist with coating -->
-                              <rect x="6" y="12" width="24" height="12" rx="1"/>
-                              <path d="M6 12 Q18 8 30 12" fill="currentColor" opacity="0.3"/>
-                              <path d="M8 14 L10 16 M14 13 L16 15 M20 14 L22 16 M26 13 L28 15" stroke-width="1" opacity="0.5"/>
-                            </svg>
+                            <img src="icons/jp_coating.png" alt="Coating" class="visual-option-img">
                           </div>
                           <div class="visual-option-name">Coating</div>
                           <div class="visual-option-desc">Liquid Applied</div>
@@ -965,38 +801,21 @@
                       <div class="visual-selector-grid three-col">
                         <div class="visual-option selected" data-value="screws_3in">
                           <div class="visual-option-icon">
-                            <svg viewBox="0 0 36 36" fill="none" stroke="currentColor" stroke-width="2">
-                              <!-- Screw -->
-                              <circle cx="18" cy="8" r="4"/>
-                              <line x1="16" y1="7" x2="20" y2="9"/>
-                              <line x1="18" y1="12" x2="18" y2="30"/>
-                              <path d="M16 16 L20 16 M16 20 L20 20 M16 24 L20 24 M16 28 L20 28" stroke-width="1"/>
-                            </svg>
+                            <img src="icons/fastener_screws.png" alt="Screws" class="visual-option-img">
                           </div>
                           <div class="visual-option-name">Screws</div>
                           <div class="visual-option-desc">3" Deck</div>
                         </div>
                         <div class="visual-option" data-value="u2_3_18">
                           <div class="visual-option-icon">
-                            <svg viewBox="0 0 36 36" fill="none" stroke="currentColor" stroke-width="2">
-                              <!-- U2 structural screw -->
-                              <ellipse cx="18" cy="7" rx="5" ry="3"/>
-                              <line x1="18" y1="10" x2="18" y2="32"/>
-                              <path d="M15 14 L21 14 M15 18 L21 18 M15 22 L21 22 M15 26 L21 26" stroke-width="1.5"/>
-                              <path d="M17 30 L18 34 L19 30" fill="currentColor"/>
-                            </svg>
+                            <img src="icons/fastener_u2.png" alt="U2 Structural" class="visual-option-img">
                           </div>
                           <div class="visual-option-name">U2</div>
                           <div class="visual-option-desc">3-1/8" Structural</div>
                         </div>
                         <div class="visual-option" data-value="paslode_3_14">
                           <div class="visual-option-icon">
-                            <svg viewBox="0 0 36 36" fill="none" stroke="currentColor" stroke-width="2">
-                              <!-- Paslode nail -->
-                              <circle cx="18" cy="6" r="3" fill="currentColor" opacity="0.3"/>
-                              <rect x="16" y="9" width="4" height="23" rx="0.5"/>
-                              <path d="M17 30 L18 34 L19 30" fill="currentColor"/>
-                            </svg>
+                            <img src="icons/fastener_paslode.png" alt="Paslode Nails" class="visual-option-img">
                           </div>
                           <div class="visual-option-name">Paslode</div>
                           <div class="visual-option-desc">3-1/4" Nails</div>
@@ -1085,36 +904,21 @@
                       <div class="visual-selector-grid three-col">
                         <div class="visual-option selected" data-value="pylex_steel">
                           <div class="visual-option-icon">
-                            <svg viewBox="0 0 36 36" fill="none" stroke="currentColor" stroke-width="2">
-                              <path d="M8 28 L28 8"/>
-                              <rect x="6" y="26" width="6" height="6" rx="1"/>
-                              <rect x="24" y="4" width="6" height="6" rx="1"/>
-                              <line x1="12" y1="22" x2="22" y2="12" stroke-dasharray="2 2"/>
-                            </svg>
+                            <img src="icons/stringer_pylex.png" alt="Pylex Steel" class="visual-option-img">
                           </div>
                           <div class="visual-option-name">Pylex Steel</div>
                           <div class="visual-option-desc">Pre-fab</div>
                         </div>
                         <div class="visual-option" data-value="lvl_wood">
                           <div class="visual-option-icon">
-                            <svg viewBox="0 0 36 36" fill="none" stroke="currentColor" stroke-width="2">
-                              <path d="M8 28 L28 8"/>
-                              <rect x="6" y="26" width="6" height="6" rx="1"/>
-                              <rect x="24" y="4" width="6" height="6" rx="1"/>
-                              <path d="M10 24 L24 10" stroke-width="3"/>
-                            </svg>
+                            <img src="icons/stringer_lvl.png" alt="LVL Wood" class="visual-option-img">
                           </div>
                           <div class="visual-option-name">LVL Wood</div>
                           <div class="visual-option-desc">Pre-fab</div>
                         </div>
                         <div class="visual-option" data-value="custom_2x12">
                           <div class="visual-option-icon">
-                            <svg viewBox="0 0 36 36" fill="none" stroke="currentColor" stroke-width="2">
-                              <path d="M8 28 L28 8"/>
-                              <rect x="6" y="26" width="6" height="6" rx="1"/>
-                              <rect x="24" y="4" width="6" height="6" rx="1"/>
-                              <path d="M14 22 L14 18 M18 18 L18 14 M22 14 L22 10"/>
-                            </svg>
+                            <img src="icons/stringer_custom.png" alt="Custom 2x12" class="visual-option-img">
                           </div>
                           <div class="visual-option-name">Custom 2x12</div>
                           <div class="visual-option-desc">Site Cut</div>
@@ -1132,35 +936,21 @@
                       <div class="visual-selector-grid three-col">
                         <div class="visual-option selected" data-value="existing">
                           <div class="visual-option-icon">
-                            <svg viewBox="0 0 36 36" fill="none" stroke="currentColor" stroke-width="2">
-                              <rect x="4" y="24" width="28" height="8" rx="1"/>
-                              <line x1="4" y1="28" x2="32" y2="28"/>
-                              <path d="M8 24 L8 20 M16 24 L16 20 M24 24 L24 20"/>
-                            </svg>
+                            <img src="icons/landing_existing.png" alt="Existing Surface" class="visual-option-img">
                           </div>
                           <div class="visual-option-name">Existing</div>
                           <div class="visual-option-desc">Ground/Patio</div>
                         </div>
                         <div class="visual-option" data-value="slabs_16x16">
                           <div class="visual-option-icon">
-                            <svg viewBox="0 0 36 36" fill="none" stroke="currentColor" stroke-width="2">
-                              <rect x="4" y="22" width="12" height="12" rx="1"/>
-                              <rect x="20" y="22" width="12" height="12" rx="1"/>
-                              <line x1="10" y1="22" x2="10" y2="34"/>
-                              <line x1="26" y1="22" x2="26" y2="34"/>
-                            </svg>
+                            <img src="icons/landing_slabs.png" alt="16x16 Slabs" class="visual-option-img">
                           </div>
                           <div class="visual-option-name">16x16 Slabs</div>
                           <div class="visual-option-desc">Concrete Pads</div>
                         </div>
                         <div class="visual-option" data-value="concrete_pad">
                           <div class="visual-option-icon">
-                            <svg viewBox="0 0 36 36" fill="none" stroke="currentColor" stroke-width="2">
-                              <rect x="4" y="20" width="28" height="12" rx="1"/>
-                              <line x1="4" y1="26" x2="32" y2="26"/>
-                              <line x1="12" y1="20" x2="12" y2="32"/>
-                              <line x1="24" y1="20" x2="24" y2="32"/>
-                            </svg>
+                            <img src="icons/landing_concrete.png" alt="Concrete Pad" class="visual-option-img">
                           </div>
                           <div class="visual-option-name">Concrete Pad</div>
                           <div class="visual-option-desc">Poured</div>
@@ -1178,24 +968,14 @@
                       <div class="visual-selector-grid two-col">
                         <div class="visual-option selected" data-value="ground">
                           <div class="visual-option-icon">
-                            <svg viewBox="0 0 36 36" fill="none" stroke="currentColor" stroke-width="2">
-                              <rect x="4" y="26" width="28" height="6" rx="1" fill="currentColor" opacity="0.2"/>
-                              <path d="M8 26 L8 8 M28 26 L28 8" stroke-dasharray="2 2"/>
-                              <path d="M12 20 L16 16 L20 20 L24 14" stroke-width="1.5"/>
-                            </svg>
+                            <img src="icons/stair_ground.png" alt="Ground Level" class="visual-option-img">
                           </div>
                           <div class="visual-option-name">Ground</div>
                           <div class="visual-option-desc">To grade level</div>
                         </div>
                         <div class="visual-option" data-value="lower_tier">
                           <div class="visual-option-icon">
-                            <svg viewBox="0 0 36 36" fill="none" stroke="currentColor" stroke-width="2">
-                              <rect x="4" y="6" width="12" height="6" rx="1" fill="#4A90E2" opacity="0.3"/>
-                              <rect x="20" y="18" width="12" height="6" rx="1" fill="#10B981" opacity="0.3"/>
-                              <path d="M16 12 L20 18" stroke-width="2"/>
-                              <circle cx="16" cy="12" r="2" fill="currentColor"/>
-                              <circle cx="20" cy="18" r="2" fill="currentColor"/>
-                            </svg>
+                            <img src="icons/stair_lower_tier.png" alt="Lower Tier" class="visual-option-img">
                           </div>
                           <div class="visual-option-name">Lower Tier</div>
                           <div class="visual-option-desc">Connect tiers</div>
@@ -1249,31 +1029,14 @@
                   <div class="visual-selector-grid two-col">
                     <div class="visual-option selected" data-value="pt">
                       <div class="visual-option-icon">
-                        <svg viewBox="0 0 36 36" fill="none" stroke="currentColor" stroke-width="1.5">
-                          <!-- Wood grain pattern -->
-                          <rect x="4" y="8" width="28" height="20" rx="1" fill="currentColor" opacity="0.15"/>
-                          <line x1="6" y1="12" x2="12" y2="12" opacity="0.4"/>
-                          <line x1="8" y1="16" x2="16" y2="16" opacity="0.3"/>
-                          <line x1="6" y1="20" x2="14" y2="20" opacity="0.4"/>
-                          <line x1="20" y1="14" x2="30" y2="14" opacity="0.3"/>
-                          <line x1="22" y1="22" x2="30" y2="22" opacity="0.4"/>
-                        </svg>
+                        <img src="icons/decking_pt.png" alt="Pressure Treated" class="visual-option-img">
                       </div>
                       <div class="visual-option-name">Pressure Treated</div>
                       <div class="visual-option-desc">5/4x6 Brown</div>
                     </div>
                     <div class="visual-option" data-value="cedar">
                       <div class="visual-option-icon">
-                        <svg viewBox="0 0 36 36" fill="none" stroke="currentColor" stroke-width="1.5">
-                          <!-- Cedar grain pattern -->
-                          <rect x="4" y="8" width="28" height="20" rx="1" fill="currentColor" opacity="0.2"/>
-                          <line x1="6" y1="11" x2="18" y2="11" opacity="0.5"/>
-                          <line x1="6" y1="15" x2="14" y2="15" opacity="0.4"/>
-                          <line x1="8" y1="19" x2="20" y2="19" opacity="0.5"/>
-                          <line x1="6" y1="23" x2="16" y2="23" opacity="0.4"/>
-                          <line x1="22" y1="13" x2="30" y2="13" opacity="0.4"/>
-                          <line x1="20" y1="21" x2="30" y2="21" opacity="0.5"/>
-                        </svg>
+                        <img src="icons/decking_cedar.png" alt="Cedar" class="visual-option-img">
                       </div>
                       <div class="visual-option-name">Cedar</div>
                       <div class="visual-option-desc">Natural wood</div>
@@ -1291,20 +1054,14 @@
                   <div class="visual-selector-grid two-col">
                     <div class="visual-option selected" data-value="5.5">
                       <div class="visual-option-icon">
-                        <svg viewBox="0 0 36 36" fill="none" stroke="currentColor" stroke-width="1.5">
-                          <rect x="4" y="10" width="28" height="16" rx="1"/>
-                          <text x="18" y="21" text-anchor="middle" font-size="8" fill="currentColor">5½"</text>
-                        </svg>
+                        <img src="icons/cedar_5x6.png" alt="5/4 x 6" class="visual-option-img">
                       </div>
                       <div class="visual-option-name">5/4 x 6</div>
                       <div class="visual-option-desc">5½" wide</div>
                     </div>
                     <div class="visual-option" data-value="4.5">
                       <div class="visual-option-icon">
-                        <svg viewBox="0 0 36 36" fill="none" stroke="currentColor" stroke-width="1.5">
-                          <rect x="6" y="11" width="24" height="14" rx="1"/>
-                          <text x="18" y="21" text-anchor="middle" font-size="8" fill="currentColor">4½"</text>
-                        </svg>
+                        <img src="icons/cedar_5x5.png" alt="5/4 x 5" class="visual-option-img">
                       </div>
                       <div class="visual-option-name">5/4 x 5</div>
                       <div class="visual-option-desc">4½" wide</div>
@@ -1322,30 +1079,14 @@
                   <div class="visual-selector-grid two-col">
                     <div class="visual-option selected" data-value="horizontal">
                       <div class="visual-option-icon">
-                        <svg viewBox="0 0 36 36" fill="none" stroke="currentColor" stroke-width="1.5">
-                          <!-- Horizontal boards -->
-                          <rect x="4" y="4" width="28" height="28" stroke-dasharray="2 2" opacity="0.4"/>
-                          <line x1="4" y1="8" x2="32" y2="8"/>
-                          <line x1="4" y1="14" x2="32" y2="14"/>
-                          <line x1="4" y1="20" x2="32" y2="20"/>
-                          <line x1="4" y1="26" x2="32" y2="26"/>
-                        </svg>
+                        <img src="icons/board_horizontal.png" alt="Horizontal" class="visual-option-img">
                       </div>
                       <div class="visual-option-name">Horizontal</div>
                       <div class="visual-option-desc">Standard layout</div>
                     </div>
                     <div class="visual-option" data-value="diagonal">
                       <div class="visual-option-icon">
-                        <svg viewBox="0 0 36 36" fill="none" stroke="currentColor" stroke-width="1.5">
-                          <!-- Diagonal boards at 45° -->
-                          <rect x="4" y="4" width="28" height="28" stroke-dasharray="2 2" opacity="0.4"/>
-                          <line x1="4" y1="12" x2="12" y2="4"/>
-                          <line x1="4" y1="20" x2="20" y2="4"/>
-                          <line x1="4" y1="28" x2="28" y2="4"/>
-                          <line x1="8" y1="32" x2="32" y2="8"/>
-                          <line x1="16" y1="32" x2="32" y2="16"/>
-                          <line x1="24" y1="32" x2="32" y2="24"/>
-                        </svg>
+                        <img src="icons/board_diagonal.png" alt="Diagonal" class="visual-option-img">
                       </div>
                       <div class="visual-option-name">Diagonal</div>
                       <div class="visual-option-desc">45° angle (+15% material)</div>
@@ -1363,34 +1104,19 @@
                   <div class="visual-selector-grid three-col">
                     <div class="visual-option selected" data-value="none">
                       <div class="visual-option-icon">
-                        <svg viewBox="0 0 36 36" fill="none" stroke="currentColor" stroke-width="1.5">
-                          <rect x="4" y="4" width="28" height="28" stroke-dasharray="2 2" opacity="0.4"/>
-                          <line x1="4" y1="10" x2="32" y2="10"/>
-                          <line x1="4" y1="18" x2="32" y2="18"/>
-                          <line x1="4" y1="26" x2="32" y2="26"/>
-                        </svg>
+                        <img src="icons/pf_none.png" alt="No Picture Frame" class="visual-option-img">
                       </div>
                       <div class="visual-option-name">None</div>
                     </div>
                     <div class="visual-option" data-value="single">
                       <div class="visual-option-icon">
-                        <svg viewBox="0 0 36 36" fill="none" stroke="currentColor" stroke-width="1.5">
-                          <rect x="4" y="4" width="28" height="28" stroke-width="3"/>
-                          <line x1="8" y1="12" x2="28" y2="12"/>
-                          <line x1="8" y1="18" x2="28" y2="18"/>
-                          <line x1="8" y1="24" x2="28" y2="24"/>
-                        </svg>
+                        <img src="icons/pf_single.png" alt="Single Picture Frame" class="visual-option-img">
                       </div>
                       <div class="visual-option-name">Single</div>
                     </div>
                     <div class="visual-option" data-value="double">
                       <div class="visual-option-icon">
-                        <svg viewBox="0 0 36 36" fill="none" stroke="currentColor" stroke-width="1.5">
-                          <rect x="2" y="2" width="32" height="32" stroke-width="2"/>
-                          <rect x="6" y="6" width="24" height="24" stroke-width="2"/>
-                          <line x1="10" y1="14" x2="26" y2="14"/>
-                          <line x1="10" y1="20" x2="26" y2="20"/>
-                        </svg>
+                        <img src="icons/pf_double.png" alt="Double Picture Frame" class="visual-option-img">
                       </div>
                       <div class="visual-option-name">Double</div>
                     </div>
